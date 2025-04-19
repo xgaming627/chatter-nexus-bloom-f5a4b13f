@@ -1,21 +1,24 @@
 
 import { initializeApp } from 'firebase/app';
+import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Replace these with your Firebase configuration values
 const firebaseConfig = {
-  apiKey: "your_api_key_here",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "your_messaging_sender_id",
-  appId: "your_app_id"
+  apiKey: "AIzaSyBYo239hQDi3n-2Vq0im5fcBY7iozqszmc",
+  authDomain: "nexuschat-2328c.firebaseapp.com",
+  projectId: "nexuschat-2328c",
+  storageBucket: "nexuschat-2328c.firebasestorage.app",
+  messagingSenderId: "694335433168",
+  appId: "1:694335433168:web:466ee30e43caf0ef11b1d5",
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
