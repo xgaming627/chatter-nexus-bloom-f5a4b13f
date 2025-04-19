@@ -2,7 +2,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getAnalytics, isAnalyticsSupported } from "firebase/analytics";
 
 // Replace these with your Firebase configuration values
 const firebaseConfig = {
@@ -16,19 +15,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Initialize Analytics conditionally (only in browser environment)
-let analytics = null;
-try {
-  if (typeof window !== 'undefined' && isAnalyticsSupported()) {
-    analytics = getAnalytics(app);
-  }
-} catch (error) {
-  console.error("Analytics failed to initialize:", error);
-}
-
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-export { auth, db, googleProvider, analytics };
+export { auth, db, googleProvider };
