@@ -28,7 +28,7 @@ const CallModal: React.FC = () => {
 
   return (
     <Dialog open={isCallActive} onOpenChange={(open) => !open && endCall()}>
-      <DialogContent className="sm:max-w-md" hideClose>
+      <DialogContent className="sm:max-w-md">
         <div className="flex flex-col items-center gap-6 py-10">
           <div className="text-center">
             <h2 className="text-xl font-semibold">{callTitle}</h2>
