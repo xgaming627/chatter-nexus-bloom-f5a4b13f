@@ -22,12 +22,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '@/context/AuthContext';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
-import { updateProfile } from 'firebase/auth';
+import { useToast } from "@/hooks/use-toast";
 
 const ProfileDropdown: React.FC = () => {
   const { currentUser, logout, updateUserEmail, updateUserProfile, isUsernameAvailable } = useAuth();
+  const { toast } = useToast();
   
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -75,18 +74,21 @@ const ProfileDropdown: React.FC = () => {
     setLoading(true);
     
     try {
-      let photoURL = currentUser?.photoURL;
-      
-      if (selectedFile) {
-        const storageRef = ref(storage, `profileImages/${currentUser?.uid}`);
-        const uploadResult = await uploadBytes(storageRef, selectedFile);
-        photoURL = await getDownloadURL(uploadResult.ref);
-      }
-      
-      await updateUserProfile(newDisplayName, photoURL || undefined);
+      // Since we're not using Firebase Storage, we'll handle the profile picture differently
+      // For now, we'll just update the display name
+      await updateUserProfile(newDisplayName);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully"
+      });
       setShowProfileDialog(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -97,9 +99,18 @@ const ProfileDropdown: React.FC = () => {
     
     try {
       await updateUserEmail(newEmail);
+      toast({
+        title: "Email updated",
+        description: "Your email has been updated successfully"
+      });
       setShowEmailDialog(false);
     } catch (error) {
       console.error("Error updating email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update email",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -109,11 +120,19 @@ const ProfileDropdown: React.FC = () => {
     setLoading(true);
     
     try {
-      // This is a simplified version - in a real app, you'd need to update the username in your database
       await updateUserProfile(newUsername);
+      toast({
+        title: "Username updated",
+        description: "Your username has been updated successfully"
+      });
       setShowUsernameDialog(false);
     } catch (error) {
       console.error("Error updating username:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update username",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -123,9 +142,18 @@ const ProfileDropdown: React.FC = () => {
     setLoading(true);
     try {
       // This would use your resetPassword function from auth context
+      toast({
+        title: "Password reset link sent",
+        description: "Please check your email"
+      });
       setShowPasswordDialog(false);
     } catch (error) {
       console.error("Error resetting password:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send password reset link",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }

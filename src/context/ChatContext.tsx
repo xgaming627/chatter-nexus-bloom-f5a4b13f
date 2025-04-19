@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -15,10 +14,9 @@ import {
   arrayUnion,
   getDocs
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../lib/firebase";
+import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Message {
   id: string;
@@ -99,7 +97,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCallActive, setIsCallActive] = useState(false);
   const [activeCallType, setActiveCallType] = useState<'video' | 'voice' | null>(null);
 
-  // Fetch user's conversations
   useEffect(() => {
     if (!currentUser) return;
 
@@ -116,7 +113,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = docSnap.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
         const participantsInfo: User[] = [];
         
-        // Fetch participant info for each conversation
         for (const pid of data.participants) {
           if (pid !== currentUser.uid) {
             const userDocRef = doc(db, "users", pid);
@@ -140,7 +136,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Fetch messages for current conversation
   useEffect(() => {
     if (!currentConversation) {
       setMessages([]);
@@ -178,7 +173,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = conversationDoc.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
         const participantsInfo: User[] = [];
         
-        // Fetch participant info for each conversation
         for (const pid of data.participants) {
           if (pid !== currentUser?.uid) {
             const userDoc = await getDoc(doc(db, "users", pid));
@@ -226,12 +220,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      // Include the current user in participants
       if (!participantIds.includes(currentUser.uid)) {
         participantIds.push(currentUser.uid);
       }
       
-      // For one-on-one chats, check if conversation already exists
       if (!isGroup && participantIds.length === 2) {
         const existingConvs = conversations.filter(c => 
           !c.isGroupChat && 
@@ -279,8 +271,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!content.trim()) return;
     
     try {
-      // Check if content contains any words that should be flagged
-      const bannedWords = ["badword1", "badword2", "badword3"]; // Simplified example
+      const bannedWords = ["badword1", "badword2", "badword3"];
       const shouldFlag = bannedWords.some(word => 
         content.toLowerCase().includes(word.toLowerCase())
       );
@@ -294,10 +285,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         flaggedForModeration: shouldFlag
       };
       
-      // Add message to messages collection
       const docRef = await addDoc(collection(db, "messages"), messageData);
       
-      // Update conversation with last message
       await updateDoc(doc(db, "conversations", conversationId), {
         lastMessage: {
           content,
@@ -306,7 +295,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
       
-      // If message is flagged, add to moderation queue
       if (shouldFlag) {
         await addDoc(collection(db, "moderation"), {
           messageId: docRef.id,
@@ -318,7 +306,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: "pending"
         });
       }
-      
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -333,54 +320,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      // Start upload indication
       toast({
-        title: "Uploading file...",
-        description: "Please wait",
+        title: "File upload not available",
+        description: "File storage is not configured in this app",
+        variant: "destructive"
       });
       
-      // Create a reference for the file in storage
-      const fileRef = ref(storage, `chat-files/${conversationId}/${Date.now()}-${file.name}`);
-      
-      // Upload the file
-      const uploadResult = await uploadBytes(fileRef, file);
-      
-      // Get the download URL
-      const fileURL = await getDownloadURL(uploadResult.ref);
-      
-      // Create the message with file information
-      const messageData = {
-        conversationId,
-        senderId: currentUser.uid,
-        content: `File: ${file.name}`,
-        timestamp: serverTimestamp(),
-        read: false,
-        fileURL,
-        fileName: file.name,
-        fileType: file.type
-      };
-      
-      // Add message to messages collection
-      await addDoc(collection(db, "messages"), messageData);
-      
-      // Update conversation with last message
-      await updateDoc(doc(db, "conversations", conversationId), {
-        lastMessage: {
-          content: `File: ${file.name}`,
-          timestamp: serverTimestamp(),
-          senderId: currentUser.uid,
-          fileURL
-        }
-      });
-      
-      toast({
-        title: "File uploaded successfully",
-      });
-      
+      await sendMessage(`[File upload attempted: ${file.name}]`, conversationId);
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error("Error handling file:", error);
       toast({
-        title: "Failed to upload file",
+        title: "Failed to handle file",
         description: "Please try again later",
         variant: "destructive"
       });
@@ -410,12 +360,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const messageData = messageSnap.data() as Message;
       
-      // Mark message as reported
       await updateDoc(messageRef, {
         reported: true
       });
       
-      // Add to moderation queue
       await addDoc(collection(db, "moderation"), {
         messageId,
         conversationId: messageData.conversationId,
@@ -431,7 +379,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "Message reported",
         description: "A moderator will review this message"
       });
-      
     } catch (error) {
       console.error("Error reporting message:", error);
       toast({
@@ -446,7 +393,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return createConversation(participantIds, true, name);
   };
 
-  // Mock functions for video/voice calls (would require more complex implementation with WebRTC)
   const startVideoCall = (conversationId: string) => {
     setIsCallActive(true);
     setActiveCallType('video');
