@@ -112,22 +112,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const conversationsData: Conversation[] = [];
       
-      for (const doc of snapshot.docs) {
-        const data = doc.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
         const participantsInfo: User[] = [];
         
         // Fetch participant info for each conversation
         for (const pid of data.participants) {
           if (pid !== currentUser.uid) {
-            const userDoc = await getDoc(doc(db, "users", pid));
-            if (userDoc.exists()) {
-              participantsInfo.push(userDoc.data() as User);
+            const userDocRef = doc(db, "users", pid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              participantsInfo.push(userDocSnap.data() as User);
             }
           }
         }
         
         conversationsData.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           participantsInfo
         });

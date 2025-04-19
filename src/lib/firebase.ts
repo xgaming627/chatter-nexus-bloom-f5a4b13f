@@ -4,14 +4,14 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Your web app's Firebase configuration
+// Replace these with your Firebase configuration values
 const firebaseConfig = {
-  apiKey: "AIZ...your_api_key", // Replace with your Firebase API key
-  authDomain: "your-app.firebaseapp.com",
-  projectId: "your-app",
-  storageBucket: "your-app.appspot.com",
-  messagingSenderId: "12345678900",
-  appId: "1:12345678900:web:abc123def456"
+  apiKey: "your_api_key_here",
+  authDomain: "your-project-id.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "your_messaging_sender_id",
+  appId: "your_app_id"
 };
 
 // Initialize Firebase
