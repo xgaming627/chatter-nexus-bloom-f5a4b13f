@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
@@ -35,6 +34,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ModerationItem {
   id: string;
@@ -84,12 +84,10 @@ const ModeratorPanel: React.FC = () => {
   const [warnReason, setWarnReason] = useState('');
   const [userToAction, setUserToAction] = useState<User | null>(null);
   
-  // Check if current user is a moderator
   useEffect(() => {
     const checkModerator = async () => {
       if (!currentUser) return;
       
-      // For demo purposes, we'll check if the email is the specified mod email
       if (currentUser.email === 'vitorrossato812@gmail.com') {
         setIsModerator(true);
       } else {
@@ -100,7 +98,6 @@ const ModeratorPanel: React.FC = () => {
     checkModerator();
   }, [currentUser]);
   
-  // Load all users
   useEffect(() => {
     if (!isModerator) return;
     
@@ -113,11 +110,10 @@ const ModeratorPanel: React.FC = () => {
           uid: doc.id
         })) as User[];
         
-        // Simulate some users with VPN for demo
         const enhancedUserData = userData.map((user, index) => ({
           ...user,
           ipAddress: `192.168.${Math.floor(index / 255)}.${index % 255}`,
-          vpnDetected: index % 5 === 0, // Every 5th user has VPN
+          vpnDetected: index % 5 === 0,
           onlineStatus: ['online', 'away', 'offline'][Math.floor(Math.random() * 3)] as 'online' | 'away' | 'offline'
         }));
         
@@ -131,7 +127,6 @@ const ModeratorPanel: React.FC = () => {
     loadUsers();
   }, [isModerator]);
   
-  // Load moderation items when the component mounts
   useEffect(() => {
     if (!isModerator) return;
     
@@ -155,7 +150,6 @@ const ModeratorPanel: React.FC = () => {
     return () => unsubscribe();
   }, [isModerator]);
   
-  // Filter users as user types
   useEffect(() => {
     if (searchUsername.trim() === '') {
       setFilteredUsers(users);
@@ -169,7 +163,6 @@ const ModeratorPanel: React.FC = () => {
     }
   }, [searchUsername, users]);
   
-  // Search for users by username
   const searchUserMessages = async () => {
     if (!searchUsername.trim() && !selectedUserId) return;
     
@@ -177,7 +170,6 @@ const ModeratorPanel: React.FC = () => {
       let userId = selectedUserId;
 
       if (!userId) {
-        // First, find the user by username
         const usersRef = collection(db, "users");
         const userQuery = query(usersRef, where("username", "==", searchUsername));
         const userDocs = await getDocs(userQuery);
@@ -196,7 +188,6 @@ const ModeratorPanel: React.FC = () => {
         setSelectedUserId(userId);
       }
 
-      // Then get messages from the user
       const messagesRef = collection(db, "messages");
       const messageQuery = query(messagesRef, where("senderId", "==", userId));
       const messageDocs = await getDocs(messageQuery);
@@ -230,25 +221,21 @@ const ModeratorPanel: React.FC = () => {
     }
   };
   
-  // Handle opening user chat
   const handleOpenUserChat = async (conversationId: string) => {
     await setCurrentConversationId(conversationId);
     setShowUserChat(true);
   };
   
-  // Show ban dialog
   const openBanDialog = (user: User) => {
     setUserToAction(user);
     setShowBanDialog(true);
   };
   
-  // Show warn dialog
   const openWarnDialog = (user: User) => {
     setUserToAction(user);
     setShowWarnDialog(true);
   };
   
-  // Handle message action (e.g., ban user)
   const banUser = async () => {
     if (!userToAction) return;
     
@@ -276,7 +263,6 @@ const ModeratorPanel: React.FC = () => {
           banExpiryDate.setDate(banExpiryDate.getDate() + 1);
       }
       
-      // Update the user's record with the ban
       await updateDoc(doc(db, "users", userToAction.uid), {
         status: "banned",
         banExpiry: banExpiryDate,
@@ -288,7 +274,6 @@ const ModeratorPanel: React.FC = () => {
         description: `${userToAction.username} has been banned until ${format(banExpiryDate, 'PPP')}`,
       });
       
-      // Refresh user list
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.uid === userToAction.uid 
@@ -314,12 +299,10 @@ const ModeratorPanel: React.FC = () => {
     }
   };
   
-  // Handle warn user
   const warnUser = async () => {
     if (!userToAction) return;
     
     try {
-      // Update the user's record with a warning
       await updateDoc(doc(db, "users", userToAction.uid), {
         warnings: firestoreIncrement(1),
         lastWarning: new Date(),
@@ -331,7 +314,6 @@ const ModeratorPanel: React.FC = () => {
         description: "A warning has been issued to this user",
       });
       
-      // Update local state
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.uid === userToAction.uid 
@@ -357,7 +339,6 @@ const ModeratorPanel: React.FC = () => {
     }
   };
   
-  // Handle moderation action
   const handleModeration = async (id: string, action: 'approve' | 'dismiss') => {
     try {
       await updateDoc(doc(db, "moderation", id), {
@@ -381,7 +362,6 @@ const ModeratorPanel: React.FC = () => {
     setShowModPanel(!showModPanel);
   };
   
-  // Render user status badge
   const renderUserStatus = (user: User) => {
     if (user.status === 'banned') {
       return (
@@ -433,7 +413,6 @@ const ModeratorPanel: React.FC = () => {
     );
   }
   
-  // Show only chat window if minimized
   if (!showModPanel && showUserChat) {
     return (
       <div className="container mx-auto p-4">
@@ -571,116 +550,120 @@ const ModeratorPanel: React.FC = () => {
                 />
               </div>
               
-              <Table>
-                <TableCaption>Registered Users</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Display Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Registration Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>IP Address</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.uid} className={user.vpnDetected ? "bg-orange-50 dark:bg-orange-900/20" : ""}>
-                        <TableCell>@{user.username}</TableCell>
-                        <TableCell>{user.displayName}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
-                        </TableCell>
-                        <TableCell>
-                          {renderUserStatus(user)}
-                        </TableCell>
-                        <TableCell>
-                          <span className={user.vpnDetected ? "text-orange-600" : ""}>
-                            {user.ipAddress || "Unknown"}
-                            {user.vpnDetected && (
-                              <Badge className="ml-2 bg-orange-200 text-orange-800 text-xs">VPN</Badge>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUserId(user.uid);
-                                searchUserMessages();
-                              }}
-                            >
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              Find Messages
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={() => openBanDialog(user)}
-                            >
-                              <Ban className="h-4 w-4 mr-1" />
-                              Ban
-                            </Button>
-                            <Button 
-                              variant="secondary" 
-                              size="sm"
-                              onClick={() => openWarnDialog(user)}
-                            >
-                              <Shield className="h-4 w-4 mr-1" />
-                              Warn
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
+              <ScrollArea className="h-[500px] w-full rounded-md border">
+                <Table>
+                  <TableCaption>Registered Users</TableCaption>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center">No users found</TableCell>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Display Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Registration Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.uid} className={user.vpnDetected ? "bg-orange-50 dark:bg-orange-900/20" : ""}>
+                          <TableCell>@{user.username}</TableCell>
+                          <TableCell>{user.displayName}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
+                          </TableCell>
+                          <TableCell>
+                            {renderUserStatus(user)}
+                          </TableCell>
+                          <TableCell>
+                            <span className={user.vpnDetected ? "text-orange-600" : ""}>
+                              {user.ipAddress || "Unknown"}
+                              {user.vpnDetected && (
+                                <Badge className="ml-2 bg-orange-200 text-orange-800 text-xs">VPN</Badge>
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUserId(user.uid);
+                                  searchUserMessages();
+                                }}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Find Messages
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => openBanDialog(user)}
+                              >
+                                <Ban className="h-4 w-4 mr-1" />
+                                Ban
+                              </Button>
+                              <Button 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => openWarnDialog(user)}
+                              >
+                                <Shield className="h-4 w-4 mr-1" />
+                                Warn
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center">No users found</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
               
               {searchResults.length > 0 && (
                 <div className="mt-8">
                   <h3 className="text-lg font-medium mb-4">Messages from selected user</h3>
-                  <Table>
-                    <TableCaption>User Messages</TableCaption>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Content</TableHead>
-                        <TableHead>Conversation</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {searchResults.map((message) => (
-                        <TableRow key={message.id}>
-                          <TableCell>
-                            {message.timestamp && format(message.timestamp.toDate(), 'PPp')}
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">{message.content}</TableCell>
-                          <TableCell>{message.conversationId}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenUserChat(message.conversationId)}
-                            >
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              View Chat
-                            </Button>
-                          </TableCell>
+                  <ScrollArea className="h-[300px] w-full rounded-md border">
+                    <Table>
+                      <TableCaption>User Messages</TableCaption>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Content</TableHead>
+                          <TableHead>Conversation</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {searchResults.map((message) => (
+                          <TableRow key={message.id}>
+                            <TableCell>
+                              {message.timestamp && format(message.timestamp.toDate(), 'PPp')}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">{message.content}</TableCell>
+                            <TableCell>{message.conversationId}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenUserChat(message.conversationId)}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                View Chat
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 </div>
               )}
             </CardContent>
@@ -698,7 +681,6 @@ const ModeratorPanel: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Ban Dialog */}
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -742,7 +724,6 @@ const ModeratorPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Warn Dialog */}
       <Dialog open={showWarnDialog} onOpenChange={setShowWarnDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
