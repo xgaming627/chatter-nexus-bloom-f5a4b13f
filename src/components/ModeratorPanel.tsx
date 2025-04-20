@@ -19,8 +19,11 @@ import {
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import ModeratorLiveSupport from './ModeratorLiveSupport';
+import { useChat } from '@/context/ChatContext';
+import { MessageSquare } from 'lucide-react';
 
 interface ModerationItem {
   id: string;
@@ -45,6 +48,7 @@ interface User {
 
 const ModeratorPanel: React.FC = () => {
   const { currentUser } = useAuth();
+  const { setCurrentConversationId } = useChat();
   const [isModerator, setIsModerator] = useState(false);
   const [moderationItems, setModerationItems] = useState<ModerationItem[]>([]);
   const [searchUsername, setSearchUsername] = useState('');
@@ -52,6 +56,7 @@ const ModeratorPanel: React.FC = () => {
   const [selectedMessages, setSelectedMessages] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [banDuration, setBanDuration] = useState('1d');
+  const [showUserChat, setShowUserChat] = useState(false);
   
   // Check if current user is a moderator
   useEffect(() => {
@@ -147,6 +152,12 @@ const ModeratorPanel: React.FC = () => {
         variant: "destructive"
       });
     }
+  };
+  
+  // Handle opening user chat
+  const handleOpenUserChat = async (conversationId: string) => {
+    await setCurrentConversationId(conversationId);
+    setShowUserChat(true);
   };
   
   // Handle message action (e.g., ban user)
@@ -250,6 +261,8 @@ const ModeratorPanel: React.FC = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="reports">Reported Messages</TabsTrigger>
           <TabsTrigger value="search">User Search</TabsTrigger>
+          <TabsTrigger value="support">Live Support</TabsTrigger>
+          <TabsTrigger value="chat">User Chat</TabsTrigger>
         </TabsList>
         
         <TabsContent value="reports">
@@ -304,6 +317,14 @@ const ModeratorPanel: React.FC = () => {
                               >
                                 Dismiss
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenUserChat(item.conversationId)}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Chat
+                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -345,6 +366,7 @@ const ModeratorPanel: React.FC = () => {
                         <TableHead>Date</TableHead>
                         <TableHead>Content</TableHead>
                         <TableHead>Conversation</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -355,6 +377,16 @@ const ModeratorPanel: React.FC = () => {
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{message.content}</TableCell>
                           <TableCell>{message.conversationId}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenUserChat(message.conversationId)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              View Chat
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -386,6 +418,20 @@ const ModeratorPanel: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="support">
+          <ModeratorLiveSupport />
+        </TabsContent>
+        
+        <TabsContent value="chat" className={showUserChat ? "" : "hidden"}>
+          <Button 
+            variant="outline" 
+            className="mb-4"
+            onClick={() => setShowUserChat(false)}
+          >
+            Back to Moderator Panel
+          </Button>
         </TabsContent>
       </Tabs>
     </div>

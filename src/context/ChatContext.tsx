@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -97,6 +98,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCallActive, setIsCallActive] = useState(false);
   const [activeCallType, setActiveCallType] = useState<'video' | 'voice' | null>(null);
 
+  // Load conversations for current user
   useEffect(() => {
     if (!currentUser) return;
 
@@ -136,6 +138,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentUser]);
 
+  // Load messages for current conversation
   useEffect(() => {
     if (!currentConversation) {
       setMessages([]);
@@ -224,6 +227,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participantIds.push(currentUser.uid);
       }
       
+      // Check if 1-on-1 conversation already exists
       if (!isGroup && participantIds.length === 2) {
         const existingConvs = conversations.filter(c => 
           !c.isGroupChat && 
@@ -232,6 +236,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         
         if (existingConvs.length > 0) {
+          await setCurrentConversationId(existingConvs[0].id);
           return existingConvs[0].id;
         }
       }
@@ -253,6 +258,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       const docRef = await addDoc(collection(db, "conversations"), conversationData);
+      await setCurrentConversationId(docRef.id);
       
       return docRef.id;
     } catch (error) {

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/hooks/use-toast";
+import { Headphones, Image, Moon, Sun, Globe } from 'lucide-react';
+import LiveSupportWindow from './LiveSupportWindow';
 
 const ProfileDropdown: React.FC = () => {
   const { currentUser, logout, updateUserEmail, updateUserProfile, isUsernameAvailable } = useAuth();
@@ -32,6 +34,7 @@ const ProfileDropdown: React.FC = () => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [showUsernameDialog, setShowUsernameDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showSupportDialog, setShowSupportDialog] = useState(false);
   
   const [newDisplayName, setNewDisplayName] = useState(currentUser?.displayName || '');
   const [newEmail, setNewEmail] = useState(currentUser?.email || '');
@@ -40,19 +43,43 @@ const ProfileDropdown: React.FC = () => {
   const [resetEmail, setResetEmail] = useState(currentUser?.email || '');
   const [loading, setLoading] = useState(false);
   
+  // Theme and language handling
+  const [theme, setTheme] = useState('light');
+  const [language, setLanguage] = useState('english');
+  const [showLanguageDialog, setShowLanguageDialog] = useState(false);
+  
   // Profile picture handling
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewURL, setPreviewURL] = useState<string | null>(currentUser?.photoURL || null);
+  
+  // Handle theme toggle
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+  }, []);
+  
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setSelectedFile(file);
       
       // Create a preview
       const reader = new FileReader();
       reader.onload = () => {
         setPreviewURL(reader.result as string);
+        
+        // Since we don't have Firebase Storage, we'll mock the avatar update
+        // In a real app, you would upload this file to storage
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated"
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -74,8 +101,6 @@ const ProfileDropdown: React.FC = () => {
     setLoading(true);
     
     try {
-      // Since we're not using Firebase Storage, we'll handle the profile picture differently
-      // For now, we'll just update the display name
       await updateUserProfile(newDisplayName);
       toast({
         title: "Profile updated",
@@ -159,6 +184,16 @@ const ProfileDropdown: React.FC = () => {
     }
   };
   
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    localStorage.setItem('language', lang);
+    toast({
+      title: "Language changed",
+      description: `Interface language changed to ${lang}`
+    });
+    setShowLanguageDialog(false);
+  };
+  
   if (!currentUser) return null;
   
   return (
@@ -168,11 +203,11 @@ const ProfileDropdown: React.FC = () => {
           <Button variant="ghost" className="h-10 w-10 rounded-full p-0">
             <UserAvatar 
               username={currentUser.displayName || undefined} 
-              photoURL={currentUser.photoURL || undefined}
+              photoURL={previewURL || currentUser.photoURL || undefined}
             />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span>{currentUser.displayName}</span>
@@ -180,18 +215,33 @@ const ProfileDropdown: React.FC = () => {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DialogTrigger asChild onClick={() => setShowProfileDialog(true)}>
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-          </DialogTrigger>
-          <DialogTrigger asChild onClick={() => setShowEmailDialog(true)}>
-            <DropdownMenuItem>Change Email</DropdownMenuItem>
-          </DialogTrigger>
-          <DialogTrigger asChild onClick={() => setShowUsernameDialog(true)}>
-            <DropdownMenuItem>Change Username</DropdownMenuItem>
-          </DialogTrigger>
-          <DialogTrigger asChild onClick={() => setShowPasswordDialog(true)}>
-            <DropdownMenuItem>Reset Password</DropdownMenuItem>
-          </DialogTrigger>
+          <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
+            <div className="flex items-center w-full">
+              <Image className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowEmailDialog(true)}>Change Email</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowUsernameDialog(true)}>Change Username</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowPasswordDialog(true)}>Reset Password</DropdownMenuItem>
+          <DropdownMenuItem onClick={toggleTheme}>
+            <div className="flex items-center w-full">
+              {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+              <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowLanguageDialog(true)}>
+            <div className="flex items-center w-full">
+              <Globe className="mr-2 h-4 w-4" />
+              <span>Change Language</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowSupportDialog(true)}>
+            <div className="flex items-center w-full">
+              <Headphones className="mr-2 h-4 w-4" />
+              <span>Live Support</span>
+            </div>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => logout()}>Sign Out</DropdownMenuItem>
         </DropdownMenuContent>
@@ -211,16 +261,16 @@ const ProfileDropdown: React.FC = () => {
               <div className="relative">
                 <UserAvatar 
                   username={currentUser.displayName || undefined} 
-                  photoURL={previewURL || undefined}
+                  photoURL={previewURL || currentUser.photoURL || undefined}
                   size="lg"
                 />
                 <Button
                   variant="outline"
                   size="icon"
-                  className="absolute bottom-0 right-0 h-6 w-6 rounded-full"
+                  className="absolute bottom-0 right-0 h-7 w-7 rounded-full flex items-center justify-center"
                   onClick={() => document.getElementById('profile-picture')?.click()}
                 >
-                  +
+                  <Image className="h-4 w-4" />
                 </Button>
                 <input
                   id="profile-picture"
@@ -361,6 +411,61 @@ const ProfileDropdown: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Language Dialog */}
+      <Dialog open={showLanguageDialog} onOpenChange={setShowLanguageDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Language</DialogTitle>
+            <DialogDescription>
+              Select your preferred interface language
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-4">
+            <Button
+              variant={language === 'english' ? 'default' : 'outline'}
+              onClick={() => handleLanguageChange('english')}
+              className="justify-start"
+            >
+              English
+            </Button>
+            <Button
+              variant={language === 'spanish' ? 'default' : 'outline'}
+              onClick={() => handleLanguageChange('spanish')}
+              className="justify-start"
+            >
+              Español
+            </Button>
+            <Button
+              variant={language === 'french' ? 'default' : 'outline'}
+              onClick={() => handleLanguageChange('french')}
+              className="justify-start"
+            >
+              Français
+            </Button>
+            <Button
+              variant={language === 'german' ? 'default' : 'outline'}
+              onClick={() => handleLanguageChange('german')}
+              className="justify-start"
+            >
+              Deutsch
+            </Button>
+            <Button
+              variant={language === 'portuguese' ? 'default' : 'outline'}
+              onClick={() => handleLanguageChange('portuguese')}
+              className="justify-start"
+            >
+              Português
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Live Support Dialog */}
+      <LiveSupportWindow 
+        open={showSupportDialog} 
+        onOpenChange={setShowSupportDialog} 
+      />
     </>
   );
 };
