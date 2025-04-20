@@ -76,6 +76,11 @@
   @apply text-xs text-gray-400;
 }
 
+/* Fix the dropdown menu z-index issue */
+.radix-dropdown-content {
+  z-index: 100 !important;
+}
+
 /* Dark mode styles */
 .dark .chat-bubble-received {
   @apply bg-gray-800 text-white;
@@ -84,3 +89,24 @@
 .dark .message-time {
   @apply text-gray-500;
 }
+
+/* Fix search input visibility in dark mode */
+.search-input {
+  @apply text-gray-800 dark:text-white !important;
+}
+
+/* Ensure dropdown menus are visible in dark mode */
+.dark .dropdown-menu {
+  @apply bg-gray-800 border-gray-700;
+}
+
+/* Fix moderator panel toggle styles */
+.moderator-panel-toggle {
+  @apply fixed top-4 right-4 z-50;
+}
+
+/* Make sure support panel is visible */
+.support-panel {
+  @apply z-40 bg-background border border-border;
+}
+

@@ -7,7 +7,7 @@ import { Check, ChevronDown, Phone, Video, Paperclip, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import CallModal from './CallModal';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -78,10 +79,35 @@ const ChatWindow: React.FC = () => {
   
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && currentConversation) {
-      uploadFile(file, currentConversation.id);
-      e.target.value = '';
+    if (!file || !currentConversation) {
+      return;
     }
+    
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Unsupported file type",
+        description: "Only image files are supported",
+        variant: "destructive"
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    // Check file size (limit to 5MB)
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSizeInBytes) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 5MB",
+        variant: "destructive"
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    uploadFile(file, currentConversation.id);
+    e.target.value = '';
   };
   
   const getMessageTime = (timestamp: any) => {
@@ -97,9 +123,9 @@ const ChatWindow: React.FC = () => {
   
   if (!currentConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-50">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h3 className="text-xl font-medium text-gray-700 mb-2">Welcome to ChatNexus</h3>
+          <h3 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Welcome to ChatNexus</h3>
           <p className="text-muted-foreground">Select a conversation or search for a user to start chatting</p>
         </div>
       </div>
@@ -166,7 +192,7 @@ const ChatWindow: React.FC = () => {
             return (
               <div 
                 key={message.id} 
-                className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
               >
                 <div className="max-w-[80%] break-words">
                   {!isOwnMessage && !isGroup && (
@@ -205,7 +231,7 @@ const ChatWindow: React.FC = () => {
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align={isOwnMessage ? "end" : "start"}>
+                      <DropdownMenuContent align={isOwnMessage ? "end" : "start"} className="dropdown-menu">
                         {!isOwnMessage && (
                           <DropdownMenuItem onClick={() => handleReportMessage(message)}>
                             Report message
@@ -295,6 +321,7 @@ const ChatWindow: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
+              accept="image/*"
               className="hidden"
               onChange={handleFileUpload}
             />
@@ -305,7 +332,7 @@ const ChatWindow: React.FC = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 min-h-0"
+            className="flex-1 min-h-0 search-input"
             rows={1}
           />
           

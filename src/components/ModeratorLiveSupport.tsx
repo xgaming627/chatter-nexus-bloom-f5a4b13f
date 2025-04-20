@@ -6,234 +6,233 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import UserAvatar from './UserAvatar';
 import { Button } from '@/components/ui/button';
-import LiveSupportWindow from './LiveSupportWindow';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import LiveSupportChat from './LiveSupportChat';
 
 const ModeratorLiveSupport: React.FC = () => {
   const { 
     supportSessions, 
     setCurrentSupportSessionId,
-    currentSupportSession
+    currentSupportSession,
+    getUserSupportStats
   } = useLiveSupport();
   
-  const [showSupportWindow, setShowSupportWindow] = useState(false);
+  const [showSupportChat, setShowSupportChat] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SupportSession | null>(null);
   const [feedbackData, setFeedbackData] = useState<any[]>([]);
+  const [userStats, setUserStats] = useState<any>(null);
   
   useEffect(() => {
-    // Generate mock feedback data for the chart
-    const mockData = [
-      { rating: 1, count: Math.floor(Math.random() * 5) },
-      { rating: 2, count: Math.floor(Math.random() * 10) },
-      { rating: 3, count: Math.floor(Math.random() * 15) },
-      { rating: 4, count: Math.floor(Math.random() * 25) },
-      { rating: 5, count: Math.floor(Math.random() * 40) }
+    // Generate feedback data or fetch it from the database
+    const ratings = supportSessions
+      .filter(session => session.rating)
+      .map(session => ({ rating: session.rating, feedback: session.feedback }));
+    
+    const ratingCounts = [0, 0, 0, 0, 0]; // For ratings 1-5
+    
+    ratings.forEach(item => {
+      if (item.rating && item.rating > 0 && item.rating <= 5) {
+        ratingCounts[item.rating - 1]++;
+      }
+    });
+    
+    const chartData = [
+      { rating: 1, count: ratingCounts[0] },
+      { rating: 2, count: ratingCounts[1] },
+      { rating: 3, count: ratingCounts[2] },
+      { rating: 4, count: ratingCounts[3] },
+      { rating: 5, count: ratingCounts[4] }
     ];
-    setFeedbackData(mockData);
-  }, []);
+    
+    setFeedbackData(chartData);
+  }, [supportSessions]);
   
-  const handleSelectSession = (session: SupportSession) => {
-    setSelectedSession(session);
-    setCurrentSupportSessionId(session.id);
-    setShowSupportWindow(true);
+  const handleSelectSession = async (session: SupportSession) => {
+    try {
+      setSelectedSession(session);
+      await setCurrentSupportSessionId(session.id);
+      
+      if (session.userId) {
+        const stats = await getUserSupportStats(session.userId);
+        setUserStats(stats);
+      }
+      
+      setShowSupportChat(true);
+    } catch (error) {
+      console.error("Error selecting support session:", error);
+    }
   };
   
   return (
-    <>
-      <Tabs defaultValue="active">
-        <TabsList className="mb-4">
-          <TabsTrigger value="active">Active Support Sessions</TabsTrigger>
-          <TabsTrigger value="analytics">Support Analytics</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="active">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="col-span-1 border rounded-lg overflow-hidden">
-              <div className="p-4 border-b">
-                <h3 className="font-medium">Active Sessions</h3>
-              </div>
-              <div className="overflow-y-auto max-h-[500px]">
-                {supportSessions.length > 0 ? (
-                  supportSessions.map(session => (
-                    <Button
-                      key={session.id}
-                      variant="ghost"
-                      className="w-full justify-start p-4 h-auto border-b hover:bg-accent"
-                      onClick={() => handleSelectSession(session)}
-                    >
-                      <div className="flex items-start gap-3 w-full">
-                        <UserAvatar 
-                          username={session.userInfo?.username || "User"} 
-                          photoURL={session.userInfo?.photoURL} 
-                        />
-                        <div className="flex-1 text-left">
-                          <div className="font-medium">
-                            {session.userInfo?.displayName || "User"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            @{session.userInfo?.username || "user"}
-                          </div>
-                          {session.lastMessage && (
-                            <div className="text-sm text-muted-foreground truncate mt-1">
-                              {session.lastMessage.content}
-                            </div>
-                          )}
-                        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="col-span-1 border rounded-lg overflow-hidden">
+        <div className="p-4 border-b">
+          <h3 className="font-medium">Active Support Sessions</h3>
+        </div>
+        <div className="overflow-y-auto max-h-[500px]">
+          {supportSessions.length > 0 ? (
+            supportSessions.map(session => (
+              <Button
+                key={session.id}
+                variant="ghost"
+                className="w-full justify-start p-4 h-auto border-b hover:bg-accent"
+                onClick={() => handleSelectSession(session)}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <UserAvatar 
+                    username={session.userInfo?.username || "User"} 
+                    photoURL={session.userInfo?.photoURL} 
+                  />
+                  <div className="flex-1 text-left">
+                    <div className="font-medium">
+                      {session.userInfo?.displayName || "User"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      @{session.userInfo?.username || "user"}
+                    </div>
+                    {session.lastMessage && (
+                      <div className="text-sm text-muted-foreground truncate mt-1">
+                        {session.lastMessage.content}
                       </div>
-                    </Button>
-                  ))
-                ) : (
-                  <p className="p-4 text-center text-muted-foreground">
-                    No active support sessions
+                    )}
+                  </div>
+                </div>
+              </Button>
+            ))
+          ) : (
+            <p className="p-4 text-center text-muted-foreground">
+              No active support sessions
+            </p>
+          )}
+        </div>
+      </div>
+      
+      <div className="col-span-2 border rounded-lg overflow-hidden">
+        {selectedSession ? (
+          <div className="h-full flex flex-col">
+            <div className="border-b p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserAvatar 
+                    username={selectedSession.userInfo?.username || "User"} 
+                    photoURL={selectedSession.userInfo?.photoURL} 
+                  />
+                  <div>
+                    {selectedSession.userInfo?.displayName || "User"}
+                    <div className="text-xs text-muted-foreground">
+                      @{selectedSession.userInfo?.username || "user"}
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="outline">
+                  {selectedSession.status === 'active' ? 'Active' : 
+                   selectedSession.status === 'requested-end' ? 'End Requested' : 'Ended'}
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Email</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.userInfo?.email || "Unknown"}
                   </p>
-                )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Account Created</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.userInfo?.createdAt ? 
+                     format(selectedSession.userInfo.createdAt.toDate(), 'PPP') : 
+                     "Unknown"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Support Session Started</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.createdAt ? 
+                     format(selectedSession.createdAt.toDate(), 'PPp') : 
+                     "Unknown"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Total Messages</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.userInfo?.messageCount || 0}
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="col-span-2 border rounded-lg overflow-hidden">
-              {selectedSession ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar 
-                          username={selectedSession.userInfo?.username || "User"} 
-                          photoURL={selectedSession.userInfo?.photoURL} 
-                        />
-                        <div>
-                          {selectedSession.userInfo?.displayName || "User"}
-                          <div className="text-xs text-muted-foreground">
-                            @{selectedSession.userInfo?.username || "user"}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="outline">
-                        {selectedSession.status === 'active' ? 'Active' : 
-                         selectedSession.status === 'requested-end' ? 'End Requested' : 'Ended'}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 mb-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Email</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedSession.userInfo?.email || "Unknown"}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Account Created</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedSession.userInfo?.createdAt ? 
-                             format(selectedSession.userInfo.createdAt.toDate(), 'PPP') : 
-                             "Unknown"}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Support Session Started</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedSession.createdAt ? 
-                             format(selectedSession.createdAt.toDate(), 'PPp') : 
-                             "Unknown"}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Total Messages</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedSession.userInfo?.messageCount || 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button onClick={() => setShowSupportWindow(true)}>
-                      Reply to Support Session
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="flex items-center justify-center h-full p-8">
-                  <p className="text-muted-foreground">
-                    Select a support session to view details
-                  </p>
-                </div>
-              )}
+            <div className="flex-1 overflow-hidden">
+              <LiveSupportChat />
             </div>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="analytics">
-          <Card className="p-4">
-            <CardHeader>
-              <CardTitle>Support Feedback Ratings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={feedbackData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="rating" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" name="Number of Ratings" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4">
-                <h3 className="font-medium mb-2">Recent Feedback Comments</h3>
-                <div className="space-y-2">
-                  <div className="p-3 bg-muted rounded-md">
+        ) : (
+          <div className="flex items-center justify-center h-full p-8">
+            <p className="text-muted-foreground">
+              Select a support session to view details
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="col-span-1 lg:col-span-3 border rounded-lg overflow-hidden">
+        <Tabs defaultValue="chart">
+          <div className="p-4 border-b">
+            <TabsList>
+              <TabsTrigger value="chart">Feedback Ratings</TabsTrigger>
+              <TabsTrigger value="comments">Feedback Comments</TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <TabsContent value="chart" className="p-4">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={feedbackData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="rating" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count" name="Number of Ratings" fill="#6264A7" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="comments" className="p-4">
+            <div className="space-y-2">
+              {supportSessions
+                .filter(session => session.feedback)
+                .map(session => (
+                  <div key={session.id} className="p-3 bg-muted rounded-md">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="flex">
+                      <div className="flex">
                         {[1, 2, 3, 4, 5].map(i => (
-                          <Star key={i} filled={i <= 5} />
+                          <Star key={i} filled={session.rating ? i <= session.rating : false} />
                         ))}
-                      </span>
+                      </div>
                       <span className="text-sm text-muted-foreground">
-                        2 days ago
+                        {session.createdAt ? format(session.createdAt.toDate(), 'PPp') : ''}
                       </span>
                     </div>
-                    <p className="text-sm">
-                      Very helpful support team, resolved my issue quickly!
-                    </p>
+                    <p className="text-sm">{session.feedback}</p>
                   </div>
-                  
-                  <div className="p-3 bg-muted rounded-md">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="flex">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <Star key={i} filled={i <= 4} />
-                        ))}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        5 days ago
-                      </span>
-                    </div>
-                    <p className="text-sm">
-                      Good support but took a while to get a response.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      {/* Live Support Window */}
-      {selectedSession && (
-        <LiveSupportWindow 
-          open={showSupportWindow} 
-          onOpenChange={setShowSupportWindow} 
-        />
-      )}
-    </>
+                ))}
+              
+              {supportSessions.filter(session => session.feedback).length === 0 && (
+                <p className="text-center text-muted-foreground py-4">
+                  No feedback comments available
+                </p>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
   );
 };
 

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
 
 interface LiveSupportWindowProps {
   open: boolean;
@@ -93,6 +94,10 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
       setShowFeedback(true);
     } else {
       requestEndSupport();
+      toast({
+        title: "End request sent",
+        description: "Waiting for confirmation to end support session"
+      });
     }
   };
   
@@ -105,6 +110,10 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   const handleSubmitFeedback = () => {
     submitFeedback(rating, feedback);
     setShowFeedback(false);
+    toast({
+      title: "Feedback submitted",
+      description: "Thank you for your feedback"
+    });
   };
   
   if (!currentUser) {
@@ -167,7 +176,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
                           {message.content}
                           
                           <div className="text-right">
-                            <span className="message-time inline-block mt-1 text-xs text-muted-foreground">
+                            <span className="message-time inline-block mt-1">
                               {getMessageTime(message.timestamp)}
                             </span>
                           </div>

@@ -11,7 +11,8 @@ import {
   doc,
   serverTimestamp,
   getDoc,
-  getDocs
+  getDocs,
+  Timestamp
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
@@ -106,7 +107,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Moderators see all active support sessions
       q = query(
         collection(db, "supportSessions"),
-        where("status", "==", "active"),
+        where("status", "in", ["active", "requested-end"]),
         orderBy("lastMessage.timestamp", "desc")
       );
     } else {
@@ -153,8 +154,20 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       // Set active session flag
       if (!isModerator) {
-        const hasActiveSession = sessionsData.some(session => session.status === 'active');
+        const hasActiveSession = sessionsData.some(session => 
+          session.status === 'active' || session.status === 'requested-end'
+        );
         setIsActiveSupportSession(hasActiveSession);
+        
+        // If there's an active session but no current session set, set it
+        if (hasActiveSession && !currentSupportSession) {
+          const activeSession = sessionsData.find(session => 
+            session.status === 'active' || session.status === 'requested-end'
+          );
+          if (activeSession) {
+            setCurrentSupportSession(activeSession);
+          }
+        }
       }
     });
     
@@ -231,9 +244,11 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       // Check if user already has an active support session
       if (isActiveSupportSession) {
-        const existingSession = supportSessions.find(s => s.status === 'active');
+        const existingSession = supportSessions.find(s => 
+          s.status === 'active' || s.status === 'requested-end'
+        );
         if (existingSession) {
-          setCurrentSupportSessionId(existingSession.id);
+          await setCurrentSupportSessionId(existingSession.id);
           return existingSession.id;
         }
       }
@@ -262,6 +277,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       
       setIsActiveSupportSession(true);
+      await setCurrentSupportSessionId(docRef.id);
       
       toast({
         title: "Support session created",
@@ -336,6 +352,11 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         title: "End request sent",
         description: "Waiting for confirmation to end support session"
       });
+      
+      // Update the local session status
+      setCurrentSupportSession(prev => 
+        prev ? { ...prev, status: 'requested-end' } : null
+      );
     } catch (error) {
       console.error("Error requesting end of support session:", error);
       toast({

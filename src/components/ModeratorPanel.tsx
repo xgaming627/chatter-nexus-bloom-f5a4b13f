@@ -23,7 +23,8 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import ModeratorLiveSupport from './ModeratorLiveSupport';
 import { useChat } from '@/context/ChatContext';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Ban, Shield } from 'lucide-react';
+import ChatWindow from './ChatWindow';
 
 interface ModerationItem {
   id: string;
@@ -44,6 +45,7 @@ interface User {
   email: string;
   status?: string;
   banExpiry?: Date;
+  createdAt?: any;
 }
 
 const ModeratorPanel: React.FC = () => {
@@ -53,10 +55,13 @@ const ModeratorPanel: React.FC = () => {
   const [moderationItems, setModerationItems] = useState<ModerationItem[]>([]);
   const [searchUsername, setSearchUsername] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [banDuration, setBanDuration] = useState('1d');
   const [showUserChat, setShowUserChat] = useState(false);
+  const [showModPanel, setShowModPanel] = useState(true);
   
   // Check if current user is a moderator
   useEffect(() => {
@@ -73,6 +78,29 @@ const ModeratorPanel: React.FC = () => {
     
     checkModerator();
   }, [currentUser]);
+  
+  // Load all users
+  useEffect(() => {
+    if (!isModerator) return;
+    
+    const loadUsers = async () => {
+      try {
+        const usersRef = collection(db, "users");
+        const snapshot = await getDocs(usersRef);
+        const userData = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          uid: doc.id
+        })) as User[];
+        
+        setUsers(userData);
+        setFilteredUsers(userData);
+      } catch (error) {
+        console.error("Error loading users:", error);
+      }
+    };
+    
+    loadUsers();
+  }, [isModerator]);
   
   // Load moderation items when the component mounts
   useEffect(() => {
@@ -97,6 +125,20 @@ const ModeratorPanel: React.FC = () => {
     
     return () => unsubscribe();
   }, [isModerator]);
+  
+  // Filter users as user types
+  useEffect(() => {
+    if (searchUsername.trim() === '') {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(user => 
+        user.username.toLowerCase().includes(searchUsername.toLowerCase()) ||
+        user.displayName.toLowerCase().includes(searchUsername.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchUsername.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    }
+  }, [searchUsername, users]);
   
   // Search for users by username
   const searchUserMessages = async () => {
@@ -161,12 +203,12 @@ const ModeratorPanel: React.FC = () => {
   };
   
   // Handle message action (e.g., ban user)
-  const banUser = async () => {
-    if (!selectedUserId) return;
+  const banUser = async (userId: string, duration = banDuration) => {
+    if (!userId) return;
     
     try {
       let banExpiryDate;
-      switch (banDuration) {
+      switch (duration) {
         case '1d':
           banExpiryDate = new Date();
           banExpiryDate.setDate(banExpiryDate.getDate() + 1);
@@ -189,7 +231,7 @@ const ModeratorPanel: React.FC = () => {
       }
       
       // Update the user's record with the ban
-      await updateDoc(doc(db, "users", selectedUserId), {
+      await updateDoc(doc(db, "users", userId), {
         status: "banned",
         banExpiry: banExpiryDate
       });
@@ -199,16 +241,44 @@ const ModeratorPanel: React.FC = () => {
         description: `User has been banned until ${format(banExpiryDate, 'PPP')}`,
       });
       
-      // Clear search results
-      setSearchResults([]);
-      setSelectedMessages([]);
-      setSearchUsername('');
-      setSelectedUserId(null);
+      // Refresh user list
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.uid === userId 
+            ? { ...user, status: "banned", banExpiry: banExpiryDate } 
+            : user
+        )
+      );
     } catch (error) {
       console.error("Error banning user:", error);
       toast({
         title: "Error",
         description: "Failed to ban user",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Handle warn user
+  const warnUser = async (userId: string) => {
+    if (!userId) return;
+    
+    try {
+      // Update the user's record with a warning
+      await updateDoc(doc(db, "users", userId), {
+        warnings: increment(1),
+        lastWarning: new Date()
+      });
+      
+      toast({
+        title: "User warned",
+        description: "A warning has been issued to this user",
+      });
+    } catch (error) {
+      console.error("Error warning user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to warn user",
         variant: "destructive"
       });
     }
@@ -234,6 +304,10 @@ const ModeratorPanel: React.FC = () => {
     }
   };
   
+  const toggleModeratorPanel = () => {
+    setShowModPanel(!showModPanel);
+  };
+  
   if (!currentUser) {
     return null;
   }
@@ -253,16 +327,51 @@ const ModeratorPanel: React.FC = () => {
     );
   }
   
+  // Show only chat window if minimized
+  if (!showModPanel && showUserChat) {
+    return (
+      <div className="container mx-auto p-4">
+        <Button 
+          variant="outline" 
+          className="mb-4"
+          onClick={toggleModeratorPanel}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Show Moderator Panel
+        </Button>
+        <div className="border rounded-lg overflow-hidden h-[80vh]">
+          <ChatWindow />
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="container mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Moderator Panel</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Moderator Panel</h1>
+        {showUserChat && (
+          <Button 
+            variant="outline" 
+            onClick={toggleModeratorPanel}
+          >
+            {showModPanel ? (
+              <>Minimize Panel</>
+            ) : (
+              <>Show Panel</>
+            )}
+          </Button>
+        )}
+      </div>
       
       <Tabs defaultValue="reports">
         <TabsList className="mb-4">
           <TabsTrigger value="reports">Reported Messages</TabsTrigger>
           <TabsTrigger value="search">User Search</TabsTrigger>
           <TabsTrigger value="support">Live Support</TabsTrigger>
-          <TabsTrigger value="chat">User Chat</TabsTrigger>
+          {showUserChat && (
+            <TabsTrigger value="chat">User Chat</TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="reports">
@@ -344,23 +453,95 @@ const ModeratorPanel: React.FC = () => {
         <TabsContent value="search">
           <Card>
             <CardHeader>
-              <CardTitle>Search User Messages</CardTitle>
+              <CardTitle>User Search</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-6">
                 <Input 
-                  placeholder="Enter username" 
+                  placeholder="Search users by name, username or email" 
                   value={searchUsername}
                   onChange={e => setSearchUsername(e.target.value)}
-                  className="max-w-xs"
+                  className="max-w-md search-input"
                 />
-                <Button onClick={searchUserMessages}>Search</Button>
               </div>
               
+              <Table>
+                <TableCaption>Registered Users</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Display Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Registration Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.uid}>
+                        <TableCell>@{user.username}</TableCell>
+                        <TableCell>{user.displayName}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            user.status === 'banned' ? 'bg-red-200 text-red-800' : 
+                            'bg-green-200 text-green-800'
+                          }`}>
+                            {user.status || 'Active'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Set selected user and find their messages
+                                setSelectedUserId(user.uid);
+                                searchUserMessages();
+                              }}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Find Messages
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => banUser(user.uid)}
+                            >
+                              <Ban className="h-4 w-4 mr-1" />
+                              Ban
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              size="sm"
+                              onClick={() => warnUser(user.uid)}
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Warn
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center">No users found</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              
               {searchResults.length > 0 && (
-                <>
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium mb-4">Messages from selected user</h3>
                   <Table>
-                    <TableCaption>Messages from @{searchUsername}</TableCaption>
+                    <TableCaption>User Messages</TableCaption>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
@@ -408,13 +589,13 @@ const ModeratorPanel: React.FC = () => {
                       </Select>
                       <Button 
                         variant="destructive" 
-                        onClick={banUser}
+                        onClick={() => selectedUserId && banUser(selectedUserId)}
                       >
                         Ban User
                       </Button>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -425,17 +606,21 @@ const ModeratorPanel: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="chat" className={showUserChat ? "" : "hidden"}>
-          <Button 
-            variant="outline" 
-            className="mb-4"
-            onClick={() => setShowUserChat(false)}
-          >
-            Back to Moderator Panel
-          </Button>
+          <div className="border rounded-lg overflow-hidden h-[70vh]">
+            <ChatWindow />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
+};
+
+// Helper function for incrementing fields in Firestore
+const increment = (amount: number) => {
+  return {
+    __op: 'increment',
+    __amount: amount
+  };
 };
 
 export default ModeratorPanel;
