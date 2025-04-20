@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
@@ -59,12 +60,12 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
     if (hasFirstMessageSent && supportMessages.length === 1) {
       // Add a small delay to make it look natural
       const timer = setTimeout(() => {
-        sendSupportMessage("Thanks for contacting support! One of our representatives will speak to you shortly!");
+        sendSupportMessage("Thanks for contacting support! One of our representatives will speak to you shortly!", "system");
       }, 1000);
       
       return () => clearTimeout(timer);
     }
-  }, [hasFirstMessageSent, supportMessages.length]);
+  }, [hasFirstMessageSent, supportMessages.length, sendSupportMessage]);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

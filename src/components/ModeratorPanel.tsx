@@ -23,8 +23,18 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import ModeratorLiveSupport from './ModeratorLiveSupport';
 import { useChat } from '@/context/ChatContext';
-import { MessageSquare, ArrowLeft, Ban, Shield } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle } from 'lucide-react';
 import ChatWindow from './ChatWindow';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
 interface ModerationItem {
   id: string;
@@ -44,8 +54,14 @@ interface User {
   displayName: string;
   email: string;
   status?: string;
-  banExpiry?: Date;
+  banExpiry?: any;
   createdAt?: any;
+  warnings?: number;
+  lastWarning?: any;
+  ipAddress?: string;
+  vpnDetected?: boolean;
+  description?: string;
+  onlineStatus?: 'online' | 'away' | 'offline';
 }
 
 const ModeratorPanel: React.FC = () => {
@@ -62,6 +78,11 @@ const ModeratorPanel: React.FC = () => {
   const [banDuration, setBanDuration] = useState('1d');
   const [showUserChat, setShowUserChat] = useState(false);
   const [showModPanel, setShowModPanel] = useState(true);
+  const [banReason, setBanReason] = useState('');
+  const [showBanDialog, setShowBanDialog] = useState(false);
+  const [showWarnDialog, setShowWarnDialog] = useState(false);
+  const [warnReason, setWarnReason] = useState('');
+  const [userToAction, setUserToAction] = useState<User | null>(null);
   
   // Check if current user is a moderator
   useEffect(() => {
@@ -92,8 +113,16 @@ const ModeratorPanel: React.FC = () => {
           uid: doc.id
         })) as User[];
         
-        setUsers(userData);
-        setFilteredUsers(userData);
+        // Simulate some users with VPN for demo
+        const enhancedUserData = userData.map((user, index) => ({
+          ...user,
+          ipAddress: `192.168.${Math.floor(index / 255)}.${index % 255}`,
+          vpnDetected: index % 5 === 0, // Every 5th user has VPN
+          onlineStatus: ['online', 'away', 'offline'][Math.floor(Math.random() * 3)] as 'online' | 'away' | 'offline'
+        }));
+        
+        setUsers(enhancedUserData);
+        setFilteredUsers(enhancedUserData);
       } catch (error) {
         console.error("Error loading users:", error);
       }
@@ -207,13 +236,25 @@ const ModeratorPanel: React.FC = () => {
     setShowUserChat(true);
   };
   
+  // Show ban dialog
+  const openBanDialog = (user: User) => {
+    setUserToAction(user);
+    setShowBanDialog(true);
+  };
+  
+  // Show warn dialog
+  const openWarnDialog = (user: User) => {
+    setUserToAction(user);
+    setShowWarnDialog(true);
+  };
+  
   // Handle message action (e.g., ban user)
-  const banUser = async (userId: string, duration = banDuration) => {
-    if (!userId) return;
+  const banUser = async () => {
+    if (!userToAction) return;
     
     try {
       let banExpiryDate;
-      switch (duration) {
+      switch (banDuration) {
         case '1d':
           banExpiryDate = new Date();
           banExpiryDate.setDate(banExpiryDate.getDate() + 1);
@@ -236,24 +277,33 @@ const ModeratorPanel: React.FC = () => {
       }
       
       // Update the user's record with the ban
-      await updateDoc(doc(db, "users", userId), {
+      await updateDoc(doc(db, "users", userToAction.uid), {
         status: "banned",
-        banExpiry: banExpiryDate
+        banExpiry: banExpiryDate,
+        banReason: banReason || "Violation of terms of service"
       });
       
       toast({
         title: "User banned",
-        description: `User has been banned until ${format(banExpiryDate, 'PPP')}`,
+        description: `${userToAction.username} has been banned until ${format(banExpiryDate, 'PPP')}`,
       });
       
       // Refresh user list
       setUsers(prevUsers => 
         prevUsers.map(user => 
-          user.uid === userId 
-            ? { ...user, status: "banned", banExpiry: banExpiryDate } 
+          user.uid === userToAction.uid 
+            ? { 
+                ...user, 
+                status: "banned", 
+                banExpiry: banExpiryDate,
+                banReason: banReason || "Violation of terms of service"
+              } 
             : user
         )
       );
+      
+      setShowBanDialog(false);
+      setBanReason('');
     } catch (error) {
       console.error("Error banning user:", error);
       toast({
@@ -265,20 +315,38 @@ const ModeratorPanel: React.FC = () => {
   };
   
   // Handle warn user
-  const warnUser = async (userId: string) => {
-    if (!userId) return;
+  const warnUser = async () => {
+    if (!userToAction) return;
     
     try {
       // Update the user's record with a warning
-      await updateDoc(doc(db, "users", userId), {
+      await updateDoc(doc(db, "users", userToAction.uid), {
         warnings: firestoreIncrement(1),
-        lastWarning: new Date()
+        lastWarning: new Date(),
+        lastWarningReason: warnReason || "Policy violation"
       });
       
       toast({
         title: "User warned",
         description: "A warning has been issued to this user",
       });
+      
+      // Update local state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.uid === userToAction.uid 
+            ? { 
+                ...user, 
+                warnings: (user.warnings || 0) + 1,
+                lastWarning: new Date(),
+                lastWarningReason: warnReason || "Policy violation"
+              } 
+            : user
+        )
+      );
+      
+      setShowWarnDialog(false);
+      setWarnReason('');
     } catch (error) {
       console.error("Error warning user:", error);
       toast({
@@ -311,6 +379,39 @@ const ModeratorPanel: React.FC = () => {
   
   const toggleModeratorPanel = () => {
     setShowModPanel(!showModPanel);
+  };
+  
+  // Render user status badge
+  const renderUserStatus = (user: User) => {
+    if (user.status === 'banned') {
+      return (
+        <Badge variant="destructive" className="px-2 py-1 rounded-full text-xs">
+          Banned
+        </Badge>
+      );
+    }
+    
+    if (user.warnings && user.warnings > 0) {
+      return (
+        <Badge variant="warning" className="px-2 py-1 rounded-full text-xs bg-yellow-200 text-yellow-800">
+          Warned ({user.warnings})
+        </Badge>
+      );
+    }
+    
+    if (user.vpnDetected) {
+      return (
+        <Badge variant="outline" className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
+          VPN Detected
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="outline" className="px-2 py-1 rounded-full text-xs bg-green-200 text-green-800">
+        {user.onlineStatus || "Active"}
+      </Badge>
+    );
   };
   
   if (!currentUser) {
@@ -466,7 +567,7 @@ const ModeratorPanel: React.FC = () => {
                   placeholder="Search users by name, username or email" 
                   value={searchUsername}
                   onChange={e => setSearchUsername(e.target.value)}
-                  className="max-w-md search-input"
+                  className="max-w-md search-input bg-background text-foreground"
                 />
               </div>
               
@@ -479,13 +580,14 @@ const ModeratorPanel: React.FC = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Registration Date</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>IP Address</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length > 0 ? (
                     filteredUsers.map((user) => (
-                      <TableRow key={user.uid}>
+                      <TableRow key={user.uid} className={user.vpnDetected ? "bg-orange-50 dark:bg-orange-900/20" : ""}>
                         <TableCell>@{user.username}</TableCell>
                         <TableCell>{user.displayName}</TableCell>
                         <TableCell>{user.email}</TableCell>
@@ -493,11 +595,14 @@ const ModeratorPanel: React.FC = () => {
                           {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
                         </TableCell>
                         <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            user.status === 'banned' ? 'bg-red-200 text-red-800' : 
-                            'bg-green-200 text-green-800'
-                          }`}>
-                            {user.status || 'Active'}
+                          {renderUserStatus(user)}
+                        </TableCell>
+                        <TableCell>
+                          <span className={user.vpnDetected ? "text-orange-600" : ""}>
+                            {user.ipAddress || "Unknown"}
+                            {user.vpnDetected && (
+                              <Badge className="ml-2 bg-orange-200 text-orange-800 text-xs">VPN</Badge>
+                            )}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -506,7 +611,6 @@ const ModeratorPanel: React.FC = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                // Set selected user and find their messages
                                 setSelectedUserId(user.uid);
                                 searchUserMessages();
                               }}
@@ -517,7 +621,7 @@ const ModeratorPanel: React.FC = () => {
                             <Button 
                               variant="destructive" 
                               size="sm"
-                              onClick={() => banUser(user.uid)}
+                              onClick={() => openBanDialog(user)}
                             >
                               <Ban className="h-4 w-4 mr-1" />
                               Ban
@@ -525,7 +629,7 @@ const ModeratorPanel: React.FC = () => {
                             <Button 
                               variant="secondary" 
                               size="sm"
-                              onClick={() => warnUser(user.uid)}
+                              onClick={() => openWarnDialog(user)}
                             >
                               <Shield className="h-4 w-4 mr-1" />
                               Warn
@@ -536,7 +640,7 @@ const ModeratorPanel: React.FC = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center">No users found</TableCell>
+                      <TableCell colSpan={7} className="text-center">No users found</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -577,29 +681,6 @@ const ModeratorPanel: React.FC = () => {
                       ))}
                     </TableBody>
                   </Table>
-                  
-                  <div className="mt-6">
-                    <h3 className="text-lg font-medium mb-4">Ban User</h3>
-                    <div className="flex items-center gap-4">
-                      <Select defaultValue="1d" onValueChange={setBanDuration}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Ban Duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1d">1 Day</SelectItem>
-                          <SelectItem value="7d">7 Days</SelectItem>
-                          <SelectItem value="30d">30 Days</SelectItem>
-                          <SelectItem value="permanent">Permanent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        variant="destructive" 
-                        onClick={() => selectedUserId && banUser(selectedUserId)}
-                      >
-                        Ban User
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               )}
             </CardContent>
@@ -616,6 +697,80 @@ const ModeratorPanel: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Ban Dialog */}
+      <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Ban User</DialogTitle>
+            <DialogDescription>
+              {userToAction ? `Ban user @${userToAction.username} (${userToAction.email})` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Ban Duration</label>
+              <Select defaultValue="1d" onValueChange={setBanDuration}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Ban Duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1d">1 Day</SelectItem>
+                  <SelectItem value="7d">7 Days</SelectItem>
+                  <SelectItem value="30d">30 Days</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-1 block">Reason for Ban</label>
+              <Textarea
+                placeholder="Enter reason for ban..."
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBanDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={banUser}>Ban User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Warn Dialog */}
+      <Dialog open={showWarnDialog} onOpenChange={setShowWarnDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Warn User</DialogTitle>
+            <DialogDescription>
+              {userToAction ? `Issue a warning to @${userToAction.username} (${userToAction.email})` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <label className="text-sm font-medium mb-1 block">Warning Reason</label>
+            <Textarea
+              placeholder="Enter reason for warning..."
+              value={warnReason}
+              onChange={(e) => setWarnReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWarnDialog(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={warnUser}>
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Issue Warning
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

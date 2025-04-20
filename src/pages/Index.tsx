@@ -18,6 +18,7 @@ import { LiveSupportProvider } from "@/context/LiveSupportContext";
 const Index = () => {
   const { currentUser } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
+  const [showModeratorPanel, setShowModeratorPanel] = useState(false);
   
   // Check if the user is the moderator
   const isModerator = currentUser?.email === 'vitorrossato812@gmail.com';
@@ -65,7 +66,7 @@ const Index = () => {
           </header>
           
           {/* Main content */}
-          {isModerator ? (
+          {showModeratorPanel && isModerator ? (
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar */}
               <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col">
@@ -74,13 +75,20 @@ const Index = () => {
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-2"
+                    onClick={() => setShowModeratorPanel(false)}
+                  >
+                    Back to Chat
+                  </Button>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <ChatList />
                 </div>
               </div>
               
-              {/* Main area - either chat or moderator panel */}
+              {/* Main area - Moderator panel */}
               <div className="flex-1 flex flex-col overflow-hidden">
                 <ModeratorPanel />
               </div>
@@ -94,6 +102,15 @@ const Index = () => {
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
+                  {isModerator && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-2"
+                      onClick={() => setShowModeratorPanel(true)}
+                    >
+                      Moderator Panel
+                    </Button>
+                  )}
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <ChatList />
@@ -111,6 +128,10 @@ const Index = () => {
         <SettingsModal
           open={showSettings}
           onOpenChange={setShowSettings}
+          onShowModeratorPanel={isModerator ? () => {
+            setShowModeratorPanel(true);
+            setShowSettings(false);
+          } : undefined}
         />
       </ChatProvider>
     </LiveSupportProvider>

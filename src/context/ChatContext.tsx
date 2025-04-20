@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -40,6 +41,13 @@ export interface User {
   photoURL: string;
   status?: string;
   role?: string;
+  description?: string;
+  onlineStatus?: 'online' | 'away' | 'offline';
+  blockedUsers?: string[];
+  warnings?: number;
+  banExpiry?: any;
+  ipAddress?: string;
+  vpnDetected?: boolean;
 }
 
 export interface Conversation {
@@ -77,6 +85,13 @@ interface ChatContextType {
   activeCallType: 'video' | 'voice' | null;
   endCall: () => void;
   refreshConversations: () => void;
+  updateUserDescription: (description: string) => Promise<void>;
+  updateOnlineStatus: (status: 'online' | 'away' | 'offline') => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  getBlockedUsers: () => Promise<User[]>;
+  hasNewMessages: boolean;
+  clearNewMessagesFlag: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -97,9 +112,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messages, setMessages] = useState<Message[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [activeCallType, setActiveCallType] = useState<'video' | 'voice' | null>(null);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+
+  // Add banned words list
+  const bannedWords = [
+    "badword", "profanity", "offensive", "slur", "inappropriate", "banned",
+    // Add more words as needed
+  ];
 
   useEffect(() => {
     if (!currentUser) return;
+
+    // Load blocked users
+    const loadBlockedUsers = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists() && userDoc.data().blockedUsers) {
+          setBlockedUsers(userDoc.data().blockedUsers);
+        }
+      } catch (error) {
+        console.error("Error loading blocked users:", error);
+      }
+    };
+
+    loadBlockedUsers();
 
     const q = query(
       collection(db, "conversations"),
@@ -109,13 +146,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const conversationsData: Conversation[] = [];
+      let newMessages = false;
       
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
         const participantsInfo: User[] = [];
         
+        // Check if there are new messages in this conversation
+        if (data.lastMessage && 
+            data.lastMessage.senderId !== currentUser.uid && 
+            !currentConversation?.id) {
+          newMessages = true;
+        }
+        
         for (const pid of data.participants) {
-          if (pid !== currentUser.uid) {
+          if (pid !== currentUser.uid && !blockedUsers.includes(pid)) {
             const userDocRef = doc(db, "users", pid);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
@@ -132,10 +177,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setConversations(conversationsData);
+      if (newMessages) {
+        setHasNewMessages(true);
+      }
     });
     
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser, currentConversation, blockedUsers]);
 
   useEffect(() => {
     if (!currentConversation) {
@@ -175,7 +223,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const participantsInfo: User[] = [];
         
         for (const pid of data.participants) {
-          if (pid !== currentUser?.uid) {
+          if (pid !== currentUser?.uid && !blockedUsers.includes(pid)) {
             const userDoc = await getDoc(doc(db, "users", pid));
             if (userDoc.exists()) {
               participantsInfo.push(userDoc.data() as User);
@@ -188,6 +236,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...data,
           participantsInfo
         });
+        setHasNewMessages(false);
       }
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -206,6 +255,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .map(doc => doc.data() as User)
         .filter(user => 
           user.uid !== currentUser?.uid && 
+          !blockedUsers.includes(user.uid) &&
           (user.username.toLowerCase().includes(q) || 
            user.displayName.toLowerCase().includes(q))
         );
@@ -223,6 +273,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!participantIds.includes(currentUser.uid)) {
         participantIds.push(currentUser.uid);
+      }
+      
+      // Check if any participants are blocked
+      for (const pid of participantIds) {
+        if (blockedUsers.includes(pid)) {
+          throw new Error("Cannot create conversation with blocked users");
+        }
       }
       
       if (!isGroup && participantIds.length === 2) {
@@ -274,7 +331,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!content.trim()) return;
     
     try {
-      const bannedWords = ["badword1", "badword2", "badword3"];
+      // Check for banned words
       const shouldFlag = bannedWords.some(word => 
         content.toLowerCase().includes(word.toLowerCase())
       );
@@ -308,6 +365,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           reason: "Automatic flagging - banned words",
           status: "pending"
         });
+        
+        // Notify admins about flagged content
+        toast({
+          title: "Message flagged",
+          description: "Your message was flagged for review due to potentially inappropriate content",
+          variant: "warning"
+        });
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -323,6 +387,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
+      // Only allow image files
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Unsupported file type",
+          description: "Only image files are supported",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Check file size (limit to 5MB)
+      const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSizeInBytes) {
+        toast({
+          title: "File too large",
+          description: "Maximum file size is 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // For now, just indicate file uploads are not fully implemented
       toast({
         title: "File upload not available",
         description: "File storage is not configured in this app",
@@ -437,7 +523,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const participantsInfo: User[] = [];
         
         for (const pid of data.participants) {
-          if (pid !== currentUser.uid) {
+          if (pid !== currentUser.uid && !blockedUsers.includes(pid)) {
             const userDocRef = doc(db, "users", pid);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
@@ -464,6 +550,135 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Profile description update
+  const updateUserDescription = async (description: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        description
+      });
+      
+      toast({
+        title: "Profile updated",
+        description: "Your description has been updated"
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Failed to update profile",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Online status update
+  const updateOnlineStatus = async (status: 'online' | 'away' | 'offline') => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        onlineStatus: status
+      });
+    } catch (error) {
+      console.error("Error updating online status:", error);
+    }
+  };
+  
+  // Block a user
+  const blockUser = async (userId: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        blockedUsers: arrayUnion(userId)
+      });
+      
+      setBlockedUsers([...blockedUsers, userId]);
+      
+      toast({
+        title: "User blocked",
+        description: "You will no longer receive messages from this user"
+      });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      toast({
+        title: "Failed to block user",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Unblock a user
+  const unblockUser = async (userId: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const updatedBlockedList = (userData.blockedUsers || []).filter(
+          (id: string) => id !== userId
+        );
+        
+        await updateDoc(userRef, {
+          blockedUsers: updatedBlockedList
+        });
+        
+        setBlockedUsers(updatedBlockedList);
+        
+        toast({
+          title: "User unblocked",
+          description: "You can now receive messages from this user"
+        });
+      }
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      toast({
+        title: "Failed to unblock user",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Get blocked users
+  const getBlockedUsers = async (): Promise<User[]> => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const blockedIds = userData.blockedUsers || [];
+        
+        const blockedUsersList: User[] = [];
+        for (const userId of blockedIds) {
+          const blockedUserDoc = await getDoc(doc(db, "users", userId));
+          if (blockedUserDoc.exists()) {
+            blockedUsersList.push(blockedUserDoc.data() as User);
+          }
+        }
+        
+        return blockedUsersList;
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting blocked users:", error);
+      return [];
+    }
+  };
+  
+  // Clear new messages flag
+  const clearNewMessagesFlag = () => {
+    setHasNewMessages(false);
+  };
+
   const value = {
     conversations,
     currentConversation,
@@ -481,7 +696,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isCallActive,
     activeCallType,
     endCall,
-    refreshConversations
+    refreshConversations,
+    updateUserDescription,
+    updateOnlineStatus,
+    blockUser,
+    unblockUser,
+    getBlockedUsers,
+    hasNewMessages,
+    clearNewMessagesFlag
   };
 
   return (

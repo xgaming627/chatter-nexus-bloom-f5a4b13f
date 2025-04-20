@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LiveSupportChat from './LiveSupportChat';
 import { toast } from '@/hooks/use-toast';
-import { Bell } from 'lucide-react';
+import { Bell, Shield } from 'lucide-react';
 
 const ModeratorLiveSupport: React.FC = () => {
   const { 
@@ -55,7 +55,7 @@ const ModeratorLiveSupport: React.FC = () => {
   useEffect(() => {
     const unreadSessions = supportSessions.filter(session => 
       session.status === 'active' && 
-      (session.lastReadByModerator === false || session.lastReadByModerator === undefined)
+      session.lastReadByModerator === false
     );
     
     if (unreadSessions.length > 0) {
@@ -99,11 +99,13 @@ const ModeratorLiveSupport: React.FC = () => {
           {supportSessions.length > 0 ? (
             supportSessions.map(session => {
               const isRead = session.lastReadByModerator === true;
+              const userHasVPN = session.userInfo?.vpnDetected;
+              
               return (
                 <Button
                   key={session.id}
                   variant={isRead ? "ghost" : "default"}
-                  className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!isRead ? 'bg-muted' : ''}`}
+                  className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!isRead ? 'bg-muted' : ''} ${userHasVPN ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}
                   onClick={() => handleSelectSession(session)}
                 >
                   <div className="flex items-start gap-3 w-full">
@@ -114,9 +116,16 @@ const ModeratorLiveSupport: React.FC = () => {
                     <div className="flex-1 text-left">
                       <div className="font-medium flex justify-between">
                         <span>{session.userInfo?.displayName || "User"}</span>
-                        {!isRead && (
-                          <Badge variant="outline" className="ml-2">New</Badge>
-                        )}
+                        <div className="flex space-x-1">
+                          {userHasVPN && (
+                            <Badge variant="outline" className="ml-2 bg-orange-200 text-orange-800 text-xs">
+                              VPN
+                            </Badge>
+                          )}
+                          {!isRead && (
+                            <Badge variant="outline" className="ml-2">New</Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         @{session.userInfo?.username || "user"}
@@ -156,10 +165,17 @@ const ModeratorLiveSupport: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <Badge variant="outline">
-                  {selectedSession.status === 'active' ? 'Active' : 
-                   selectedSession.status === 'requested-end' ? 'End Requested' : 'Ended'}
-                </Badge>
+                <div className="flex gap-2">
+                  {selectedSession.userInfo?.vpnDetected && (
+                    <Badge variant="outline" className="bg-orange-200 text-orange-800">
+                      VPN Detected
+                    </Badge>
+                  )}
+                  <Badge variant="outline">
+                    {selectedSession.status === 'active' ? 'Active' : 
+                     selectedSession.status === 'requested-end' ? 'End Requested' : 'Ended'}
+                  </Badge>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4 mt-4">
@@ -178,11 +194,9 @@ const ModeratorLiveSupport: React.FC = () => {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Support Session Started</p>
+                  <p className="text-sm font-medium">IP Address</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedSession.createdAt ? 
-                     format(selectedSession.createdAt.toDate(), 'PPp') : 
-                     "Unknown"}
+                    {selectedSession.userInfo?.ipAddress || "Unknown"}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -191,6 +205,23 @@ const ModeratorLiveSupport: React.FC = () => {
                     {selectedSession.userInfo?.messageCount || 0}
                   </p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Support Session Started</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.createdAt ? 
+                     format(selectedSession.createdAt.toDate(), 'PPp') : 
+                     "Unknown"}
+                  </p>
+                </div>
+                {selectedSession.userInfo?.warnings ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Warnings</p>
+                    <p className="text-sm text-orange-500 font-medium">
+                      <Shield className="inline-block h-4 w-4 mr-1" />
+                      {selectedSession.userInfo.warnings} previous warnings
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
             

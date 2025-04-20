@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -38,6 +39,8 @@ export interface SupportSession {
     photoURL?: string;
     createdAt?: any;
     messageCount?: number;
+    ipAddress?: string;
+    vpnDetected?: boolean;
   };
   createdAt: any;
   lastMessage?: {
@@ -48,7 +51,7 @@ export interface SupportSession {
   status: 'active' | 'ended' | 'requested-end';
   rating?: number;
   feedback?: string;
-  lastReadByModerator?: boolean;
+  lastReadByModerator: boolean;
 }
 
 interface LiveSupportContextType {
@@ -64,6 +67,7 @@ interface LiveSupportContextType {
   isActiveSupportSession: boolean;
   isModerator: boolean;
   getUserSupportStats: (userId: string) => Promise<any>;
+  hasNewSupportMessages: boolean;
 }
 
 const LiveSupportContext = createContext<LiveSupportContextType | null>(null);
@@ -84,9 +88,21 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [isModerator, setIsModerator] = useState(false);
   const [isActiveSupportSession, setIsActiveSupportSession] = useState(false);
+  const [hasNewSupportMessages, setHasNewSupportMessages] = useState(false);
   
   useEffect(() => {
     if (!currentUser) return;
+    
+    // Check if user is a moderator
+    const checkModerator = async () => {
+      if (currentUser.email === 'vitorrossato812@gmail.com') {
+        setIsModerator(true);
+      } else {
+        setIsModerator(false);
+      }
+    };
+    
+    checkModerator();
     
     let q;
     
@@ -106,9 +122,20 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const sessionsData: SupportSession[] = [];
+      let hasNewMessages = false;
       
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data() as Omit<SupportSession, 'id' | 'userInfo'>;
+        
+        // For non-moderators, if there's a new message and it wasn't sent by the current user
+        if (!isModerator && data.lastMessage && data.lastMessage.senderId !== currentUser.uid) {
+          hasNewMessages = true;
+        }
+        
+        // For moderators, if there's a session that hasn't been read
+        if (isModerator && data.lastReadByModerator === false) {
+          hasNewMessages = true;
+        }
         
         let userInfo;
         if (isModerator) {
@@ -116,6 +143,10 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             userInfo = userDocSnap.data();
+            
+            // Simulate IP and VPN for demo
+            userInfo.ipAddress = `192.168.0.${Math.floor(Math.random() * 255)}`;
+            userInfo.vpnDetected = Math.random() > 0.7; // 30% chance of VPN detected
             
             const messagesQuery = query(
               collection(db, "messages"),
@@ -130,11 +161,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           id: docSnap.id,
           ...data,
           userInfo,
-          lastReadByModerator: data.lastReadByModerator || false
+          lastReadByModerator: data.lastReadByModerator !== undefined ? data.lastReadByModerator : false
         });
       }
       
       setSupportSessions(sessionsData);
+      setHasNewSupportMessages(hasNewMessages);
       
       if (!isModerator) {
         const hasActiveSession = sessionsData.some(session => 
@@ -175,6 +207,11 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } as SupportMessage));
       
       setSupportMessages(messagesData);
+      
+      // If messages are viewed, clear new messages flag
+      if (currentSupportSession) {
+        setHasNewSupportMessages(false);
+      }
     });
     
     return () => unsubscribe();
@@ -198,6 +235,10 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           if (userDocSnap.exists()) {
             data.userInfo = userDocSnap.data() as any;
             
+            // Add IP address and VPN status for demo
+            data.userInfo.ipAddress = `192.168.0.${Math.floor(Math.random() * 255)}`;
+            data.userInfo.vpnDetected = Math.random() > 0.7; // 30% chance of VPN detected
+            
             const messagesQuery = query(
               collection(db, "messages"),
               where("senderId", "==", data.userId)
@@ -206,6 +247,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
             data.userInfo.messageCount = messagesSnap.size;
           }
           
+          // Mark as read when a moderator opens the session
           if (!data.lastReadByModerator) {
             await updateDoc(doc(db, "supportSessions", id), {
               lastReadByModerator: true
@@ -246,7 +288,8 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           content: "Support session started",
           timestamp: serverTimestamp(),
           senderId: "system"
-        }
+        },
+        lastReadByModerator: false
       };
       
       const docRef = await addDoc(collection(db, "supportSessions"), sessionData);
@@ -379,7 +422,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "Thank you for using our support service"
       });
       
-      setCurrentSupportSession(null);
+      setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
     } catch (error) {
       console.error("Error ending support session:", error);
       toast({
@@ -403,6 +446,11 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         title: "Feedback submitted",
         description: "Thank you for your feedback"
       });
+      
+      // Update local state
+      setCurrentSupportSession(prev => 
+        prev ? { ...prev, rating, feedback: feedback || null } : null
+      );
     } catch (error) {
       console.error("Error submitting feedback:", error);
       toast({
@@ -446,7 +494,10 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         userInfo: userData,
         supportSessions: sessions,
         messageCount: messagesSnap.size,
-        createdAt: userData.createdAt
+        createdAt: userData.createdAt,
+        // Add mock IP and VPN data for demo
+        ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
+        vpnDetected: Math.random() > 0.7 // 30% chance of VPN
       };
     } catch (error) {
       console.error("Error getting user support stats:", error);
@@ -466,7 +517,8 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     submitFeedback,
     isActiveSupportSession,
     isModerator,
-    getUserSupportStats
+    getUserSupportStats,
+    hasNewSupportMessages
   };
   
   return (
