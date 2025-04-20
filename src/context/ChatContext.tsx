@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -77,6 +76,7 @@ interface ChatContextType {
   isCallActive: boolean;
   activeCallType: 'video' | 'voice' | null;
   endCall: () => void;
+  refreshConversations: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -98,7 +98,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCallActive, setIsCallActive] = useState(false);
   const [activeCallType, setActiveCallType] = useState<'video' | 'voice' | null>(null);
 
-  // Load conversations for current user
   useEffect(() => {
     if (!currentUser) return;
 
@@ -138,7 +137,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Load messages for current conversation
   useEffect(() => {
     if (!currentConversation) {
       setMessages([]);
@@ -227,7 +225,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participantIds.push(currentUser.uid);
       }
       
-      // Check if 1-on-1 conversation already exists
       if (!isGroup && participantIds.length === 2) {
         const existingConvs = conversations.filter(c => 
           !c.isGroupChat && 
@@ -422,6 +419,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveCallType(null);
   };
 
+  const refreshConversations = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const q = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", currentUser.uid),
+        orderBy("lastMessage.timestamp", "desc")
+      );
+      
+      const snapshot = await getDocs(q);
+      const conversationsData: Conversation[] = [];
+      
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
+        const participantsInfo: User[] = [];
+        
+        for (const pid of data.participants) {
+          if (pid !== currentUser.uid) {
+            const userDocRef = doc(db, "users", pid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              participantsInfo.push(userDocSnap.data() as User);
+            }
+          }
+        }
+        
+        conversationsData.push({
+          id: docSnap.id,
+          ...data,
+          participantsInfo
+        });
+      }
+      
+      setConversations(conversationsData);
+    } catch (error) {
+      console.error("Error refreshing conversations:", error);
+      toast({
+        title: "Failed to refresh conversations",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
   const value = {
     conversations,
     currentConversation,
@@ -438,7 +480,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startVoiceCall,
     isCallActive,
     activeCallType,
-    endCall
+    endCall,
+    refreshConversations
   };
 
   return (

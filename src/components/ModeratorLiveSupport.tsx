@@ -55,7 +55,7 @@ const ModeratorLiveSupport: React.FC = () => {
   useEffect(() => {
     const unreadSessions = supportSessions.filter(session => 
       session.status === 'active' && 
-      !session.lastReadByModerator
+      (session.lastReadByModerator === false || session.lastReadByModerator === undefined)
     );
     
     if (unreadSessions.length > 0) {
@@ -97,37 +97,40 @@ const ModeratorLiveSupport: React.FC = () => {
         </div>
         <div className="overflow-y-auto max-h-[500px]">
           {supportSessions.length > 0 ? (
-            supportSessions.map(session => (
-              <Button
-                key={session.id}
-                variant={session.lastReadByModerator ? "ghost" : "default"}
-                className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!session.lastReadByModerator ? 'bg-muted' : ''}`}
-                onClick={() => handleSelectSession(session)}
-              >
-                <div className="flex items-start gap-3 w-full">
-                  <UserAvatar 
-                    username={session.userInfo?.username || "User"} 
-                    photoURL={session.userInfo?.photoURL} 
-                  />
-                  <div className="flex-1 text-left">
-                    <div className="font-medium flex justify-between">
-                      <span>{session.userInfo?.displayName || "User"}</span>
-                      {!session.lastReadByModerator && (
-                        <Badge variant="outline" className="ml-2">New</Badge>
+            supportSessions.map(session => {
+              const isRead = session.lastReadByModerator === true;
+              return (
+                <Button
+                  key={session.id}
+                  variant={isRead ? "ghost" : "default"}
+                  className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!isRead ? 'bg-muted' : ''}`}
+                  onClick={() => handleSelectSession(session)}
+                >
+                  <div className="flex items-start gap-3 w-full">
+                    <UserAvatar 
+                      username={session.userInfo?.username || "User"} 
+                      photoURL={session.userInfo?.photoURL} 
+                    />
+                    <div className="flex-1 text-left">
+                      <div className="font-medium flex justify-between">
+                        <span>{session.userInfo?.displayName || "User"}</span>
+                        {!isRead && (
+                          <Badge variant="outline" className="ml-2">New</Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        @{session.userInfo?.username || "user"}
+                      </div>
+                      {session.lastMessage && (
+                        <div className="text-sm text-muted-foreground truncate mt-1">
+                          {session.lastMessage.content}
+                        </div>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      @{session.userInfo?.username || "user"}
-                    </div>
-                    {session.lastMessage && (
-                      <div className="text-sm text-muted-foreground truncate mt-1">
-                        {session.lastMessage.content}
-                      </div>
-                    )}
                   </div>
-                </div>
-              </Button>
-            ))
+                </Button>
+              );
+            })
           ) : (
             <p className="p-4 text-center text-muted-foreground">
               No active support sessions

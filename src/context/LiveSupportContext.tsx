@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -49,6 +48,7 @@ export interface SupportSession {
   status: 'active' | 'ended' | 'requested-end';
   rating?: number;
   feedback?: string;
+  lastReadByModerator?: boolean;
 }
 
 interface LiveSupportContextType {
@@ -56,7 +56,7 @@ interface LiveSupportContextType {
   currentSupportSession: SupportSession | null;
   supportMessages: SupportMessage[];
   createSupportSession: () => Promise<string>;
-  sendSupportMessage: (content: string) => Promise<void>;
+  sendSupportMessage: (content: string, senderRole?: 'user' | 'moderator' | 'system') => Promise<void>;
   setCurrentSupportSessionId: (id: string | null) => void;
   requestEndSupport: () => Promise<void>;
   forceEndSupport: () => Promise<void>;
@@ -85,33 +85,18 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isModerator, setIsModerator] = useState(false);
   const [isActiveSupportSession, setIsActiveSupportSession] = useState(false);
   
-  // Check if current user is a moderator
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    // For demo purposes, we'll check if the email is the specified mod email
-    if (currentUser.email === 'vitorrossato812@gmail.com') {
-      setIsModerator(true);
-    } else {
-      setIsModerator(false);
-    }
-  }, [currentUser]);
-  
-  // Load support sessions based on user role
   useEffect(() => {
     if (!currentUser) return;
     
     let q;
     
     if (isModerator) {
-      // Moderators see all active support sessions
       q = query(
         collection(db, "supportSessions"),
         where("status", "in", ["active", "requested-end"]),
         orderBy("lastMessage.timestamp", "desc")
       );
     } else {
-      // Regular users only see their own sessions
       q = query(
         collection(db, "supportSessions"),
         where("userId", "==", currentUser.uid),
@@ -125,7 +110,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data() as Omit<SupportSession, 'id' | 'userInfo'>;
         
-        // Get user info for each session
         let userInfo;
         if (isModerator) {
           const userDocRef = doc(db, "users", data.userId);
@@ -133,7 +117,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           if (userDocSnap.exists()) {
             userInfo = userDocSnap.data();
             
-            // Count user's messages
             const messagesQuery = query(
               collection(db, "messages"),
               where("senderId", "==", data.userId)
@@ -146,20 +129,19 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         sessionsData.push({
           id: docSnap.id,
           ...data,
-          userInfo
+          userInfo,
+          lastReadByModerator: data.lastReadByModerator || false
         });
       }
       
       setSupportSessions(sessionsData);
       
-      // Set active session flag
       if (!isModerator) {
         const hasActiveSession = sessionsData.some(session => 
           session.status === 'active' || session.status === 'requested-end'
         );
         setIsActiveSupportSession(hasActiveSession);
         
-        // If there's an active session but no current session set, set it
         if (hasActiveSession && !currentSupportSession) {
           const activeSession = sessionsData.find(session => 
             session.status === 'active' || session.status === 'requested-end'
@@ -174,7 +156,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => unsubscribe();
   }, [currentUser, isModerator]);
   
-  // Load messages for current support session
   useEffect(() => {
     if (!currentSupportSession) {
       setSupportMessages([]);
@@ -211,14 +192,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (sessionDoc.exists()) {
         const data = sessionDoc.data() as SupportSession;
         
-        // Get user info if moderator
         if (isModerator) {
           const userDocRef = doc(db, "users", data.userId);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             data.userInfo = userDocSnap.data() as any;
             
-            // Count user's messages
             const messagesQuery = query(
               collection(db, "messages"),
               where("senderId", "==", data.userId)
@@ -226,11 +205,18 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const messagesSnap = await getDocs(messagesQuery);
             data.userInfo.messageCount = messagesSnap.size;
           }
+          
+          if (!data.lastReadByModerator) {
+            await updateDoc(doc(db, "supportSessions", id), {
+              lastReadByModerator: true
+            });
+          }
         }
         
         setCurrentSupportSession({
           id: sessionDoc.id,
-          ...data
+          ...data,
+          lastReadByModerator: data.lastReadByModerator || false
         });
       }
     } catch (error) {
@@ -242,7 +228,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      // Check if user already has an active support session
       if (isActiveSupportSession) {
         const existingSession = supportSessions.find(s => 
           s.status === 'active' || s.status === 'requested-end'
@@ -266,7 +251,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       const docRef = await addDoc(collection(db, "supportSessions"), sessionData);
       
-      // Send automatic welcome message
       await addDoc(collection(db, "supportMessages"), {
         sessionId: docRef.id,
         senderId: "system",
@@ -296,16 +280,18 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  const sendSupportMessage = async (content: string) => {
-    if (!currentUser) throw new Error("You must be logged in");
+  const sendSupportMessage = async (content: string, senderRole?: 'user' | 'moderator' | 'system') => {
+    if (!currentUser && senderRole !== 'system') throw new Error("You must be logged in");
     if (!currentSupportSession) throw new Error("No active support session");
     if (!content.trim()) return;
     
     try {
+      const role = senderRole || (isModerator ? 'moderator' : 'user');
+      
       const messageData = {
         sessionId: currentSupportSession.id,
-        senderId: currentUser.uid,
-        senderRole: isModerator ? 'moderator' : 'user',
+        senderId: role === 'system' ? 'system' : currentUser!.uid,
+        senderRole: role,
         content,
         timestamp: serverTimestamp(),
         read: false
@@ -317,8 +303,9 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         lastMessage: {
           content,
           timestamp: serverTimestamp(),
-          senderId: currentUser.uid
-        }
+          senderId: role === 'system' ? 'system' : currentUser!.uid
+        },
+        lastReadByModerator: isModerator
       });
       
     } catch (error) {
@@ -353,7 +340,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "Waiting for confirmation to end support session"
       });
       
-      // Update the local session status
       setCurrentSupportSession(prev => 
         prev ? { ...prev, status: 'requested-end' } : null
       );
@@ -429,7 +415,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   
   const getUserSupportStats = async (userId: string) => {
     try {
-      // Get user info
       const userDocRef = doc(db, "users", userId);
       const userDocSnap = await getDoc(userDocRef);
       
@@ -439,7 +424,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       const userData = userDocSnap.data();
       
-      // Get support sessions for this user
       const sessionsQuery = query(
         collection(db, "supportSessions"),
         where("userId", "==", userId)
@@ -451,7 +435,6 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ...doc.data()
       }));
       
-      // Get message count
       const messagesQuery = query(
         collection(db, "messages"),
         where("senderId", "==", userId)
