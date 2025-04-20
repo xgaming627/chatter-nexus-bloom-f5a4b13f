@@ -24,14 +24,18 @@ import { Label } from "@/components/ui/label";
 import { Settings, LogOut, Sun, Moon, Languages, User, MessageSquare } from "lucide-react";
 import { useTheme } from "next-themes";
 import LiveSupportWindow from "./LiveSupportWindow";
+import { toast } from "@/hooks/use-toast";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const ProfileDropdown = () => {
-  const { currentUser, logout, updateDisplayName, updatePhotoURL } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [photoURL, setPhotoURL] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
+  const [openModeratorPanel, setOpenModeratorPanel] = useState(false);
   const [language, setLanguage] = useState("en");
   
   useEffect(() => {
@@ -45,17 +49,37 @@ const ProfileDropdown = () => {
     if (!currentUser) return;
     
     try {
+      // Update user profile directly in firestore
+      const userRef = doc(db, "users", currentUser.uid);
+      
+      const updates: Record<string, any> = {};
+      
       if (username && username !== currentUser.displayName) {
-        await updateDisplayName(username);
+        updates.displayName = username;
       }
       
       if (photoURL && photoURL !== currentUser.photoURL) {
-        await updatePhotoURL(photoURL);
+        updates.photoURL = photoURL;
       }
+      
+      await updateDoc(userRef, updates);
+      
+      // Refresh the page to see changes
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully."
+      });
+      
+      window.location.reload();
       
       setOpenDialog(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile.",
+        variant: "destructive"
+      });
     }
   };
   
@@ -75,6 +99,25 @@ const ProfileDropdown = () => {
     setLanguage(lang);
     // This would normally change the app language
     // For now we'll just simulate it
+    toast({
+      title: "Language changed",
+      description: `Language set to ${lang === 'en' ? 'English' : lang === 'es' ? 'Spanish' : 'French'}`
+    });
+  };
+  
+  const handleOpenModeratorPanel = () => {
+    // Check if user is a moderator
+    if (currentUser?.email === 'vitorrossato812@gmail.com') {
+      setOpenModeratorPanel(true);
+      // Redirect to mod panel
+      window.location.href = '/?mod=true';
+    } else {
+      toast({
+        title: "Access denied",
+        description: "You don't have permission to access moderator panel",
+        variant: "destructive"
+      });
+    }
   };
   
   if (!currentUser) return null;
@@ -150,6 +193,12 @@ const ProfileDropdown = () => {
                 </button>
               </div>
             </DropdownMenuItem>
+            {currentUser?.email === 'vitorrossato812@gmail.com' && (
+              <DropdownMenuItem onClick={handleOpenModeratorPanel}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Moderator Panel</span>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>

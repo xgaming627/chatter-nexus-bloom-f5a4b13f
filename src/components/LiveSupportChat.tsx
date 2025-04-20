@@ -24,6 +24,7 @@ const LiveSupportChat: React.FC = () => {
   
   useEffect(() => {
     scrollToBottom();
+    console.log("Support messages updated:", supportMessages);
   }, [supportMessages]);
   
   const scrollToBottom = () => {
@@ -34,6 +35,7 @@ const LiveSupportChat: React.FC = () => {
     e.preventDefault();
     
     if (newMessage.trim() && currentSupportSession) {
+      console.log("Sending support message:", newMessage);
       sendSupportMessage(newMessage);
       setNewMessage('');
     }

@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LiveSupportChat from './LiveSupportChat';
+import { toast } from '@/hooks/use-toast';
+import { Bell } from 'lucide-react';
 
 const ModeratorLiveSupport: React.FC = () => {
   const { 
@@ -22,6 +24,7 @@ const ModeratorLiveSupport: React.FC = () => {
   const [selectedSession, setSelectedSession] = useState<SupportSession | null>(null);
   const [feedbackData, setFeedbackData] = useState<any[]>([]);
   const [userStats, setUserStats] = useState<any>(null);
+  const [hasNewSessions, setHasNewSessions] = useState(false);
   
   useEffect(() => {
     // Generate feedback data or fetch it from the database
@@ -47,6 +50,22 @@ const ModeratorLiveSupport: React.FC = () => {
     
     setFeedbackData(chartData);
   }, [supportSessions]);
+
+  // Check for new support sessions
+  useEffect(() => {
+    const unreadSessions = supportSessions.filter(session => 
+      session.status === 'active' && 
+      !session.lastReadByModerator
+    );
+    
+    if (unreadSessions.length > 0) {
+      setHasNewSessions(true);
+      toast({
+        title: "New support request",
+        description: `${unreadSessions.length} support ${unreadSessions.length === 1 ? 'session' : 'sessions'} waiting for assistance`,
+      });
+    }
+  }, [supportSessions]);
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
@@ -59,6 +78,7 @@ const ModeratorLiveSupport: React.FC = () => {
       }
       
       setShowSupportChat(true);
+      setHasNewSessions(false);
     } catch (error) {
       console.error("Error selecting support session:", error);
     }
@@ -67,16 +87,21 @@ const ModeratorLiveSupport: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="col-span-1 border rounded-lg overflow-hidden">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex justify-between items-center">
           <h3 className="font-medium">Active Support Sessions</h3>
+          {hasNewSessions && (
+            <Badge variant="destructive" className="animate-pulse">
+              <Bell className="h-3 w-3 mr-1" /> New
+            </Badge>
+          )}
         </div>
         <div className="overflow-y-auto max-h-[500px]">
           {supportSessions.length > 0 ? (
             supportSessions.map(session => (
               <Button
                 key={session.id}
-                variant="ghost"
-                className="w-full justify-start p-4 h-auto border-b hover:bg-accent"
+                variant={session.lastReadByModerator ? "ghost" : "default"}
+                className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!session.lastReadByModerator ? 'bg-muted' : ''}`}
                 onClick={() => handleSelectSession(session)}
               >
                 <div className="flex items-start gap-3 w-full">
@@ -85,8 +110,11 @@ const ModeratorLiveSupport: React.FC = () => {
                     photoURL={session.userInfo?.photoURL} 
                   />
                   <div className="flex-1 text-left">
-                    <div className="font-medium">
-                      {session.userInfo?.displayName || "User"}
+                    <div className="font-medium flex justify-between">
+                      <span>{session.userInfo?.displayName || "User"}</span>
+                      {!session.lastReadByModerator && (
+                        <Badge variant="outline" className="ml-2">New</Badge>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       @{session.userInfo?.username || "user"}

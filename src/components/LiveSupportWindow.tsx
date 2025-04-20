@@ -42,9 +42,11 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasFirstMessageSent, setHasFirstMessageSent] = useState(false);
   
   useEffect(() => {
     scrollToBottom();
+    console.log("Support window messages:", supportMessages);
   }, [supportMessages]);
   
   useEffect(() => {
@@ -53,6 +55,18 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
     }
   }, [open, currentSupportSession, isActiveSupportSession]);
   
+  useEffect(() => {
+    // Add automated welcome message
+    if (hasFirstMessageSent && supportMessages.length === 1) {
+      // Add a small delay to make it look natural
+      const timer = setTimeout(() => {
+        sendSupportMessage("Thanks for contacting support! One of our representatives will speak to you shortly!", 'system');
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasFirstMessageSent, supportMessages.length]);
+  
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -60,6 +74,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   const handleCreateSession = async () => {
     try {
       await createSupportSession();
+      console.log("Support session created");
     } catch (error) {
       console.error("Error creating support session:", error);
     }
@@ -69,8 +84,13 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
     e.preventDefault();
     
     if (newMessage.trim() && currentSupportSession) {
+      console.log("Sending message:", newMessage);
       sendSupportMessage(newMessage);
       setNewMessage('');
+      
+      if (!hasFirstMessageSent) {
+        setHasFirstMessageSent(true);
+      }
     }
   };
   

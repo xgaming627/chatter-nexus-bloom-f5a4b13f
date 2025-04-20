@@ -65,6 +65,7 @@ const ChatWindow: React.FC = () => {
     e.preventDefault();
     
     if (newMessage.trim() && currentConversation) {
+      console.log("Sending message to conversation:", currentConversation.id);
       sendMessage(newMessage, currentConversation.id);
       setNewMessage('');
     }
@@ -83,7 +84,7 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    // Check file type
+    // Check file type - only allow images
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Unsupported file type",
@@ -106,6 +107,7 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
+    console.log("Uploading file:", file.name);
     uploadFile(file, currentConversation.id);
     e.target.value = '';
   };
@@ -119,6 +121,10 @@ const ChatWindow: React.FC = () => {
   
   const handleReportMessage = (message: Message) => {
     reportMessage(message.id, 'Inappropriate content');
+    toast({
+      title: "Message reported",
+      description: "This message has been reported to moderators",
+    });
   };
   
   if (!currentConversation) {

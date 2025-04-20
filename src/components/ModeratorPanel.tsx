@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, 
-  Timestamp, orderBy, onSnapshot 
+  Timestamp, orderBy, onSnapshot, increment as firestoreIncrement
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,9 +132,9 @@ const ModeratorPanel: React.FC = () => {
       setFilteredUsers(users);
     } else {
       const filtered = users.filter(user => 
-        user.username.toLowerCase().includes(searchUsername.toLowerCase()) ||
-        user.displayName.toLowerCase().includes(searchUsername.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchUsername.toLowerCase())
+        user.username?.toLowerCase().includes(searchUsername.toLowerCase()) ||
+        user.displayName?.toLowerCase().includes(searchUsername.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchUsername.toLowerCase())
       );
       setFilteredUsers(filtered);
     }
@@ -142,29 +142,34 @@ const ModeratorPanel: React.FC = () => {
   
   // Search for users by username
   const searchUserMessages = async () => {
-    if (!searchUsername.trim()) return;
+    if (!searchUsername.trim() && !selectedUserId) return;
     
     try {
-      // First, find the user by username
-      const usersRef = collection(db, "users");
-      const userQuery = query(usersRef, where("username", "==", searchUsername));
-      const userDocs = await getDocs(userQuery);
-      
-      if (userDocs.empty) {
-        toast({
-          title: "User not found",
-          description: `No user found with username ${searchUsername}`,
-          variant: "destructive"
-        });
-        return;
+      let userId = selectedUserId;
+
+      if (!userId) {
+        // First, find the user by username
+        const usersRef = collection(db, "users");
+        const userQuery = query(usersRef, where("username", "==", searchUsername));
+        const userDocs = await getDocs(userQuery);
+        
+        if (userDocs.empty) {
+          toast({
+            title: "User not found",
+            description: `No user found with username ${searchUsername}`,
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        const userData = userDocs.docs[0].data() as User;
+        userId = userData.uid;
+        setSelectedUserId(userId);
       }
-      
-      const userData = userDocs.docs[0].data() as User;
-      setSelectedUserId(userData.uid);
-      
+
       // Then get messages from the user
       const messagesRef = collection(db, "messages");
-      const messageQuery = query(messagesRef, where("senderId", "==", userData.uid));
+      const messageQuery = query(messagesRef, where("senderId", "==", userId));
       const messageDocs = await getDocs(messageQuery);
       
       const messages: any[] = [];
@@ -181,7 +186,7 @@ const ModeratorPanel: React.FC = () => {
       if (messages.length === 0) {
         toast({
           title: "No messages found",
-          description: `User ${searchUsername} has no messages`,
+          description: `User has no messages`,
           variant: "destructive"
         });
       }
@@ -266,7 +271,7 @@ const ModeratorPanel: React.FC = () => {
     try {
       // Update the user's record with a warning
       await updateDoc(doc(db, "users", userId), {
-        warnings: increment(1),
+        warnings: firestoreIncrement(1),
         lastWarning: new Date()
       });
       
@@ -333,7 +338,7 @@ const ModeratorPanel: React.FC = () => {
       <div className="container mx-auto p-4">
         <Button 
           variant="outline" 
-          className="mb-4"
+          className="mb-4 fixed top-20 right-4 z-50 shadow-md"
           onClick={toggleModeratorPanel}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -613,14 +618,6 @@ const ModeratorPanel: React.FC = () => {
       </Tabs>
     </div>
   );
-};
-
-// Helper function for incrementing fields in Firestore
-const increment = (amount: number) => {
-  return {
-    __op: 'increment',
-    __amount: amount
-  };
 };
 
 export default ModeratorPanel;

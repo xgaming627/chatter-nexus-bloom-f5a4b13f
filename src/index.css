@@ -25,6 +25,8 @@
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
     --radius: 0.5rem;
+    --teams-purple: #6264A7;
+    --teams-purple-light: #8283B5;
   }
  
   .dark {
@@ -47,6 +49,8 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+    --teams-purple: #8283B5;
+    --teams-purple-light: #9899C7;
   }
 }
 
@@ -92,7 +96,7 @@
 
 /* Fix search input visibility in dark mode */
 .search-input {
-  @apply text-gray-800 dark:text-white !important;
+  @apply text-foreground dark:text-white !important;
 }
 
 /* Ensure dropdown menus are visible in dark mode */
@@ -110,3 +114,17 @@
   @apply z-40 bg-background border border-border;
 }
 
+/* Style fixes for various components */
+.dropdown-menu {
+  @apply z-50 bg-background border border-border shadow-lg;
+}
+
+/* Fix dark mode issues */
+.dark {
+  color-scheme: dark;
+}
+
+/* Fix for DialogContent */
+.dark [role="dialog"] {
+  @apply bg-background text-foreground border-border;
+}
