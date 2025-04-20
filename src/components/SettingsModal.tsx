@@ -21,9 +21,10 @@ import { Switch } from '@/components/ui/switch';
 interface SettingsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onShowModeratorPanel?: () => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onShowModeratorPanel }) => {
   const [language, setLanguage] = useState('english');
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
@@ -105,6 +106,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => 
               />
             </div>
           </div>
+          
+          {onShowModeratorPanel && (
+            <div className="grid gap-4 pt-2">
+              <Button onClick={() => {
+                onShowModeratorPanel();
+                onOpenChange(false);
+              }} variant="outline">
+                Open Moderator Panel
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

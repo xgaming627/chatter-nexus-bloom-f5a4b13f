@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -115,16 +114,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
-  // Add banned words list
   const bannedWords = [
     "badword", "profanity", "offensive", "slur", "inappropriate", "banned",
-    // Add more words as needed
   ];
 
   useEffect(() => {
     if (!currentUser) return;
 
-    // Load blocked users
     const loadBlockedUsers = async () => {
       try {
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -152,7 +148,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = docSnap.data() as Omit<Conversation, 'id' | 'participantsInfo'>;
         const participantsInfo: User[] = [];
         
-        // Check if there are new messages in this conversation
         if (data.lastMessage && 
             data.lastMessage.senderId !== currentUser.uid && 
             !currentConversation?.id) {
@@ -275,7 +270,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participantIds.push(currentUser.uid);
       }
       
-      // Check if any participants are blocked
       for (const pid of participantIds) {
         if (blockedUsers.includes(pid)) {
           throw new Error("Cannot create conversation with blocked users");
@@ -331,7 +325,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!content.trim()) return;
     
     try {
-      // Check for banned words
       const shouldFlag = bannedWords.some(word => 
         content.toLowerCase().includes(word.toLowerCase())
       );
@@ -366,11 +359,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: "pending"
         });
         
-        // Notify admins about flagged content
         toast({
           title: "Message flagged",
           description: "Your message was flagged for review due to potentially inappropriate content",
-          variant: "warning"
+          variant: "destructive"
         });
       }
     } catch (error) {
@@ -387,7 +379,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      // Only allow image files
       if (!file.type.startsWith('image/')) {
         toast({
           title: "Unsupported file type",
@@ -397,8 +388,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // Check file size (limit to 5MB)
-      const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+      const maxSizeInBytes = 5 * 1024 * 1024;
       if (file.size > maxSizeInBytes) {
         toast({
           title: "File too large",
@@ -408,7 +398,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // For now, just indicate file uploads are not fully implemented
       toast({
         title: "File upload not available",
         description: "File storage is not configured in this app",
@@ -550,7 +539,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Profile description update
   const updateUserDescription = async (description: string) => {
     if (!currentUser) throw new Error("You must be logged in");
     
@@ -572,8 +560,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-  
-  // Online status update
+
   const updateOnlineStatus = async (status: 'online' | 'away' | 'offline') => {
     if (!currentUser) throw new Error("You must be logged in");
     
@@ -585,8 +572,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error updating online status:", error);
     }
   };
-  
-  // Block a user
+
   const blockUser = async (userId: string) => {
     if (!currentUser) throw new Error("You must be logged in");
     
@@ -611,8 +597,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-  
-  // Unblock a user
+
   const unblockUser = async (userId: string) => {
     if (!currentUser) throw new Error("You must be logged in");
     
@@ -646,8 +631,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-  
-  // Get blocked users
+
   const getBlockedUsers = async (): Promise<User[]> => {
     if (!currentUser) throw new Error("You must be logged in");
     
@@ -673,8 +657,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [];
     }
   };
-  
-  // Clear new messages flag
+
   const clearNewMessagesFlag = () => {
     setHasNewMessages(false);
   };

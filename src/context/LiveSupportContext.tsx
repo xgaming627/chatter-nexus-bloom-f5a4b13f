@@ -41,6 +41,8 @@ export interface SupportSession {
     messageCount?: number;
     ipAddress?: string;
     vpnDetected?: boolean;
+    warnings?: number;
+    lastWarning?: any;
   };
   createdAt: any;
   lastMessage?: {

@@ -393,7 +393,7 @@ const ModeratorPanel: React.FC = () => {
     
     if (user.warnings && user.warnings > 0) {
       return (
-        <Badge variant="warning" className="px-2 py-1 rounded-full text-xs bg-yellow-200 text-yellow-800">
+        <Badge variant="outline" className="px-2 py-1 rounded-full text-xs bg-yellow-200 text-yellow-800">
           Warned ({user.warnings})
         </Badge>
       );
