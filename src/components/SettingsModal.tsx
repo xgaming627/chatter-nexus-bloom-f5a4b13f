@@ -18,7 +18,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LoginHistory from './LoginHistory';
-import { Globe, Lock, Shield, Settings, Clock, FileText } from 'lucide-react';
+import { Settings, Globe, Shield, Lock } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import TermsOfService from './TermsOfService';
 
@@ -33,8 +33,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
-  const [storeChats, setStoreChats] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
   
   const languageOptions = [
     { value: 'english', label: 'English' },
@@ -44,27 +42,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
     { value: 'chinese', label: 'Chinese' },
     { value: 'japanese', label: 'Japanese' }
   ];
-
-  const handleDarkModeToggle = (checked: boolean) => {
-    setDarkMode(checked);
-    // Apply dark mode to document
-    if (checked) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const startTutorial = () => {
-    setShowTutorial(true);
-    onOpenChange(false);
-    // Show tutorial on close
-    setTimeout(() => {
-      // This would trigger the tutorial sequence
-      localStorage.removeItem('hasSeenWelcome');
-      window.location.reload();
-    }, 500);
-  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,11 +55,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
         
         <ScrollArea className="flex-1 pr-4">
           <Tabs defaultValue="preferences" className="w-full">
-            <TabsList className="grid grid-cols-5 mb-4">
+            <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="preferences">Preferences</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="terms">Terms</TabsTrigger>
-              <TabsTrigger value="credits">Credits</TabsTrigger>
               {onShowModeratorPanel && (
                 <TabsTrigger value="moderator">Moderator</TabsTrigger>
               )}
@@ -116,7 +92,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
                   </div>
                   <Switch 
                     checked={darkMode} 
-                    onCheckedChange={handleDarkModeToggle}
+                    onCheckedChange={setDarkMode}
                   />
                 </div>
               </div>
@@ -146,34 +122,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
                   />
                 </div>
               </div>
-
-              <div className="grid gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Store Chats</Label>
-                    <p className="text-xs text-muted-foreground">Save important chats to access later</p>
-                  </div>
-                  <Switch 
-                    checked={storeChats} 
-                    onCheckedChange={setStoreChats}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label>Tutorial</Label>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={startTutorial}
-                  >
-                    <Clock className="mr-2 h-4 w-4" />
-                    Start Tutorial
-                  </Button>
-                  <p className="text-xs text-muted-foreground">Restart the welcome tutorial that shows features and functionality</p>
-                </div>
-              </div>
             </TabsContent>
             
             <TabsContent value="security">
@@ -182,29 +130,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange, onSho
             
             <TabsContent value="terms">
               <TermsOfService />
-            </TabsContent>
-
-            <TabsContent value="credits" className="space-y-6">
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border">
-                <h3 className="text-2xl font-bold mb-6 text-center">ChatNexus Credits</h3>
-                
-                <div className="space-y-6">
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
-                    <h4 className="text-xl font-medium text-teams-purple">Lead Scripter and Developer</h4>
-                    <p className="text-lg mt-2">Vitor Rossato</p>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
-                    <h4 className="text-xl font-medium text-teams-purple">Version</h4>
-                    <p className="text-lg mt-2">v1.13</p>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
-                    <h4 className="text-xl font-medium text-teams-purple">Last Updated</h4>
-                    <p className="text-lg mt-2">April 2025</p>
-                  </div>
-                </div>
-              </div>
             </TabsContent>
             
             {onShowModeratorPanel && (

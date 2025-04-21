@@ -72,6 +72,7 @@ const ChatWindow: React.FC = () => {
       setIsModerator(false);
     }
     
+    // Check if current user is online
     if (document.visibilityState === 'visible') {
       updateOnlineStatus('online');
     }
@@ -87,19 +88,23 @@ const ChatWindow: React.FC = () => {
     const handleUserActivity = () => {
       let timeout: NodeJS.Timeout;
       
+      // Reset the timeout and set status to online
       const resetTimeout = () => {
         if (timeout) clearTimeout(timeout);
         updateOnlineStatus('online');
         
+        // Set away status after 10 minutes of inactivity
         timeout = setTimeout(() => {
           updateOnlineStatus('away');
-        }, 10 * 60 * 1000);
+        }, 10 * 60 * 1000); // 10 minutes
       };
       
+      // Add event listeners for user activity
       document.addEventListener('mousemove', resetTimeout);
       document.addEventListener('keydown', resetTimeout);
       document.addEventListener('click', resetTimeout);
       
+      // Start the timeout
       resetTimeout();
       
       return () => {
@@ -119,6 +124,7 @@ const ChatWindow: React.FC = () => {
     };
   }, [currentUser, updateOnlineStatus]);
   
+  // Check if the current conversation partner is blocked
   useEffect(() => {
     const checkIfBlocked = async () => {
       if (!currentConversation || currentConversation.isGroupChat) return;
@@ -209,7 +215,7 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    const maxSizeInBytes = 5 * 1024 * 1024;
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSizeInBytes) {
       toast({
         title: "File too large",
@@ -320,6 +326,7 @@ const ChatWindow: React.FC = () => {
     <div className="flex flex-col h-full overflow-hidden">
       {isCallActive && <CallModal />}
       
+      {/* Chat header */}
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
           <div onClick={handleAvatarClick} className="cursor-pointer">
@@ -410,6 +417,7 @@ const ChatWindow: React.FC = () => {
         </div>
       </div>
       
+      {/* Messages */}
       <div 
         ref={messageContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-4"
@@ -544,6 +552,7 @@ const ChatWindow: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
       
+      {/* Scroll to bottom button */}
       {showScrollButton && (
         <Button
           size="icon"
@@ -554,6 +563,7 @@ const ChatWindow: React.FC = () => {
         </Button>
       )}
       
+      {/* Message input */}
       <div className="p-4 border-t">
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <Button
@@ -608,6 +618,7 @@ const ChatWindow: React.FC = () => {
         )}
       </div>
       
+      {/* Profile dialog */}
       <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -704,6 +715,7 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
+      {/* Block user dialog */}
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -727,6 +739,7 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
+      {/* User info dialog */}
       <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -787,6 +800,7 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
+      {/* New message notification */}
       {hasNewMessages && (
         <div className="fixed bottom-4 right-4 bg-teams-purple text-white px-4 py-2 rounded-lg shadow-lg animate-pulse">
           You have new messages
