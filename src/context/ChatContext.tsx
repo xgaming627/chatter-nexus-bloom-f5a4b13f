@@ -47,6 +47,7 @@ export interface User {
   banExpiry?: any;
   ipAddress?: string;
   vpnDetected?: boolean;
+  reason?: string;
 }
 
 export interface Conversation {
