@@ -14,14 +14,32 @@ import NewChatButton from "@/components/NewChatButton";
 import { ChatProvider } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Index = () => {
   const { currentUser } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [showModeratorPanel, setShowModeratorPanel] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   
   // Check if the user is the moderator
   const isModerator = currentUser?.email === 'vitorrossato812@gmail.com';
+  
+  useEffect(() => {
+    // Show welcome message for new users
+    if (currentUser) {
+      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+      if (!hasSeenWelcome) {
+        setShowWelcome(true);
+      }
+    }
+  }, [currentUser]);
+
+  const handleAcceptTerms = () => {
+    localStorage.setItem('hasSeenWelcome', 'true');
+    setShowWelcome(false);
+  };
   
   // If user is not logged in, show auth forms
   if (!currentUser) {
@@ -133,6 +151,51 @@ const Index = () => {
             setShowSettings(false);
           } : undefined}
         />
+
+        {/* Welcome Dialog */}
+        <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Welcome to Nexus Chat (v1.13)!</DialogTitle>
+            </DialogHeader>
+            
+            <ScrollArea className="max-h-[400px] pr-4">
+              <div className="space-y-4 py-4">
+                <p>
+                  👋 Welcome to Nexus Chat (v1.13)!
+                  This app is currently under development, so you may notice ongoing changes and new features being added.
+                </p>
+                
+                <p>
+                  By continuing, you agree to our Terms of Service, which includes our right to collect certain data
+                  such as messages, IP addresses, activity logs, and more for platform functionality and safety.
+                </p>
+                
+                <p>
+                  Nexus Chat is proudly built and managed by the Nexus Team. 💡
+                  If you need help, just click on your profile picture and select "Live Support" — we're here for you!
+                </p>
+                
+                <p>
+                  Thanks for being part of our growing community. 🚀
+                </p>
+                
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-300">Try our features!</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                    Send a message to username "xgaming" to complete the tutorial and try out all features!
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
+            
+            <DialogFooter>
+              <Button onClick={handleAcceptTerms}>
+                I Accept the Terms of Service
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </ChatProvider>
     </LiveSupportProvider>
   );

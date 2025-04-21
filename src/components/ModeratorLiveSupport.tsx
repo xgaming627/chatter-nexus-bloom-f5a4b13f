@@ -10,7 +10,9 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LiveSupportChat from './LiveSupportChat';
 import { toast } from '@/hooks/use-toast';
-import { Bell, Shield } from 'lucide-react';
+import { Archive, Bell, Shield } from 'lucide-react';
+import ArchivedSupportSessions from './ArchivedSupportSessions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ModeratorLiveSupport: React.FC = () => {
   const { 
@@ -95,57 +97,59 @@ const ModeratorLiveSupport: React.FC = () => {
             </Badge>
           )}
         </div>
-        <div className="overflow-y-auto max-h-[500px]">
-          {supportSessions.length > 0 ? (
-            supportSessions.map(session => {
-              const isRead = session.lastReadByModerator === true;
-              const userHasVPN = session.userInfo?.vpnDetected;
-              
-              return (
-                <Button
-                  key={session.id}
-                  variant={isRead ? "ghost" : "default"}
-                  className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!isRead ? 'bg-muted' : ''} ${userHasVPN ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}
-                  onClick={() => handleSelectSession(session)}
-                >
-                  <div className="flex items-start gap-3 w-full">
-                    <UserAvatar 
-                      username={session.userInfo?.username || "User"} 
-                      photoURL={session.userInfo?.photoURL} 
-                    />
-                    <div className="flex-1 text-left">
-                      <div className="font-medium flex justify-between">
-                        <span>{session.userInfo?.displayName || "User"}</span>
-                        <div className="flex space-x-1">
-                          {userHasVPN && (
-                            <Badge variant="outline" className="ml-2 bg-orange-200 text-orange-800 text-xs">
-                              VPN
-                            </Badge>
-                          )}
-                          {!isRead && (
-                            <Badge variant="outline" className="ml-2">New</Badge>
-                          )}
+        <ScrollArea className="h-[500px]">
+          {supportSessions.filter(s => s.status !== 'ended').length > 0 ? (
+            supportSessions
+              .filter(s => s.status !== 'ended')
+              .map(session => {
+                const isRead = session.lastReadByModerator === true;
+                const userHasVPN = session.userInfo?.vpnDetected;
+                
+                return (
+                  <Button
+                    key={session.id}
+                    variant={isRead ? "ghost" : "default"}
+                    className={`w-full justify-start p-4 h-auto border-b hover:bg-accent ${!isRead ? 'bg-muted' : ''} ${userHasVPN ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}
+                    onClick={() => handleSelectSession(session)}
+                  >
+                    <div className="flex items-start gap-3 w-full">
+                      <UserAvatar 
+                        username={session.userInfo?.username || "User"} 
+                        photoURL={session.userInfo?.photoURL} 
+                      />
+                      <div className="flex-1 text-left">
+                        <div className="font-medium flex justify-between">
+                          <span>{session.userInfo?.displayName || "User"}</span>
+                          <div className="flex space-x-1">
+                            {userHasVPN && (
+                              <Badge variant="outline" className="ml-2 bg-orange-200 text-orange-800 text-xs">
+                                VPN
+                              </Badge>
+                            )}
+                            {!isRead && (
+                              <Badge variant="outline" className="ml-2">New</Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        @{session.userInfo?.username || "user"}
-                      </div>
-                      {session.lastMessage && (
-                        <div className="text-sm text-muted-foreground truncate mt-1">
-                          {session.lastMessage.content}
+                        <div className="text-xs text-muted-foreground">
+                          @{session.userInfo?.username || "user"}
                         </div>
-                      )}
+                        {session.lastMessage && (
+                          <div className="text-sm text-muted-foreground truncate mt-1">
+                            {session.lastMessage.content}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Button>
-              );
-            })
+                  </Button>
+                );
+              })
           ) : (
             <p className="p-4 text-center text-muted-foreground">
               No active support sessions
             </p>
           )}
-        </div>
+        </ScrollArea>
       </div>
       
       <div className="col-span-2 border rounded-lg overflow-hidden">
@@ -244,6 +248,10 @@ const ModeratorLiveSupport: React.FC = () => {
             <TabsList>
               <TabsTrigger value="chart">Feedback Ratings</TabsTrigger>
               <TabsTrigger value="comments">Feedback Comments</TabsTrigger>
+              <TabsTrigger value="files">
+                <Archive className="h-4 w-4 mr-2" />
+                Archives
+              </TabsTrigger>
             </TabsList>
           </div>
           
@@ -266,31 +274,37 @@ const ModeratorLiveSupport: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="comments" className="p-4">
-            <div className="space-y-2">
-              {supportSessions
-                .filter(session => session.feedback)
-                .map(session => (
-                  <div key={session.id} className="p-3 bg-muted rounded-md">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="flex">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <Star key={i} filled={session.rating ? i <= session.rating : false} />
-                        ))}
+            <ScrollArea className="h-80">
+              <div className="space-y-2">
+                {supportSessions
+                  .filter(session => session.feedback)
+                  .map(session => (
+                    <div key={session.id} className="p-3 bg-muted rounded-md">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map(i => (
+                            <Star key={i} filled={session.rating ? i <= session.rating : false} />
+                          ))}
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {session.createdAt ? format(session.createdAt.toDate(), 'PPp') : ''}
+                        </span>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {session.createdAt ? format(session.createdAt.toDate(), 'PPp') : ''}
-                      </span>
+                      <p className="text-sm">{session.feedback}</p>
                     </div>
-                    <p className="text-sm">{session.feedback}</p>
-                  </div>
-                ))}
-              
-              {supportSessions.filter(session => session.feedback).length === 0 && (
-                <p className="text-center text-muted-foreground py-4">
-                  No feedback comments available
-                </p>
-              )}
-            </div>
+                  ))}
+                
+                {supportSessions.filter(session => session.feedback).length === 0 && (
+                  <p className="text-center text-muted-foreground py-4">
+                    No feedback comments available
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="files">
+            <ArchivedSupportSessions />
           </TabsContent>
         </Tabs>
       </div>
