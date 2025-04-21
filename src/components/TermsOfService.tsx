@@ -108,7 +108,7 @@ const TermsOfService = () => {
           <h3 className="text-lg font-semibold mt-6">13. Contact Information</h3>
           <p>Have questions or need support?</p>
           <p>📧 Email: nexuschatting@gmail.com</p>
-          <p>🌐 Support: Profile {'>'}  Live support</p>
+          <p>🌐 Support: Profile {'>'} Live support</p>
           
           <h3 className="text-lg font-semibold mt-6">14. All Rights Reserved</h3>
           <p>All rights, intellectual property, and service content are the exclusive property of the Nexus Team. All rights reserved.</p>
@@ -121,3 +121,4 @@ const TermsOfService = () => {
 };
 
 export default TermsOfService;
+

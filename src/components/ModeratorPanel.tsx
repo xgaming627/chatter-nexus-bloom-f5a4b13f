@@ -36,6 +36,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User as ChatUser } from "@/context/ChatContext";
+import TermsOfService from './TermsOfService';
 
 interface ModerationItem {
   id: string;
@@ -84,7 +85,9 @@ const ModeratorPanel: React.FC = () => {
   const [showWarnDialog, setShowWarnDialog] = useState(false);
   const [warnReason, setWarnReason] = useState('');
   const [userToAction, setUserToAction] = useState<User | null>(null);
-  
+  const [archivedSessions, setArchivedSessions] = useState<any[]>([]);
+  const [warnDuration, setWarnDuration] = useState('24h');
+
   const isModeratorUser = (user: { email?: string }) =>
     user.email === "vitorrossato812@gmail.com";
 
@@ -397,6 +400,25 @@ const ModeratorPanel: React.FC = () => {
       </Badge>
     );
   };
+
+  useEffect(() => {
+    if (!isModerator) return;
+    const fetchArchivedSessions = async () => {
+      try {
+        const sessionsRef = collection(db, "supportSessions");
+        const q = query(sessionsRef, where("status", "==", "ended"), orderBy("lastMessage.timestamp", "desc"));
+        const snap = await getDocs(q);
+        const sessions = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setArchivedSessions(sessions);
+      } catch (e) {
+        console.error("Error fetching archived support sessions", e);
+      }
+    };
+    fetchArchivedSessions();
+  }, [isModerator]);
   
   if (!currentUser) {
     return null;
@@ -459,6 +481,7 @@ const ModeratorPanel: React.FC = () => {
             <TabsTrigger value="reports">Reported Messages</TabsTrigger>
             <TabsTrigger value="search">User Search</TabsTrigger>
             <TabsTrigger value="support">Live Support</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
             {showUserChat && (
               <TabsTrigger value="chat">User Chat</TabsTrigger>
             )}
@@ -647,6 +670,55 @@ const ModeratorPanel: React.FC = () => {
           <TabsContent value="support">
             <ModeratorLiveSupport />
           </TabsContent>
+
+          <TabsContent value="files">
+            <Card>
+              <CardHeader>
+                <CardTitle>Archived Support Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableCaption>Support sessions that have been ended</TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Summary</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {archivedSessions.length > 0 ? (
+                      archivedSessions.map((session) => (
+                        <TableRow key={session.id}>
+                          <TableCell>
+                            {session.createdAt?.toDate
+                              ? format(session.createdAt.toDate(), 'PPp')
+                              : 'Unknown'}
+                          </TableCell>
+                          <TableCell>
+                            {session.userInfo?.displayName || session.userId}
+                          </TableCell>
+                          <TableCell>
+                            {session.lastMessage?.content || ''}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {session.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center">No archived sessions found</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
           <TabsContent value="chat" className={showUserChat ? "" : "hidden"}>
             <div className="border rounded-lg overflow-hidden h-[70vh]">
@@ -706,7 +778,6 @@ const ModeratorPanel: React.FC = () => {
                 {userToAction ? `Issue a warning to @${userToAction.username} (${userToAction.email})` : ''}
               </DialogDescription>
             </DialogHeader>
-            
             <div className="py-4">
               <label className="text-sm font-medium mb-1 block">Warning Reason</label>
               <Textarea
@@ -715,11 +786,32 @@ const ModeratorPanel: React.FC = () => {
                 onChange={(e) => setWarnReason(e.target.value)}
                 rows={3}
               />
+              <label className="text-sm font-medium mb-1 block mt-4">Warning Duration</label>
+              <Select defaultValue="24h" onValueChange={setWarnDuration}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">24 Hours</SelectItem>
+                  <SelectItem value="7d">7 Days</SelectItem>
+                  <SelectItem value="30d">30 Days</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="text-xs mt-2">
+                By warning this user, they will see a notification with the reason, duration, and a link to our <a href="#" className="underline text-blue-700" onClick={e => {e.preventDefault(); setShowWarnDialog(false);}}>Terms of Service</a>.
+              </div>
             </div>
-            
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowWarnDialog(false)}>Cancel</Button>
-              <Button variant="secondary" onClick={warnUser}>
+              <Button variant="secondary" onClick={async () => {
+                await warnUser();
+                toast({
+                  title: "User warned",
+                  description: `Warned for ${warnDuration}: "${warnReason}". See Terms of Service.`,
+                });
+                setShowWarnDialog(false);
+              }}>
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Issue Warning
               </Button>

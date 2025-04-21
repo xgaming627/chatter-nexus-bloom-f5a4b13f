@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -57,6 +56,7 @@ const ChatWindow: React.FC = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [showUserInfoDialog, setShowUserInfoDialog] = useState(false);
   const [profileTab, setProfileTab] = useState("info");
+  const [blockedReason, setBlockedReason] = useState('');
   
   useEffect(() => {
     scrollToBottom();
@@ -128,18 +128,18 @@ const ChatWindow: React.FC = () => {
   useEffect(() => {
     const checkIfBlocked = async () => {
       if (!currentConversation || currentConversation.isGroupChat) return;
-      
+
       try {
         const blockedUsers = await getBlockedUsers();
-        const isUserBlocked = blockedUsers.some(
+        const blockedEntry = blockedUsers.find(
           user => user.uid === currentConversation.participantsInfo[0]?.uid
         );
-        setIsBlocked(isUserBlocked);
+        setIsBlocked(!!blockedEntry);
+        setBlockedReason(blockedEntry?.reason || '');
       } catch (error) {
         console.error("Error checking blocked status:", error);
       }
     };
-    
     checkIfBlocked();
   }, [currentConversation, getBlockedUsers]);
   
@@ -583,9 +583,9 @@ const ChatWindow: React.FC = () => {
               disabled={isBlocked}
             />
           </Button>
-          
+
           <Textarea
-            placeholder={isBlocked ? "You have blocked this user" : "Type a message..."}
+            placeholder={isBlocked ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}` : "Type a message..."}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -593,16 +593,19 @@ const ChatWindow: React.FC = () => {
             rows={1}
             disabled={isBlocked}
           />
-          
+
           <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked}>
             <Send className="h-5 w-5" />
           </Button>
         </form>
-        
+
         {isBlocked && (
           <div className="text-center mt-2 text-sm text-destructive">
             <UserX className="inline-block h-4 w-4 mr-1" /> 
             You have blocked this user
+            {blockedReason && (
+              <span className="ml-2 italic">{blockedReason}</span>
+            )}
             <Button 
               variant="link" 
               size="sm" 
