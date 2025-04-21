@@ -124,7 +124,6 @@ const ChatWindow: React.FC = () => {
     };
   }, [currentUser, updateOnlineStatus]);
   
-  // Check if the current conversation partner is blocked
   useEffect(() => {
     const checkIfBlocked = async () => {
       if (!currentConversation || currentConversation.isGroupChat) return;
