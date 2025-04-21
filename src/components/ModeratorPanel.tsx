@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { User as ChatUser } from "@/context/ChatContext";
 
 interface ModerationItem {
   id: string;
@@ -84,6 +85,9 @@ const ModeratorPanel: React.FC = () => {
   const [warnReason, setWarnReason] = useState('');
   const [userToAction, setUserToAction] = useState<User | null>(null);
   
+  const isModeratorUser = (user: { email?: string }) =>
+    user.email === "vitorrossato812@gmail.com";
+
   useEffect(() => {
     const checkModerator = async () => {
       if (!currentUser) return;
@@ -433,325 +437,296 @@ const ModeratorPanel: React.FC = () => {
   
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Moderator Panel</h1>
-        {showUserChat && (
-          <Button 
-            variant="outline" 
-            onClick={toggleModeratorPanel}
-          >
-            {showModPanel ? (
-              <>Minimize Panel</>
-            ) : (
-              <>Show Panel</>
-            )}
-          </Button>
-        )}
-      </div>
-      
-      <Tabs defaultValue="reports">
-        <TabsList className="mb-4">
-          <TabsTrigger value="reports">Reported Messages</TabsTrigger>
-          <TabsTrigger value="search">User Search</TabsTrigger>
-          <TabsTrigger value="support">Live Support</TabsTrigger>
+      <ScrollArea className="h-[80vh]">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Moderator Panel</h1>
           {showUserChat && (
-            <TabsTrigger value="chat">User Chat</TabsTrigger>
+            <Button 
+              variant="outline" 
+              onClick={toggleModeratorPanel}
+            >
+              {showModPanel ? (
+                <>Minimize Panel</>
+              ) : (
+                <>Show Panel</>
+              )}
+            </Button>
           )}
-        </TabsList>
+        </div>
         
-        <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reported Messages</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableCaption>List of messages that need moderation</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Content</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {moderationItems.length > 0 ? (
-                    moderationItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          {item.timestamp && format(item.timestamp.toDate(), 'PPp')}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">{item.content}</TableCell>
-                        <TableCell>{item.reason}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            item.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
-                            item.status === 'flagged' ? 'bg-red-200 text-red-800' : 
-                            'bg-green-200 text-green-800'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {item.status === 'pending' && (
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleModeration(item.id, 'approve')}
-                              >
-                                Flag
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleModeration(item.id, 'dismiss')}
-                              >
-                                Dismiss
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenUserChat(item.conversationId)}
-                              >
-                                <MessageSquare className="h-4 w-4 mr-1" />
-                                Chat
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center">No reported messages</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="search">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Search</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 mb-6">
-                <Input 
-                  placeholder="Search users by name, username or email" 
-                  value={searchUsername}
-                  onChange={e => setSearchUsername(e.target.value)}
-                  className="max-w-md search-input bg-background text-foreground"
-                />
-              </div>
-              
-              <ScrollArea className="h-[500px] w-full rounded-md border">
+        <Tabs defaultValue="reports">
+          <TabsList className="mb-4">
+            <TabsTrigger value="reports">Reported Messages</TabsTrigger>
+            <TabsTrigger value="search">User Search</TabsTrigger>
+            <TabsTrigger value="support">Live Support</TabsTrigger>
+            {showUserChat && (
+              <TabsTrigger value="chat">User Chat</TabsTrigger>
+            )}
+          </TabsList>
+          
+          <TabsContent value="reports">
+            <Card>
+              <CardHeader>
+                <CardTitle>Reported Messages</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <Table>
-                  <TableCaption>Registered Users</TableCaption>
+                  <TableCaption>List of messages that need moderation</TableCaption>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Display Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Registration Date</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Content</TableHead>
+                      <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>IP Address</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.length > 0 ? (
-                      filteredUsers.map((user) => (
-                        <TableRow key={user.uid} className={user.vpnDetected ? "bg-orange-50 dark:bg-orange-900/20" : ""}>
-                          <TableCell>@{user.username}</TableCell>
-                          <TableCell>{user.displayName}</TableCell>
-                          <TableCell>{user.email}</TableCell>
+                    {moderationItems.length > 0 ? (
+                      moderationItems.map((item) => (
+                        <TableRow key={item.id}>
                           <TableCell>
-                            {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
+                            {item.timestamp && format(item.timestamp.toDate(), 'PPp')}
                           </TableCell>
+                          <TableCell className="max-w-xs truncate">{item.content}</TableCell>
+                          <TableCell>{item.reason}</TableCell>
                           <TableCell>
-                            {renderUserStatus(user)}
-                          </TableCell>
-                          <TableCell>
-                            <span className={user.vpnDetected ? "text-orange-600" : ""}>
-                              {user.ipAddress || "Unknown"}
-                              {user.vpnDetected && (
-                                <Badge className="ml-2 bg-orange-200 text-orange-800 text-xs">VPN</Badge>
-                              )}
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              item.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
+                              item.status === 'flagged' ? 'bg-red-200 text-red-800' : 
+                              'bg-green-200 text-green-800'
+                            }`}>
+                              {item.status}
                             </span>
                           </TableCell>
                           <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedUserId(user.uid);
-                                  searchUserMessages();
-                                }}
-                              >
-                                <MessageSquare className="h-4 w-4 mr-1" />
-                                Find Messages
-                              </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                onClick={() => openBanDialog(user)}
-                              >
-                                <Ban className="h-4 w-4 mr-1" />
-                                Ban
-                              </Button>
-                              <Button 
-                                variant="secondary" 
-                                size="sm"
-                                onClick={() => openWarnDialog(user)}
-                              >
-                                <Shield className="h-4 w-4 mr-1" />
-                                Warn
-                              </Button>
-                            </div>
+                            {item.status === 'pending' && (
+                              <div className="flex space-x-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleModeration(item.id, 'approve')}
+                                >
+                                  Flag
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleModeration(item.id, 'dismiss')}
+                                >
+                                  Dismiss
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenUserChat(item.conversationId)}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  Chat
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center">No users found</TableCell>
+                        <TableCell colSpan={5} className="text-center">No reported messages</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </ScrollArea>
-              
-              {searchResults.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-medium mb-4">Messages from selected user</h3>
-                  <ScrollArea className="h-[300px] w-full rounded-md border">
-                    <Table>
-                      <TableCaption>User Messages</TableCaption>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Content</TableHead>
-                          <TableHead>Conversation</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {searchResults.map((message) => (
-                          <TableRow key={message.id}>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="search">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Search</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-6">
+                  <Input 
+                    placeholder="Search users by name, username or email" 
+                    value={searchUsername}
+                    onChange={e => setSearchUsername(e.target.value)}
+                    className="max-w-md search-input bg-background text-foreground"
+                  />
+                </div>
+                <ScrollArea className="h-[500px] w-full rounded-md border">
+                  <Table>
+                    <TableCaption>Registered Users</TableCaption>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Username</TableHead>
+                        <TableHead>Display Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Registration Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.length > 0 ? (
+                        filteredUsers.map((user) => (
+                          <TableRow key={user.uid} className={user.vpnDetected ? "bg-orange-50 dark:bg-orange-900/20" : ""}>
                             <TableCell>
-                              {message.timestamp && format(message.timestamp.toDate(), 'PPp')}
+                              @{user.username}
+                              {isModeratorUser(user) && (
+                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-black text-white text-xs">Moderator</Badge>
+                              )}
                             </TableCell>
-                            <TableCell className="max-w-xs truncate">{message.content}</TableCell>
-                            <TableCell>{message.conversationId}</TableCell>
+                            <TableCell>{user.displayName}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenUserChat(message.conversationId)}
-                              >
-                                <MessageSquare className="h-4 w-4 mr-1" />
-                                View Chat
-                              </Button>
+                              {user.email}
+                              {isModeratorUser(user) && (
+                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-black text-white text-xs">Moderator</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {user.createdAt ? format(user.createdAt.toDate(), 'PPp') : 'Unknown'}
+                            </TableCell>
+                            <TableCell>
+                              {renderUserStatus(user)}
+                            </TableCell>
+                            <TableCell>
+                              <span className={user.vpnDetected ? "text-orange-600" : ""}>
+                                {user.ipAddress || "Unknown"}
+                                {user.vpnDetected && (
+                                  <Badge className="ml-2 bg-orange-200 text-orange-800 text-xs">VPN</Badge>
+                                )}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedUserId(user.uid);
+                                    searchUserMessages();
+                                  }}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  Find Messages
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onClick={() => openBanDialog(user)}
+                                >
+                                  <Ban className="h-4 w-4 mr-1" />
+                                  Ban
+                                </Button>
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm"
+                                  onClick={() => openWarnDialog(user)}
+                                >
+                                  <Shield className="h-4 w-4 mr-1" />
+                                  Warn
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="support">
-          <ModeratorLiveSupport />
-        </TabsContent>
-        
-        <TabsContent value="chat" className={showUserChat ? "" : "hidden"}>
-          <div className="border rounded-lg overflow-hidden h-[70vh]">
-            <ChatWindow />
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Ban User</DialogTitle>
-            <DialogDescription>
-              {userToAction ? `Ban user @${userToAction.username} (${userToAction.email})` : ''}
-            </DialogDescription>
-          </DialogHeader>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center">No users found</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
-          <div className="py-4 space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Ban Duration</label>
-              <Select defaultValue="1d" onValueChange={setBanDuration}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Ban Duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1d">1 Day</SelectItem>
-                  <SelectItem value="7d">7 Days</SelectItem>
-                  <SelectItem value="30d">30 Days</SelectItem>
-                  <SelectItem value="permanent">Permanent</SelectItem>
-                </SelectContent>
-              </Select>
+          <TabsContent value="support">
+            <ModeratorLiveSupport />
+          </TabsContent>
+          
+          <TabsContent value="chat" className={showUserChat ? "" : "hidden"}>
+            <div className="border rounded-lg overflow-hidden h-[70vh]">
+              <ChatWindow />
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Ban User</DialogTitle>
+              <DialogDescription>
+                {userToAction ? `Ban user @${userToAction.username} (${userToAction.email})` : ''}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Ban Duration</label>
+                <Select defaultValue="1d" onValueChange={setBanDuration}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Ban Duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1d">1 Day</SelectItem>
+                    <SelectItem value="7d">7 Days</SelectItem>
+                    <SelectItem value="30d">30 Days</SelectItem>
+                    <SelectItem value="permanent">Permanent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-1 block">Reason for Ban</label>
+                <Textarea
+                  placeholder="Enter reason for ban..."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
             
-            <div>
-              <label className="text-sm font-medium mb-1 block">Reason for Ban</label>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBanDialog(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={banUser}>Ban User</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showWarnDialog} onOpenChange={setShowWarnDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Warn User</DialogTitle>
+              <DialogDescription>
+                {userToAction ? `Issue a warning to @${userToAction.username} (${userToAction.email})` : ''}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <label className="text-sm font-medium mb-1 block">Warning Reason</label>
               <Textarea
-                placeholder="Enter reason for ban..."
-                value={banReason}
-                onChange={(e) => setBanReason(e.target.value)}
+                placeholder="Enter reason for warning..."
+                value={warnReason}
+                onChange={(e) => setWarnReason(e.target.value)}
                 rows={3}
               />
             </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBanDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={banUser}>Ban User</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showWarnDialog} onOpenChange={setShowWarnDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Warn User</DialogTitle>
-            <DialogDescription>
-              {userToAction ? `Issue a warning to @${userToAction.username} (${userToAction.email})` : ''}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <label className="text-sm font-medium mb-1 block">Warning Reason</label>
-            <Textarea
-              placeholder="Enter reason for warning..."
-              value={warnReason}
-              onChange={(e) => setWarnReason(e.target.value)}
-              rows={3}
-            />
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWarnDialog(false)}>Cancel</Button>
-            <Button variant="secondary" onClick={warnUser}>
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Issue Warning
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWarnDialog(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={warnUser}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Issue Warning
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </ScrollArea>
     </div>
   );
 };

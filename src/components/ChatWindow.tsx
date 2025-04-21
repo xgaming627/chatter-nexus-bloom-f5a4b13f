@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -54,7 +54,9 @@ const ChatWindow: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Check if user is a moderator
+  const isModeratorUser = (user: { email?: string }) =>
+    user.email === "vitorrossato812@gmail.com";
+
   useEffect(() => {
     if (currentUser?.email === 'vitorrossato812@gmail.com') {
       setIsModerator(true);
@@ -106,7 +108,6 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    // Check file type - only allow images
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Unsupported file type",
@@ -117,7 +118,6 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    // Check file size (limit to 5MB)
     const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSizeInBytes) {
       toast({
@@ -262,7 +262,6 @@ const ChatWindow: React.FC = () => {
             const isOwnMessage = message.senderId === currentUser?.uid;
             const isModeratorMessage = isModerator && !isOwnMessage;
             
-            // Mark message as read if it's not our own and not read yet
             if (!isOwnMessage && !message.read) {
               markAsRead(message.id);
             }
@@ -277,21 +276,21 @@ const ChatWindow: React.FC = () => {
                     <div className="flex items-center mb-1">
                       <UserAvatar 
                         username={
-                          isModeratorMessage 
+                          isModeratorUser(currentConversation.participantsInfo[0]) 
                             ? "Moderator"
                             : currentConversation.participantsInfo[0]?.username
-                        } 
+                        }
                         photoURL={
-                          isModeratorMessage 
+                          isModeratorUser(currentConversation.participantsInfo[0]) 
                             ? undefined
                             : currentConversation.participantsInfo[0]?.photoURL
-                        } 
-                        size="sm" 
+                        }
+                        size="sm"
                       />
                       <span className="text-xs font-medium ml-2 flex items-center">
-                        {isModeratorMessage ? (
+                        {isModeratorUser(currentConversation.participantsInfo[0]) ? (
                           <>
-                            <ShieldCheck className="h-3 w-3 mr-1 text-blue-600" />
+                            <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-black text-white text-xs">Moderator</Badge>
                             Moderator
                           </>
                         ) : (
@@ -457,6 +456,26 @@ const ChatWindow: React.FC = () => {
                 rows={3}
               />
               <p className="text-xs text-muted-foreground">This will be visible to other users</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="profile-image">Profile Image</Label>
+              <Input 
+                id="profile-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    toast({
+                      title: "File upload not available",
+                      description: "Profile picture upload is not yet supported. Please connect Supabase.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Upload a new profile image</p>
             </div>
             
             <div className="space-y-2">
