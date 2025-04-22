@@ -11,7 +11,7 @@ import {
   updateProfile,
   updateEmail
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db, googleProvider } from "../lib/firebase";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -123,6 +123,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      
+      // Check if this is a new user (first time sign in with Google)
+      const userDocRef = doc(db, "users", result.user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        // Create a new user document for Google sign-in
+        await setDoc(userDocRef, {
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName || "",
+          photoURL: result.user.photoURL || "",
+          createdAt: new Date(),
+          status: "active",
+          role: "user"
+        });
+      }
+      
       return result.user;
     } catch (error: any) {
       const errorMessage = error.message || "Failed to sign in with Google";
@@ -213,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isUsernameAvailable = async (username: string) => {
+  const isUsernameAvailable = async (username: string): Promise<boolean> => {
     if (!username || username.trim().length < 3 || username.trim().length > 15) {
       return false;
     }
@@ -222,12 +240,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     
-    const usernameRef = doc(db, "usernames", username.toLowerCase());
-    const docSnap = await getDoc(usernameRef);
-    return !docSnap.exists();
+    try {
+      // Check in the usernames collection
+      const usernameRef = doc(db, "usernames", username.toLowerCase());
+      const docSnap = await getDoc(usernameRef);
+      
+      // Also check if any user has this username field
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", username.toLowerCase()));
+      const querySnapshot = await getDocs(q);
+      
+      return !docSnap.exists() && querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking username availability:", error);
+      return false;
+    }
   };
 
-  const setUsernameOnSignUp = async (username: string) => {
+  const setUsernameOnSignUp = async (username: string): Promise<boolean> => {
     if (!currentUser) return false;
     
     try {
@@ -249,7 +279,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      const isAvailable = await isUsernameAvailable(username);
+      const normalizedUsername = username.toLowerCase();
+      const isAvailable = await isUsernameAvailable(normalizedUsername);
       
       if (!isAvailable) {
         toast({
@@ -260,30 +291,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      // Set username in usernames collection (for uniqueness check)
-      await setDoc(doc(db, "usernames", username.toLowerCase()), {
-        uid: currentUser.uid
-      });
-      
-      // Set username in user's profile
-      await setDoc(doc(db, "users", currentUser.uid), {
+      // First create/update the user document
+      const userDocRef = doc(db, "users", currentUser.uid);
+      await setDoc(userDocRef, {
         uid: currentUser.uid,
         email: currentUser.email,
-        username: username,
-        displayName: username,
+        username: normalizedUsername,
+        displayName: normalizedUsername,
         photoURL: currentUser.photoURL || "",
         createdAt: new Date(),
         status: "active",
         role: "user"
       }, { merge: true });
       
+      // Then set username in usernames collection (for uniqueness check)
+      await setDoc(doc(db, "usernames", normalizedUsername), {
+        uid: currentUser.uid
+      });
+      
       // Update Firebase auth profile
       await updateProfile(currentUser, {
-        displayName: username
+        displayName: normalizedUsername
       });
       
       // Update the local user object
-      (currentUser as any).username = username;
+      (currentUser as any).username = normalizedUsername;
       
       toast({
         title: "Username set successfully",

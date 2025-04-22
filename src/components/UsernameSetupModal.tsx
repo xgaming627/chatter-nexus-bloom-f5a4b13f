@@ -1,8 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,26 +20,21 @@ const UsernameSetupModal: React.FC = () => {
   const { toast } = useToast();
   
   useEffect(() => {
-    const checkUsername = async () => {
+    const checkForUsername = async () => {
       if (!currentUser) return;
       
-      try {
-        const docRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists() && docSnap.data().username) {
-          setHasUsername(true);
-          setOpen(false);
-        } else {
-          setHasUsername(false);
-          setOpen(true);
-        }
-      } catch (error) {
-        console.error('Error checking username:', error);
+      // Check if user has a username
+      if (currentUser.displayName || (currentUser as any).username) {
+        setHasUsername(true);
+        setOpen(false);
+      } else {
+        console.log("No username found, showing modal");
+        setHasUsername(false);
+        setOpen(true);
       }
     };
     
-    checkUsername();
+    checkForUsername();
   }, [currentUser]);
   
   const checkUsernameAvailability = async () => {
@@ -109,6 +102,7 @@ const UsernameSetupModal: React.FC = () => {
       if (success) {
         setHasUsername(true);
         setShowTutorial(true);
+        setOpen(false);
       }
     } catch (error) {
       console.error('Error setting username:', error);
