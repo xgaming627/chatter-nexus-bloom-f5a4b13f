@@ -324,8 +324,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .filter(user => 
           user.uid !== currentUser?.uid && 
           !blockedUsers.includes(user.uid) &&
-          (user.username.toLowerCase().includes(q) || 
-           user.displayName.toLowerCase().includes(q))
+          (user.username?.toLowerCase().includes(q) || 
+           user.displayName?.toLowerCase().includes(q))
         );
       
       return users;

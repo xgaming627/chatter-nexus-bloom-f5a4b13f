@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, 
   Timestamp, orderBy, onSnapshot, increment as firestoreIncrement,
-  setDoc, serverTimestamp, getDoc
+  setDoc, serverTimestamp, getDoc, addDoc
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

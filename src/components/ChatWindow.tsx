@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -397,7 +396,7 @@ const ChatWindow: React.FC = () => {
               username={
                 isGroup && currentConversation.groupName 
                   ? currentConversation.groupName 
-                  : currentConversation.participantsInfo[0]?.username
+                  : currentConversation.participantsInfo[0]?.username || "User"
               } 
               photoURL={
                 isGroup && currentConversation.groupPhotoURL 
@@ -412,7 +411,7 @@ const ChatWindow: React.FC = () => {
               <>
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-muted-foreground">
-                    @{currentConversation.participantsInfo[0]?.username}
+                    @{currentConversation.participantsInfo[0]?.username || "User"}
                   </p>
                   {otherUserIsModerator && (
                     <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
