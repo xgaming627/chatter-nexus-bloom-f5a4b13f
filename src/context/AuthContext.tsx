@@ -15,6 +15,13 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../lib/firebase";
 import { useToast } from "@/components/ui/use-toast";
 
+// Extend the Firebase User type to include username
+declare module "firebase/auth" {
+  interface User {
+    username?: string;
+  }
+}
+
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
@@ -46,6 +53,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Fetch additional user data from Firestore
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Add username to user object
+            (user as any).username = userData.username;
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      }
+      
       setCurrentUser(user);
       setLoading(false);
     });
@@ -55,6 +78,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Create a basic user document
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        createdAt: new Date(),
+        status: "active",
+        role: "user"
+      });
+      
+      toast({
+        title: "Sign up successful",
+        description: "Please set your username",
+      });
+      
       return userCredential.user;
     } catch (error: any) {
       const errorMessage = error.message || "Failed to create account";
@@ -176,6 +214,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isUsernameAvailable = async (username: string) => {
+    if (!username || username.trim().length < 3 || username.trim().length > 15) {
+      return false;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return false;
+    }
+    
     const usernameRef = doc(db, "usernames", username.toLowerCase());
     const docSnap = await getDoc(usernameRef);
     return !docSnap.exists();
@@ -185,6 +231,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return false;
     
     try {
+      if (!username || username.trim().length < 3 || username.trim().length > 15) {
+        toast({
+          title: "Invalid username",
+          description: "Username must be between 3 and 15 characters long",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        toast({
+          title: "Invalid username",
+          description: "Username can only contain letters, numbers, and underscores",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
       const isAvailable = await isUsernameAvailable(username);
       
       if (!isAvailable) {
@@ -217,6 +281,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await updateProfile(currentUser, {
         displayName: username
       });
+      
+      // Update the local user object
+      (currentUser as any).username = username;
       
       toast({
         title: "Username set successfully",

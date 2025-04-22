@@ -1,24 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { doc, updateDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const UsernameSetupModal: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, setUsernameOnSignUp, isUsernameAvailable } = useAuth();
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState('');
-  const [isAvailable, setIsAvailable] = useState(false);
+  const [isUsernameValid, setIsUsernameValid] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
   const [hasUsername, setHasUsername] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
+  const { toast } = useToast();
   
   useEffect(() => {
     const checkUsername = async () => {
@@ -44,21 +45,27 @@ const UsernameSetupModal: React.FC = () => {
   }, [currentUser]);
   
   const checkUsernameAvailability = async () => {
+    if (!username || username.trim().length === 0) {
+      setError('Please enter a username');
+      setIsUsernameValid(false);
+      return;
+    }
+    
     if (username.length < 3) {
       setError('Username must be at least 3 characters long');
-      setIsAvailable(false);
+      setIsUsernameValid(false);
       return;
     }
     
     if (username.length > 15) {
       setError('Username must be at most 15 characters long');
-      setIsAvailable(false);
+      setIsUsernameValid(false);
       return;
     }
     
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       setError('Username can only contain letters, numbers, and underscores');
-      setIsAvailable(false);
+      setIsUsernameValid(false);
       return;
     }
     
@@ -66,19 +73,18 @@ const UsernameSetupModal: React.FC = () => {
     setError('');
     
     try {
-      const q = query(collection(db, 'users'), where('username', '==', username));
-      const querySnapshot = await getDocs(q);
+      const available = await isUsernameAvailable(username);
       
-      if (!querySnapshot.empty) {
+      if (!available) {
         setError('Username is already taken');
-        setIsAvailable(false);
+        setIsUsernameValid(false);
       } else {
-        setIsAvailable(true);
+        setIsUsernameValid(true);
       }
     } catch (error) {
       console.error('Error checking username availability:', error);
       setError('Error checking username availability');
-      setIsAvailable(false);
+      setIsUsernameValid(false);
     } finally {
       setIsChecking(false);
     }
@@ -86,29 +92,24 @@ const UsernameSetupModal: React.FC = () => {
   
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
-    setIsAvailable(false);
+    setIsUsernameValid(false);
     setError('');
   };
   
   const handleSubmit = async () => {
     if (!currentUser) return;
-    if (!isAvailable) {
+    if (!isUsernameValid) {
       await checkUsernameAvailability();
-      if (!isAvailable) return;
+      if (!isUsernameValid) return;
     }
     
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        username
-      });
+      const success = await setUsernameOnSignUp(username);
       
-      toast({
-        title: 'Username set successfully!',
-        description: `Your username is now @${username}`,
-      });
-      
-      setHasUsername(true);
-      setShowTutorial(true);
+      if (success) {
+        setHasUsername(true);
+        setShowTutorial(true);
+      }
     } catch (error) {
       console.error('Error setting username:', error);
       toast({
@@ -124,10 +125,34 @@ const UsernameSetupModal: React.FC = () => {
     localStorage.setItem('hasCompletedTutorial', 'true');
   };
   
+  // Force user to set a username before using the app
+  const preventClose = () => {
+    if (!hasUsername) {
+      toast({
+        title: 'Username required',
+        description: 'Please set a username to continue',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
+  
   return (
     <>
-      <Dialog open={open && !hasUsername} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog 
+        open={open && !hasUsername} 
+        onOpenChange={(newOpen) => {
+          if (preventClose()) {
+            setOpen(newOpen);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => {
+          if (!hasUsername) {
+            e.preventDefault();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>Set Your Username</DialogTitle>
             <DialogDescription>
@@ -148,12 +173,12 @@ const UsernameSetupModal: React.FC = () => {
                   onBlur={checkUsernameAvailability}
                   className={
                     error ? 'border-red-500' : 
-                    isAvailable ? 'border-green-500' : ''
+                    isUsernameValid ? 'border-green-500' : ''
                   }
                 />
                 <div className="text-xs mt-1">
                   {error && <p className="text-red-500">{error}</p>}
-                  {isAvailable && <p className="text-green-500">Username is available</p>}
+                  {isUsernameValid && <p className="text-green-500">Username is available</p>}
                   <p className="text-muted-foreground">
                     Username must be 3-15 characters long and can only contain letters, numbers, and underscores.
                   </p>
@@ -164,7 +189,7 @@ const UsernameSetupModal: React.FC = () => {
           <DialogFooter>
             <Button 
               onClick={handleSubmit} 
-              disabled={!username || Boolean(error) || isChecking || !isAvailable}
+              disabled={!username || Boolean(error) || isChecking || !isUsernameValid}
             >
               Set Username
             </Button>
