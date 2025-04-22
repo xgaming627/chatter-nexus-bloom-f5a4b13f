@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 const UsernameSetupModal: React.FC = () => {
   const { currentUser, setUsernameOnSignUp, isUsernameAvailable } = useAuth();
@@ -17,6 +19,7 @@ const UsernameSetupModal: React.FC = () => {
   const [error, setError] = useState('');
   const [hasUsername, setHasUsername] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showSystemAlert, setShowSystemAlert] = useState(true);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -134,6 +137,28 @@ const UsernameSetupModal: React.FC = () => {
   
   return (
     <>
+      {showSystemAlert && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-500 text-white p-3 shadow-lg">
+          <div className="container mx-auto flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              <div>
+                <strong>System Alert:</strong> We are experiencing issues with the sign-up and username setup functionality. 
+                Our team is working on fixing this. We apologize for the inconvenience.
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-transparent border-white text-white hover:bg-red-600 hover:text-white"
+              onClick={() => setShowSystemAlert(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Dialog 
         open={open && !hasUsername} 
         onOpenChange={(newOpen) => {
@@ -153,6 +178,17 @@ const UsernameSetupModal: React.FC = () => {
               Choose a unique username for your profile.
             </DialogDescription>
           </DialogHeader>
+          
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>System issues</AlertTitle>
+            <AlertDescription>
+              We are currently experiencing issues with our username setup. 
+              You may encounter errors when trying to set your username. 
+              Please try again later.
+            </AlertDescription>
+          </Alert>
+          
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="username" className="text-right">
