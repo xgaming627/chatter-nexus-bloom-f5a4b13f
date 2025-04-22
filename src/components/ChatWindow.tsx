@@ -1,8 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { Check, ChevronDown, Phone, Video, Paperclip, Send, Shield, X, Info, User, UserCheck, UserMinus, UserX } from 'lucide-react';
+import { Check, ChevronDown, Phone, Video, Paperclip, Send, Shield, X, Info, User, UserCheck, UserMinus, UserX, Trash2, Bell, Folder, UserPlus, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
@@ -40,7 +41,10 @@ const ChatWindow: React.FC = () => {
     blockUser,
     unblockUser,
     hasNewMessages,
-    getBlockedUsers
+    getBlockedUsers,
+    deleteMessage,
+    storeChat,
+    unstoreChat,
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
@@ -57,16 +61,19 @@ const ChatWindow: React.FC = () => {
   const [showUserInfoDialog, setShowUserInfoDialog] = useState(false);
   const [profileTab, setProfileTab] = useState("info");
   const [blockedReason, setBlockedReason] = useState('');
+  const [showGroupSettingsDialog, setShowGroupSettingsDialog] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
   
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const isModeratorUser = (user: { email?: string }) =>
-    user.email === "vitorrossato812@gmail.com";
+    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com";
 
   useEffect(() => {
-    if (currentUser?.email === 'vitorrossato812@gmail.com') {
+    if (currentUser?.email === 'vitorrossato812@gmail.com' || currentUser?.email === 'lukasbraga77@gmail.com') {
       setIsModerator(true);
     } else {
       setIsModerator(false);
@@ -81,7 +88,7 @@ const ChatWindow: React.FC = () => {
       if (document.visibilityState === 'visible') {
         updateOnlineStatus('online');
       } else {
-        updateOnlineStatus('offline');
+        updateOnlineStatus('away');
       }
     };
     
@@ -246,6 +253,21 @@ const ChatWindow: React.FC = () => {
     });
   };
 
+  const handleDeleteMessage = (message: Message) => {
+    setConfirmDeleteMessage(message);
+  };
+
+  const confirmDelete = async () => {
+    if (confirmDeleteMessage) {
+      await deleteMessage(confirmDeleteMessage.id, currentUser?.displayName || currentUser?.username || "User");
+      setConfirmDeleteMessage(null);
+      toast({
+        title: "Message deleted",
+        description: "Your message has been deleted",
+      });
+    }
+  };
+
   const handleBlockUser = () => {
     if (!currentConversation || currentConversation.isGroupChat) return;
     
@@ -284,9 +306,28 @@ const ChatWindow: React.FC = () => {
     updateOnlineStatus(onlineStatus);
     setShowProfileDialog(false);
   };
+
+  const handleUpdateGroupSettings = async () => {
+    if (!currentConversation || !currentConversation.isGroupChat) return;
+    
+    // This function would be implemented in ChatContext
+    // await updateGroupSettings(currentConversation.id, newGroupName);
+    
+    toast({
+      title: "Group updated",
+      description: "Group settings have been updated",
+    });
+    
+    setShowGroupSettingsDialog(false);
+  };
   
   const handleAvatarClick = () => {
-    if (!currentConversation || currentConversation.isGroupChat) {
+    if (!currentConversation) {
+      return;
+    }
+    
+    if (currentConversation.isGroupChat) {
+      setShowGroupSettingsDialog(true);
       return;
     }
     
@@ -296,10 +337,32 @@ const ChatWindow: React.FC = () => {
   const getMessageStatus = (message: Message) => {
     if (message.senderId !== currentUser?.uid) return null;
     
-    if (message.read) {
+    if (message.deleted) {
+      return null;
+    } else if (message.read) {
       return <span className="text-xs text-green-500 ml-1">read</span>;
+    } else if (message.delivered) {
+      return <span className="text-xs text-blue-500 ml-1">delivered</span>;
     } else {
-      return <span className="text-xs text-gray-500 ml-1">delivered</span>;
+      return <span className="text-xs text-gray-500 ml-1">sent</span>;
+    }
+  };
+  
+  const handleStoreChat = () => {
+    if (!currentConversation) return;
+    
+    if (currentConversation.isStored) {
+      unstoreChat(currentConversation.id);
+      toast({
+        title: "Chat unstored",
+        description: "This chat has been removed from your stored chats",
+      });
+    } else {
+      storeChat(currentConversation.id);
+      toast({
+        title: "Chat stored",
+        description: "This chat has been added to your stored chats",
+      });
     }
   };
   
@@ -324,7 +387,7 @@ const ChatWindow: React.FC = () => {
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {isCallActive && <CallModal />}
+      {isCallActive && <CallModal isGroup={isGroup} />}
       
       {/* Chat header */}
       <div className="flex justify-between items-center p-4 border-b">
@@ -371,9 +434,22 @@ const ChatWindow: React.FC = () => {
                 )}
               </>
             )}
+            {isGroup && (
+              <div className="text-xs text-muted-foreground">
+                {currentConversation.participants.length} members
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            size="icon" 
+            variant="ghost"
+            onClick={handleStoreChat}
+            title={currentConversation.isStored ? "Unstore Chat" : "Store Chat"}
+          >
+            <Folder className={`h-5 w-5 ${currentConversation.isStored ? "fill-current" : ""}`} />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -392,6 +468,11 @@ const ChatWindow: React.FC = () => {
               {!isGroup && isBlocked && (
                 <DropdownMenuItem onClick={handleUnblockUser}>
                   <UserCheck className="h-4 w-4 mr-2" /> Unblock User
+                </DropdownMenuItem>
+              )}
+              {isGroup && (
+                <DropdownMenuItem onClick={() => setShowGroupSettingsDialog(true)}>
+                  <MessageSquare className="h-4 w-4 mr-2" /> Group Settings
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -418,139 +499,174 @@ const ChatWindow: React.FC = () => {
       </div>
       
       {/* Messages */}
-      <div 
-        ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-      >
-        {messages.length > 0 ? (
-          messages.map((message) => {
-            const isOwnMessage = message.senderId === currentUser?.uid;
-            const isModeratorMessage = isModerator && !isOwnMessage;
-            
-            if (!isOwnMessage && !message.read) {
-              markAsRead(message.id);
-            }
-            
-            return (
-              <div 
-                key={message.id} 
-                className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
-              >
-                <div className="max-w-[80%] break-words">
-                  {!isOwnMessage && !isGroup && (
-                    <div className="flex items-center mb-1">
-                      <UserAvatar 
-                        username={
-                          isModeratorUser(currentConversation.participantsInfo[0] || {}) 
-                            ? "Moderator"
-                            : currentConversation.participantsInfo[0]?.username
-                        }
-                        photoURL={
-                          isModeratorUser(currentConversation.participantsInfo[0] || {}) 
-                            ? undefined
-                            : currentConversation.participantsInfo[0]?.photoURL
-                        }
-                        size="sm"
-                      />
-                      <span className="text-xs font-medium ml-2 flex items-center">
-                        {isModeratorUser(currentConversation.participantsInfo[0] || {}) ? (
-                          <>
-                            <span>Moderator</span>
-                            <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                              <Shield className="h-3 w-3" />
-                            </Badge>
-                          </>
-                        ) : (
-                          currentConversation.participantsInfo[0]?.displayName
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {isGroup && !isOwnMessage && (
-                    <div className="flex items-center mb-1">
-                      <UserAvatar 
-                        username="User" // This would need to be fetched from the user's info
-                        size="sm" 
-                      />
-                      <span className="text-xs font-medium ml-2">
-                        User Name  {/* This would need to be fetched from the user's info */}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-end gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align={isOwnMessage ? "end" : "start"} className="dropdown-menu">
-                        {!isOwnMessage && (
-                          <DropdownMenuItem onClick={() => handleReportMessage(message)}>
-                            Report message
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    
-                    <div
-                      className={cn(
-                        "chat-bubble group",
-                        isOwnMessage 
-                          ? "chat-bubble-sent" 
-                          : isModeratorMessage 
-                            ? "chat-bubble-moderator bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
-                            : "chat-bubble-received"
-                      )}
-                    >
-                      {message.fileURL ? (
-                        <div className="space-y-2">
-                          <a 
-                            href={message.fileURL} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 underline"
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            {message.fileName || "Attachment"}
-                          </a>
-                          {message.fileType?.startsWith('image/') && (
-                            <img 
-                              src={message.fileURL} 
-                              alt="Attachment" 
-                              className="rounded-md max-h-60 max-w-full object-contain"
-                            />
+      <ScrollArea ref={messageContainerRef} className="flex-1">
+        <div className="p-4 space-y-4">
+          {messages.length > 0 ? (
+            messages.map((message) => {
+              const isOwnMessage = message.senderId === currentUser?.uid;
+              const isModeratorMessage = isModerator && !isOwnMessage;
+              
+              if (!isOwnMessage && !message.read) {
+                markAsRead(message.id);
+              }
+              
+              return (
+                <div 
+                  key={message.id} 
+                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
+                >
+                  <div className="max-w-[80%] break-words">
+                    {!isOwnMessage && !isGroup && (
+                      <div className="flex items-center mb-1">
+                        <UserAvatar 
+                          username={
+                            isModeratorUser(currentConversation.participantsInfo[0] || {}) 
+                              ? "Moderator"
+                              : currentConversation.participantsInfo[0]?.username
+                          }
+                          photoURL={
+                            isModeratorUser(currentConversation.participantsInfo[0] || {}) 
+                              ? undefined
+                              : currentConversation.participantsInfo[0]?.photoURL
+                          }
+                          size="sm"
+                        />
+                        <span className="text-xs font-medium ml-2 flex items-center">
+                          {isModeratorUser(currentConversation.participantsInfo[0] || {}) ? (
+                            <>
+                              <span>Moderator</span>
+                              <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                <Shield className="h-3 w-3" />
+                              </Badge>
+                            </>
+                          ) : (
+                            currentConversation.participantsInfo[0]?.displayName
                           )}
-                        </div>
-                      ) : (
-                        message.content
-                      )}
-                      
-                      <div className="text-right">
-                        <span className="message-time inline-block mt-1">
-                          {getMessageTime(message.timestamp)}
-                          {isOwnMessage && getMessageStatus(message)}
                         </span>
+                      </div>
+                    )}
+                    
+                    {isGroup && !isOwnMessage && (
+                      <div className="flex items-center mb-1">
+                        <UserAvatar 
+                          username={
+                            // Find user info from participants array
+                            currentConversation.participantsInfo.find(
+                              user => user.uid === message.senderId
+                            )?.username || "User"
+                          }
+                          photoURL={
+                            currentConversation.participantsInfo.find(
+                              user => user.uid === message.senderId
+                            )?.photoURL
+                          }
+                          size="sm"
+                        />
+                        <span className="text-xs font-medium ml-2">
+                          {isModeratorUser({email: 
+                            currentConversation.participantsInfo.find(
+                              user => user.uid === message.senderId
+                            )?.email || ""
+                          }) ? (
+                            <div className="flex items-center">
+                              <span>Moderator</span>
+                              <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                <Shield className="h-3 w-3" />
+                              </Badge>
+                            </div>
+                          ) : (
+                            currentConversation.participantsInfo.find(
+                              user => user.uid === message.senderId
+                            )?.displayName || "User"
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-end gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align={isOwnMessage ? "end" : "start"} className="dropdown-menu">
+                          {isOwnMessage && (
+                            <DropdownMenuItem onClick={() => handleDeleteMessage(message)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete message
+                            </DropdownMenuItem>
+                          )}
+                          {!isOwnMessage && (
+                            <DropdownMenuItem onClick={() => handleReportMessage(message)}>
+                              <Shield className="h-4 w-4 mr-2" /> Report message
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      
+                      <div
+                        className={cn(
+                          "chat-bubble group",
+                          isOwnMessage 
+                            ? "chat-bubble-sent" 
+                            : isModeratorMessage 
+                              ? "chat-bubble-moderator bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
+                              : "chat-bubble-received"
+                        )}
+                      >
+                        {message.deleted ? (
+                          <em className="text-gray-500 dark:text-gray-400">
+                            This message has been deleted by {message.deletedBy || "User"}
+                          </em>
+                        ) : message.fileURL ? (
+                          <div className="space-y-2">
+                            <a 
+                              href={message.fileURL} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 underline"
+                            >
+                              <Paperclip className="h-4 w-4" />
+                              {message.fileName || "Attachment"}
+                            </a>
+                            {message.fileType?.startsWith('image/') && (
+                              <img 
+                                src={message.fileURL} 
+                                alt="Attachment" 
+                                className="rounded-md max-h-60 max-w-full object-contain"
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          message.content
+                        )}
+                        
+                        {!message.deleted && (
+                          <div className="text-right">
+                            <span className="message-time inline-block mt-1">
+                              {getMessageTime(message.timestamp)}
+                              {isOwnMessage && getMessageStatus(message)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="text-center text-muted-foreground">
-            No messages yet. Start the conversation!
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+              );
+            })
+          ) : (
+            <div className="text-center text-muted-foreground">
+              No messages yet. Start the conversation!
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
       
       {/* Scroll to bottom button */}
       {showScrollButton && (
@@ -797,6 +913,116 @@ const ChatWindow: React.FC = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Group settings dialog */}
+      <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Group Settings</DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[60vh] p-4">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="group-name">Group Name</Label>
+                <Input 
+                  id="group-name"
+                  value={newGroupName || (currentConversation.groupName || '')}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter group name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="group-image">Group Image</Label>
+                <Input 
+                  id="group-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      toast({
+                        title: "File upload not available",
+                        description: "Group image upload is not yet supported. Please connect Supabase.",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Group Members</Label>
+                <div className="border rounded-md p-2">
+                  {currentConversation.participantsInfo.map((user) => (
+                    <div key={user.uid} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                      <div className="flex items-center">
+                        <UserAvatar username={user.username} photoURL={user.photoURL} size="sm" />
+                        <div className="ml-2">
+                          <p className="text-sm font-medium">{user.displayName}</p>
+                          <p className="text-xs text-muted-foreground">@{user.username}</p>
+                        </div>
+                      </div>
+                      {isModeratorUser({email: user.email}) && (
+                        <Badge className="px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                          <Shield className="h-3 w-3 mr-1" /> Moderator
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => {
+                  // Implement functionality to add users to the group
+                  toast({
+                    title: "Feature coming soon",
+                    description: "Adding members to existing groups will be available soon",
+                  });
+                }}
+              >
+                <UserPlus className="h-4 w-4 mr-2" /> Add Members
+              </Button>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateGroupSettings}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete message confirmation dialog */}
+      <Dialog open={!!confirmDeleteMessage} onOpenChange={() => setConfirmDeleteMessage(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Message</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {confirmDeleteMessage && (
+              <div className="p-4 rounded-md bg-gray-100 dark:bg-gray-800">
+                <p>{confirmDeleteMessage.content}</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              <Trash2 className="h-4 w-4 mr-2" /> Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       

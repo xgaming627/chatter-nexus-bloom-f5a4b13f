@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Settings } from "lucide-react";
+import { Settings, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
 import ChatList from "@/components/ChatList";
@@ -13,18 +13,44 @@ import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
 import { ChatProvider } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
+import WarnUserNotification from "@/components/WarnUserNotification";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 const Index = () => {
   const { currentUser } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [showModeratorPanel, setShowModeratorPanel] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [darkMode, setDarkMode] = useState(false);
   
   // Check if the user is the moderator
-  const isModerator = currentUser?.email === 'vitorrossato812@gmail.com';
+  const isModerator = currentUser?.email === 'vitorrossato812@gmail.com' || 
+                        currentUser?.email === 'lukasbraga77@gmail.com';
+
+  // Set dark mode preference
+  useEffect(() => {
+    const theme = localStorage.getItem('theme');
+    if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      setDarkMode(true);
+    } else {
+      document.documentElement.classList.remove('dark');
+      setDarkMode(false);
+    }
+  }, []);
   
   useEffect(() => {
     // Show welcome message for new users
@@ -36,9 +62,64 @@ const Index = () => {
     }
   }, [currentUser]);
 
+  // Fetch user notifications
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const fetchNotifications = async () => {
+      try {
+        const notificationsRef = collection(db, "notifications");
+        const q = query(
+          notificationsRef,
+          where("userId", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+        
+        const notifs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          read: doc.data().read || false
+        }));
+        
+        setNotifications(notifs);
+        setUnreadNotifications(notifs.filter(n => !n.read).length);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+    
+    fetchNotifications();
+    
+    // Set up interval to check for new notifications
+    const interval = setInterval(fetchNotifications, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
   const handleAcceptTerms = () => {
     localStorage.setItem('hasSeenWelcome', 'true');
     setShowWelcome(false);
+  };
+
+  const markNotificationsAsRead = async () => {
+    if (!currentUser || notifications.length === 0) return;
+    
+    try {
+      // Mark all notifications as read
+      for (const notification of notifications) {
+        if (!notification.read && !notification.requiresAction) {
+          await updateDoc(doc(db, "notifications", notification.id), {
+            read: true
+          });
+        }
+      }
+      
+      // Update local state
+      setNotifications(prev => prev.map(n => ({ ...n, read: n.requiresAction ? n.read : true })));
+      setUnreadNotifications(0);
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
   };
   
   // If user is not logged in, show auth forms
@@ -60,6 +141,7 @@ const Index = () => {
     <LiveSupportProvider>
       <ChatProvider>
         <UsernameSetupModal />
+        <WarnUserNotification />
         
         <div className="flex flex-col h-screen bg-background">
           {/* Header */}
@@ -70,6 +152,67 @@ const Index = () => {
                 <div className="max-w-xs w-64 hidden md:block">
                   <SearchUsers />
                 </div>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 relative"
+                    >
+                      <Bell className="h-5 w-5" />
+                      {unreadNotifications > 0 && (
+                        <Badge 
+                          className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-xs bg-red-500"
+                        >
+                          {unreadNotifications}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="end">
+                    <div className="py-2 px-4 border-b bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">Notifications</h3>
+                        {unreadNotifications > 0 && (
+                          <Button variant="ghost" size="sm" onClick={markNotificationsAsRead}>
+                            Mark all as read
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <ScrollArea className="h-[300px]">
+                      {notifications.length > 0 ? (
+                        <div className="py-2">
+                          {notifications.map(notification => (
+                            <div 
+                              key={notification.id}
+                              className={`px-4 py-2 hover:bg-muted/50 ${!notification.read ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="text-sm font-medium">{notification.type.charAt(0).toUpperCase() + notification.type.slice(1)}</p>
+                                  <p className="text-xs text-muted-foreground">{notification.content}</p>
+                                </div>
+                                {!notification.read && (
+                                  <div className="h-2 w-2 bg-blue-500 rounded-full mt-2"></div>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {notification.timestamp ? format(notification.timestamp.toDate(), 'PPp') : ''}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <p className="text-muted-foreground">No notifications</p>
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+                
                 <Button 
                   variant="ghost" 
                   size="icon"
@@ -156,13 +299,13 @@ const Index = () => {
         <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle className="text-xl">Welcome to Nexus Chat (v1.13)!</DialogTitle>
+              <DialogTitle className="text-xl">Welcome to Nexus Chat (v1.13.5)!</DialogTitle>
             </DialogHeader>
             
             <ScrollArea className="max-h-[400px] pr-4">
               <div className="space-y-4 py-4">
                 <p>
-                  👋 Welcome to Nexus Chat (v1.13)!
+                  👋 Welcome to Nexus Chat (v1.13.5)!
                   This app is currently under development, so you may notice ongoing changes and new features being added.
                 </p>
                 

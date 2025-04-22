@@ -11,8 +11,8 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
@@ -23,10 +23,8 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --ring: 262.1 83.3% 57.8%;
     --radius: 0.5rem;
-    --teams-purple: #6264A7;
-    --teams-purple-light: #8283B5;
   }
  
   .dark {
@@ -36,8 +34,8 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -49,11 +47,9 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
-    --teams-purple: #8283B5;
-    --teams-purple-light: #9899C7;
   }
 }
-
+ 
 @layer base {
   * {
     @apply border-border;
@@ -65,66 +61,30 @@
 }
 
 .chat-bubble {
-  @apply p-3 rounded-lg;
+  @apply p-3 rounded-lg max-w-full shadow-sm;
 }
 
 .chat-bubble-sent {
-  @apply bg-teams-purple text-white self-end;
+  @apply bg-primary text-white ml-auto rounded-tr-none;
 }
 
 .chat-bubble-received {
-  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 self-start;
+  @apply bg-secondary rounded-tl-none;
+}
+
+.chat-bubble-moderator {
+  @apply rounded-tl-none;
 }
 
 .message-time {
-  @apply text-xs text-gray-400;
+  @apply text-xs opacity-70;
 }
 
-/* Fix the dropdown menu z-index issue */
-.radix-dropdown-content {
-  z-index: 100 !important;
+.search-input {
+  @apply dark:bg-gray-800 dark:text-white dark:border-gray-700;
 }
 
 /* Dark mode styles */
-.dark .chat-bubble-received {
-  @apply bg-gray-800 text-white;
-}
-
-.dark .message-time {
-  @apply text-gray-500;
-}
-
-/* Fix search input visibility in dark mode */
-.search-input {
-  @apply text-foreground dark:text-white !important;
-}
-
-/* Ensure dropdown menus are visible in dark mode */
 .dark .dropdown-menu {
   @apply bg-gray-800 border-gray-700;
-}
-
-/* Fix moderator panel toggle styles */
-.moderator-panel-toggle {
-  @apply fixed top-4 right-4 z-50;
-}
-
-/* Make sure support panel is visible */
-.support-panel {
-  @apply z-40 bg-background border border-border;
-}
-
-/* Style fixes for various components */
-.dropdown-menu {
-  @apply z-50 bg-background border border-border shadow-lg;
-}
-
-/* Fix dark mode issues */
-.dark {
-  color-scheme: dark;
-}
-
-/* Fix for DialogContent */
-.dark [role="dialog"] {
-  @apply bg-background text-foreground border-border;
 }

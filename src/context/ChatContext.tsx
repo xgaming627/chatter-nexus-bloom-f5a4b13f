@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   collection,
@@ -12,7 +13,10 @@ import {
   getDoc,
   setDoc,
   arrayUnion,
-  getDocs
+  getDocs,
+  deleteDoc,
+  arrayRemove,
+  DocumentReference
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
@@ -30,6 +34,9 @@ export interface Message {
   fileType?: string;
   reported?: boolean;
   flaggedForModeration?: boolean;
+  deleted?: boolean;
+  deletedBy?: string;
+  delivered?: boolean;
 }
 
 export interface User {
@@ -47,6 +54,8 @@ export interface User {
   banExpiry?: any;
   ipAddress?: string;
   vpnDetected?: boolean;
+  reason?: string;
+  dmSettings?: 'open' | 'closed';
 }
 
 export interface Conversation {
@@ -64,6 +73,8 @@ export interface Conversation {
   groupPhotoURL?: string;
   createdBy: string;
   createdAt: any;
+  isStored?: boolean;
+  unreadCount?: number;
 }
 
 interface ChatContextType {
@@ -91,6 +102,11 @@ interface ChatContextType {
   getBlockedUsers: () => Promise<User[]>;
   hasNewMessages: boolean;
   clearNewMessagesFlag: () => void;
+  deleteMessage: (messageId: string, deletedBy: string) => Promise<void>;
+  storeChat: (conversationId: string) => Promise<void>;
+  unstoreChat: (conversationId: string) => Promise<void>;
+  updateDmSettings: (setting: 'open' | 'closed') => Promise<void>;
+  updateGroupSettings: (conversationId: string, groupName: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -113,6 +129,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeCallType, setActiveCallType] = useState<'video' | 'voice' | null>(null);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [storedChats, setStoredChats] = useState<string[]>([]);
 
   const bannedWords = [
     "badword", "profanity", "offensive", "slur", "inappropriate", "banned",
@@ -124,11 +141,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadBlockedUsers = async () => {
       try {
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-        if (userDoc.exists() && userDoc.data().blockedUsers) {
-          setBlockedUsers(userDoc.data().blockedUsers);
+        if (userDoc.exists()) {
+          if (userDoc.data().blockedUsers) {
+            setBlockedUsers(userDoc.data().blockedUsers);
+          }
+          if (userDoc.data().storedChats) {
+            setStoredChats(userDoc.data().storedChats || []);
+          }
         }
       } catch (error) {
-        console.error("Error loading blocked users:", error);
+        console.error("Error loading user settings:", error);
       }
     };
 
@@ -164,21 +186,52 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
         
+        // Count unread messages
+        let unreadCount = 0;
+        try {
+          const messagesRef = collection(db, "messages");
+          const unreadQuery = query(
+            messagesRef,
+            where("conversationId", "==", docSnap.id),
+            where("senderId", "!=", currentUser.uid),
+            where("read", "==", false)
+          );
+          const unreadSnapshot = await getDocs(unreadQuery);
+          unreadCount = unreadSnapshot.docs.length;
+        } catch (error) {
+          console.error("Error counting unread messages:", error);
+        }
+
+        const isStored = storedChats.includes(docSnap.id);
+        
         conversationsData.push({
           id: docSnap.id,
           ...data,
-          participantsInfo
+          participantsInfo,
+          isStored,
+          unreadCount
         });
       }
       
       setConversations(conversationsData);
       if (newMessages) {
         setHasNewMessages(true);
+        // Add browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("New Message", {
+            body: "You have a new message in ChatNexus",
+            icon: "/favicon.ico"
+          });
+        }
+        // Update document title
+        document.title = "(1) ChatNexus - New Message";
+      } else {
+        document.title = "ChatNexus";
       }
     });
     
     return () => unsubscribe();
-  }, [currentUser, currentConversation, blockedUsers]);
+  }, [currentUser, currentConversation, blockedUsers, storedChats]);
 
   useEffect(() => {
     if (!currentConversation) {
@@ -229,9 +282,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentConversation({
           id: conversationDoc.id,
           ...data,
-          participantsInfo
+          participantsInfo,
+          isStored: storedChats.includes(id)
         });
         setHasNewMessages(false);
+        
+        // Mark all messages as read
+        const messagesRef = collection(db, "messages");
+        const unreadQuery = query(
+          messagesRef,
+          where("conversationId", "==", id),
+          where("senderId", "!=", currentUser?.uid),
+          where("read", "==", false)
+        );
+        const unreadSnapshot = await getDocs(unreadQuery);
+        
+        unreadSnapshot.docs.forEach(async (doc) => {
+          await updateDoc(doc.ref, { 
+            read: true,
+            delivered: true
+          });
+        });
+        
+        document.title = "ChatNexus";
       }
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -328,6 +401,35 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const shouldFlag = bannedWords.some(word => 
         content.toLowerCase().includes(word.toLowerCase())
       );
+
+      // Check for mentions (@username) and notify users
+      const mentionRegex = /@(\w+)/g;
+      const mentions = content.match(mentionRegex);
+      
+      if (mentions && mentions.length > 0) {
+        const uniqueMentions = [...new Set(mentions)];
+        for (const mention of uniqueMentions) {
+          const username = mention.substring(1); // Remove the @ symbol
+          // Find the user
+          const usersRef = collection(db, "users");
+          const userQuery = query(usersRef, where("username", "==", username));
+          const userDocs = await getDocs(userQuery);
+          
+          if (!userDocs.empty) {
+            const mentionedUser = userDocs.docs[0];
+            // Add notification
+            await addDoc(collection(db, "notifications"), {
+              userId: mentionedUser.id,
+              conversationId,
+              type: "mention",
+              from: currentUser.displayName || currentUser.username,
+              content: `mentioned you in a message: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
+              read: false,
+              timestamp: serverTimestamp()
+            });
+          }
+        }
+      }
       
       const messageData = {
         conversationId,
@@ -335,6 +437,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         content,
         timestamp: serverTimestamp(),
         read: false,
+        delivered: false,
         flaggedForModeration: shouldFlag
       };
       
@@ -418,10 +521,106 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const markAsRead = async (messageId: string) => {
     try {
       await updateDoc(doc(db, "messages", messageId), {
-        read: true
+        read: true,
+        delivered: true
       });
     } catch (error) {
       console.error("Error marking message as read:", error);
+    }
+  };
+
+  const deleteMessage = async (messageId: string, deletedBy: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      await updateDoc(doc(db, "messages", messageId), {
+        deleted: true,
+        deletedBy
+      });
+      
+      toast({
+        title: "Message deleted",
+        description: "Your message has been deleted",
+      });
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      toast({
+        title: "Failed to delete message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const storeChat = async (conversationId: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        storedChats: arrayUnion(conversationId)
+      });
+      
+      setStoredChats([...storedChats, conversationId]);
+      
+      toast({
+        title: "Chat stored",
+        description: "This chat has been added to your stored chats",
+      });
+    } catch (error) {
+      console.error("Error storing chat:", error);
+      toast({
+        title: "Failed to store chat",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const unstoreChat = async (conversationId: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        storedChats: arrayRemove(conversationId)
+      });
+      
+      setStoredChats(storedChats.filter(id => id !== conversationId));
+      
+      toast({
+        title: "Chat unstored",
+        description: "This chat has been removed from your stored chats",
+      });
+    } catch (error) {
+      console.error("Error unstoring chat:", error);
+      toast({
+        title: "Failed to unstore chat",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const updateDmSettings = async (setting: 'open' | 'closed') => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        dmSettings: setting
+      });
+      
+      toast({
+        title: "DM Settings Updated",
+        description: `Your DMs are now ${setting === 'open' ? 'open to everyone' : 'closed to new contacts'}`,
+      });
+    } catch (error) {
+      console.error("Error updating DM settings:", error);
+      toast({
+        title: "Failed to update settings",
+        description: "Please try again later",
+        variant: "destructive"
+      });
     }
   };
 
@@ -467,8 +666,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createGroupChat = async (name: string, participantIds: string[]) => {
-    return createConversation(participantIds, true, name);
+  const createGroupChat = async (name: string, participants: string[]) => {
+    return createConversation(participants, true, name);
   };
 
   const startVideoCall = (conversationId: string) => {
@@ -520,11 +719,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         }
+
+        // Count unread messages
+        let unreadCount = 0;
+        try {
+          const messagesRef = collection(db, "messages");
+          const unreadQuery = query(
+            messagesRef,
+            where("conversationId", "==", docSnap.id),
+            where("senderId", "!=", currentUser.uid),
+            where("read", "==", false)
+          );
+          const unreadSnapshot = await getDocs(unreadQuery);
+          unreadCount = unreadSnapshot.docs.length;
+        } catch (error) {
+          console.error("Error counting unread messages:", error);
+        }
         
         conversationsData.push({
           id: docSnap.id,
           ...data,
-          participantsInfo
+          participantsInfo,
+          isStored: storedChats.includes(docSnap.id),
+          unreadCount
         });
       }
       
@@ -562,7 +779,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateOnlineStatus = async (status: 'online' | 'away' | 'offline') => {
-    if (!currentUser) throw new Error("You must be logged in");
+    if (!currentUser) return;
     
     try {
       await updateDoc(doc(db, "users", currentUser.uid), {
@@ -658,8 +875,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateGroupSettings = async (conversationId: string, groupName: string) => {
+    if (!currentUser) throw new Error("You must be logged in");
+    
+    try {
+      await updateDoc(doc(db, "conversations", conversationId), {
+        groupName
+      });
+      
+      toast({
+        title: "Group updated",
+        description: "Group settings have been updated"
+      });
+    } catch (error) {
+      console.error("Error updating group settings:", error);
+      toast({
+        title: "Failed to update group",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
   const clearNewMessagesFlag = () => {
     setHasNewMessages(false);
+    document.title = "ChatNexus";
   };
 
   const value = {
@@ -686,7 +926,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     unblockUser,
     getBlockedUsers,
     hasNewMessages,
-    clearNewMessagesFlag
+    clearNewMessagesFlag,
+    deleteMessage,
+    storeChat,
+    unstoreChat,
+    updateDmSettings,
+    updateGroupSettings
   };
 
   return (

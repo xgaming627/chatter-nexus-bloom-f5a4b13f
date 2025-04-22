@@ -1,9 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, 
-  Timestamp, orderBy, onSnapshot, increment as firestoreIncrement
+  Timestamp, orderBy, onSnapshot, increment as firestoreIncrement,
+  setDoc, serverTimestamp, getDoc
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +68,21 @@ interface User {
   onlineStatus?: 'online' | 'away' | 'offline';
 }
 
+interface SupportSession {
+  id: string;
+  userId: string;
+  userInfo?: {
+    displayName: string;
+    email: string;
+  };
+  createdAt: Timestamp;
+  lastMessage?: {
+    content: string;
+    timestamp: Timestamp;
+  };
+  status: string;
+}
+
 const ModeratorPanel: React.FC = () => {
   const { currentUser } = useAuth();
   const { setCurrentConversationId } = useChat();
@@ -85,17 +102,24 @@ const ModeratorPanel: React.FC = () => {
   const [showWarnDialog, setShowWarnDialog] = useState(false);
   const [warnReason, setWarnReason] = useState('');
   const [userToAction, setUserToAction] = useState<User | null>(null);
-  const [archivedSessions, setArchivedSessions] = useState<any[]>([]);
+  const [archivedSessions, setArchivedSessions] = useState<SupportSession[]>([]);
   const [warnDuration, setWarnDuration] = useState('24h');
+  const [showAddModeratorDialog, setShowAddModeratorDialog] = useState(false);
+  const [newModeratorEmail, setNewModeratorEmail] = useState('');
+  const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
+  const [deleteAccountReason, setDeleteAccountReason] = useState('');
 
   const isModeratorUser = (user: { email?: string }) =>
+    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com";
+
+  const isOwnerUser = (user: { email?: string }) =>
     user.email === "vitorrossato812@gmail.com";
 
   useEffect(() => {
     const checkModerator = async () => {
       if (!currentUser) return;
       
-      if (currentUser.email === 'vitorrossato812@gmail.com') {
+      if (isModeratorUser(currentUser)) {
         setIsModerator(true);
       } else {
         setIsModerator(false);
@@ -242,6 +266,11 @@ const ModeratorPanel: React.FC = () => {
     setUserToAction(user);
     setShowWarnDialog(true);
   };
+
+  const openDeleteAccountDialog = (user: User) => {
+    setUserToAction(user);
+    setShowDeleteAccountDialog(true);
+  };
   
   const banUser = async () => {
     if (!userToAction) return;
@@ -281,6 +310,15 @@ const ModeratorPanel: React.FC = () => {
         description: `${userToAction.username} has been banned until ${format(banExpiryDate, 'PPP')}`,
       });
       
+      // Add a notification for the user
+      await addDoc(collection(db, "notifications"), {
+        userId: userToAction.uid,
+        type: "ban",
+        content: `Your account has been banned until ${format(banExpiryDate, 'PPP')}. Reason: ${banReason || "Violation of terms of service"}`,
+        read: false,
+        timestamp: serverTimestamp()
+      });
+      
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.uid === userToAction.uid 
@@ -310,10 +348,48 @@ const ModeratorPanel: React.FC = () => {
     if (!userToAction) return;
     
     try {
+      // Get current warnings count
+      const userDoc = await getDoc(doc(db, "users", userToAction.uid));
+      const currentWarnings = userDoc.exists() ? (userDoc.data().warnings || 0) : 0;
+      
+      let warningExpiry;
+      switch (warnDuration) {
+        case '24h':
+          warningExpiry = new Date();
+          warningExpiry.setHours(warningExpiry.getHours() + 24);
+          break;
+        case '7d':
+          warningExpiry = new Date();
+          warningExpiry.setDate(warningExpiry.getDate() + 7);
+          break;
+        case '30d':
+          warningExpiry = new Date();
+          warningExpiry.setDate(warningExpiry.getDate() + 30);
+          break;
+        case 'permanent':
+          warningExpiry = new Date();
+          warningExpiry.setFullYear(warningExpiry.getFullYear() + 100);
+          break;
+        default:
+          warningExpiry = new Date();
+          warningExpiry.setHours(warningExpiry.getHours() + 24);
+      }
+      
       await updateDoc(doc(db, "users", userToAction.uid), {
-        warnings: firestoreIncrement(1),
+        warnings: currentWarnings + 1,
         lastWarning: new Date(),
-        lastWarningReason: warnReason || "Policy violation"
+        lastWarningReason: warnReason || "Policy violation",
+        warningExpiry: warningExpiry
+      });
+
+      // Add a warning notification
+      await addDoc(collection(db, "notifications"), {
+        userId: userToAction.uid,
+        type: "warning",
+        content: `Your account has been warned: ${warnReason || "Policy violation"}. This warning expires on ${format(warningExpiry, 'PPP')}.`,
+        read: false,
+        requiresAction: true,
+        timestamp: serverTimestamp()
       });
       
       toast({
@@ -328,7 +404,8 @@ const ModeratorPanel: React.FC = () => {
                 ...user, 
                 warnings: (user.warnings || 0) + 1,
                 lastWarning: new Date(),
-                lastWarningReason: warnReason || "Policy violation"
+                lastWarningReason: warnReason || "Policy violation",
+                warningExpiry: warningExpiry
               } 
             : user
         )
@@ -341,6 +418,107 @@ const ModeratorPanel: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to warn user",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!userToAction) return;
+    
+    try {
+      // In a real app, you would want to anonymize this data rather than delete it
+      await updateDoc(doc(db, "users", userToAction.uid), {
+        status: "deleted",
+        displayName: "Deleted User",
+        email: `deleted_${userToAction.uid}@example.com`,
+        username: `deleted_${userToAction.uid}`,
+        description: "",
+        deleteReason: deleteAccountReason || "Account deleted by moderator",
+        deletedAt: serverTimestamp()
+      });
+      
+      toast({
+        title: "Account deleted",
+        description: "The user account has been deleted",
+      });
+      
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.uid === userToAction.uid 
+            ? { 
+                ...user, 
+                status: "deleted",
+                displayName: "Deleted User",
+                email: `deleted_${userToAction.uid}@example.com`,
+                username: `deleted_${userToAction.uid}`,
+              } 
+            : user
+        )
+      );
+      
+      setShowDeleteAccountDialog(false);
+      setDeleteAccountReason('');
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete account",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addModerator = async () => {
+    if (!newModeratorEmail || !newModeratorEmail.includes('@')) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Find the user by email
+      const usersRef = collection(db, "users");
+      const userQuery = query(usersRef, where("email", "==", newModeratorEmail));
+      const userDocs = await getDocs(userQuery);
+      
+      if (userDocs.empty) {
+        toast({
+          title: "User not found",
+          description: "No user found with that email address",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const userDoc = userDocs.docs[0];
+      await updateDoc(doc(db, "users", userDoc.id), {
+        role: "moderator"
+      });
+      
+      toast({
+        title: "Moderator added",
+        description: `${newModeratorEmail} is now a moderator`,
+      });
+      
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.email === newModeratorEmail
+            ? { ...user, role: "moderator" } 
+            : user
+        )
+      );
+      
+      setShowAddModeratorDialog(false);
+      setNewModeratorEmail('');
+    } catch (error) {
+      console.error("Error adding moderator:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add moderator",
         variant: "destructive"
       });
     }
@@ -378,6 +556,14 @@ const ModeratorPanel: React.FC = () => {
       );
     }
     
+    if (user.status === 'deleted') {
+      return (
+        <Badge variant="outline" className="px-2 py-1 rounded-full text-xs bg-gray-200 text-gray-800">
+          Deleted
+        </Badge>
+      );
+    }
+    
     if (user.warnings && user.warnings > 0) {
       return (
         <Badge variant="outline" className="px-2 py-1 rounded-full text-xs bg-yellow-200 text-yellow-800">
@@ -411,7 +597,7 @@ const ModeratorPanel: React.FC = () => {
         const sessions = snap.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as SupportSession[];
         setArchivedSessions(sessions);
       } catch (e) {
         console.error("Error fetching archived support sessions", e);
@@ -474,6 +660,16 @@ const ModeratorPanel: React.FC = () => {
               )}
             </Button>
           )}
+          
+          {/* Add Moderator button (only for owner) */}
+          {isOwnerUser(currentUser) && (
+            <Button 
+              onClick={() => setShowAddModeratorDialog(true)}
+              className="ml-auto mr-2"
+            >
+              Add Moderator
+            </Button>
+          )}
         </div>
         
         <Tabs defaultValue="reports">
@@ -481,7 +677,7 @@ const ModeratorPanel: React.FC = () => {
             <TabsTrigger value="reports">Reported Messages</TabsTrigger>
             <TabsTrigger value="search">User Search</TabsTrigger>
             <TabsTrigger value="support">Live Support</TabsTrigger>
-            <TabsTrigger value="files">Files</TabsTrigger>
+            <TabsTrigger value="files">Archived Sessions</TabsTrigger>
             {showUserChat && (
               <TabsTrigger value="chat">User Chat</TabsTrigger>
             )}
@@ -493,72 +689,74 @@ const ModeratorPanel: React.FC = () => {
                 <CardTitle>Reported Messages</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableCaption>List of messages that need moderation</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Content</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {moderationItems.length > 0 ? (
-                      moderationItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            {item.timestamp && format(item.timestamp.toDate(), 'PPp')}
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">{item.content}</TableCell>
-                          <TableCell>{item.reason}</TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              item.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
-                              item.status === 'flagged' ? 'bg-red-200 text-red-800' : 
-                              'bg-green-200 text-green-800'
-                            }`}>
-                              {item.status}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {item.status === 'pending' && (
-                              <div className="flex space-x-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleModeration(item.id, 'approve')}
-                                >
-                                  Flag
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleModeration(item.id, 'dismiss')}
-                                >
-                                  Dismiss
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenUserChat(item.conversationId)}
-                                >
-                                  <MessageSquare className="h-4 w-4 mr-1" />
-                                  Chat
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableCaption>List of messages that need moderation</TableCaption>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center">No reported messages</TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Content</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {moderationItems.length > 0 ? (
+                        moderationItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              {item.timestamp && format(item.timestamp.toDate(), 'PPp')}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">{item.content}</TableCell>
+                            <TableCell>{item.reason}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                item.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
+                                item.status === 'flagged' ? 'bg-red-200 text-red-800' : 
+                                'bg-green-200 text-green-800'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {item.status === 'pending' && (
+                                <div className="flex space-x-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleModeration(item.id, 'approve')}
+                                  >
+                                    Flag
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleModeration(item.id, 'dismiss')}
+                                  >
+                                    Dismiss
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenUserChat(item.conversationId)}
+                                  >
+                                    <MessageSquare className="h-4 w-4 mr-1" />
+                                    Chat
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center">No reported messages</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               </CardContent>
             </Card>
           </TabsContent>
@@ -577,7 +775,7 @@ const ModeratorPanel: React.FC = () => {
                     className="max-w-md search-input bg-background text-foreground"
                   />
                 </div>
-                <ScrollArea className="h-[500px] w-full rounded-md border">
+                <ScrollArea className="h-[500px]">
                   <Table>
                     <TableCaption>Registered Users</TableCaption>
                     <TableHeader>
@@ -598,14 +796,18 @@ const ModeratorPanel: React.FC = () => {
                             <TableCell>
                               @{user.username}
                               {isModeratorUser(user) && (
-                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-black text-white text-xs">Moderator</Badge>
+                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-blue-600 text-white text-xs">
+                                  <Shield className="h-3 w-3 mr-1" /> Moderator
+                                </Badge>
                               )}
                             </TableCell>
                             <TableCell>{user.displayName}</TableCell>
                             <TableCell>
                               {user.email}
                               {isModeratorUser(user) && (
-                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-black text-white text-xs">Moderator</Badge>
+                                <Badge variant="secondary" className="ml-2 px-2 py-1 rounded-full bg-blue-600 text-white text-xs">
+                                  <Shield className="h-3 w-3 mr-1" /> Moderator
+                                </Badge>
                               )}
                             </TableCell>
                             <TableCell>
@@ -638,6 +840,7 @@ const ModeratorPanel: React.FC = () => {
                                 <Button 
                                   variant="destructive" 
                                   size="sm"
+                                  disabled={user.status === 'banned' || isModeratorUser(user)}
                                   onClick={() => openBanDialog(user)}
                                 >
                                   <Ban className="h-4 w-4 mr-1" />
@@ -646,10 +849,20 @@ const ModeratorPanel: React.FC = () => {
                                 <Button 
                                   variant="secondary" 
                                   size="sm"
+                                  disabled={isModeratorUser(user)}
                                   onClick={() => openWarnDialog(user)}
                                 >
                                   <Shield className="h-4 w-4 mr-1" />
                                   Warn
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={user.status === 'deleted' || isModeratorUser(user)}
+                                  onClick={() => openDeleteAccountDialog(user)}
+                                >
+                                  <AlertTriangle className="h-4 w-4 mr-1" />
+                                  Delete Account
                                 </Button>
                               </div>
                             </TableCell>
@@ -668,7 +881,9 @@ const ModeratorPanel: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="support">
-            <ModeratorLiveSupport />
+            <ScrollArea className="h-[500px]">
+              <ModeratorLiveSupport />
+            </ScrollArea>
           </TabsContent>
 
           <TabsContent value="files">
@@ -677,45 +892,47 @@ const ModeratorPanel: React.FC = () => {
                 <CardTitle>Archived Support Sessions</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableCaption>Support sessions that have been ended</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Summary</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {archivedSessions.length > 0 ? (
-                      archivedSessions.map((session) => (
-                        <TableRow key={session.id}>
-                          <TableCell>
-                            {session.createdAt?.toDate
-                              ? format(session.createdAt.toDate(), 'PPp')
-                              : 'Unknown'}
-                          </TableCell>
-                          <TableCell>
-                            {session.userInfo?.displayName || session.userId}
-                          </TableCell>
-                          <TableCell>
-                            {session.lastMessage?.content || ''}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {session.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableCaption>Support sessions that have been ended</TableCaption>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">No archived sessions found</TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Summary</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {archivedSessions.length > 0 ? (
+                        archivedSessions.map((session) => (
+                          <TableRow key={session.id}>
+                            <TableCell>
+                              {session.createdAt?.toDate
+                                ? format(session.createdAt.toDate(), 'PPp')
+                                : 'Unknown'}
+                            </TableCell>
+                            <TableCell>
+                              {session.userInfo?.displayName || session.userId}
+                            </TableCell>
+                            <TableCell>
+                              {session.lastMessage?.content || ''}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {session.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center">No archived sessions found</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               </CardContent>
             </Card>
           </TabsContent>
@@ -815,6 +1032,63 @@ const ModeratorPanel: React.FC = () => {
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Issue Warning
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showDeleteAccountDialog} onOpenChange={setShowDeleteAccountDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Delete Account</DialogTitle>
+              <DialogDescription>
+                {userToAction ? `Delete account for @${userToAction.username} (${userToAction.email})` : ''}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-4">
+              <p className="text-destructive font-bold">Warning: This action cannot be undone!</p>
+              
+              <div>
+                <label className="text-sm font-medium mb-1 block">Reason for Account Deletion</label>
+                <Textarea
+                  placeholder="Enter reason for account deletion..."
+                  value={deleteAccountReason}
+                  onChange={(e) => setDeleteAccountReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteAccountDialog(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={deleteAccount}>Delete Account</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showAddModeratorDialog} onOpenChange={setShowAddModeratorDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Add Moderator</DialogTitle>
+              <DialogDescription>
+                Enter the email address of the user you want to make a moderator
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Email Address</label>
+                <Input
+                  placeholder="Enter email address..."
+                  value={newModeratorEmail}
+                  onChange={(e) => setNewModeratorEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddModeratorDialog(false)}>Cancel</Button>
+              <Button onClick={addModerator}>Add Moderator</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

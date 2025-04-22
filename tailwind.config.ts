@@ -9,7 +9,6 @@ export default {
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
   ],
-  prefix: "",
   theme: {
     container: {
       center: true,
@@ -25,6 +24,9 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        'teams-purple': '#6264A7',
+        'teams-purple-light': '#7577B2',
+        'teams-purple-dark': '#494B83',
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -53,8 +55,6 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        'teams-purple': '#6264A7',
-        'teams-purple-light': '#8389C7',
       },
       borderRadius: {
         lg: "var(--radius)",

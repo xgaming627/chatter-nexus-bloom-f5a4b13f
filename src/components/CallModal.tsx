@@ -1,79 +1,104 @@
 
-import React from 'react';
-import { PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
+import { Button } from '@/components/ui/button';
+import { Phone, Video, Mic, MicOff, X } from 'lucide-react';
 import { useState } from 'react';
+import UserAvatar from './UserAvatar';
 
-const CallModal: React.FC = () => {
-  const { isCallActive, activeCallType, endCall, currentConversation } = useChat();
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+interface CallModalProps {
+  isGroup?: boolean;
+}
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
+const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
+  const { currentConversation, endCall, activeCallType } = useChat();
+  const [muted, setMuted] = useState(false);
+  const [callTime, setCallTime] = useState(0);
+  
+  // Format time as mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const toggleVideo = () => {
-    setIsVideoOff(!isVideoOff);
-  };
-
-  if (!isCallActive || !currentConversation) return null;
-
-  const callTitle = activeCallType === 'video' ? 'Video Call' : 'Voice Call';
-  const participantName = currentConversation.isGroupChat
-    ? currentConversation.groupName || 'Group call'
-    : currentConversation.participantsInfo[0]?.displayName || 'User';
-
+  
+  if (!currentConversation) return null;
+  
   return (
-    <Dialog open={isCallActive} onOpenChange={(open) => !open && endCall()}>
-      <DialogContent className="sm:max-w-md">
-        <div className="flex flex-col items-center gap-6 py-10">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold">{callTitle}</h2>
-            <p className="text-muted-foreground">with {participantName}</p>
-            <p className="text-sm text-muted-foreground mt-2">Connected: 00:05</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+        <div className="text-center">
+          <h3 className="text-xl font-medium mb-4">
+            {activeCallType === 'video' ? 'Video Call' : 'Voice Call'}
+          </h3>
+          
+          <p className="text-lg font-semibold mb-2">
+            {isGroup 
+              ? currentConversation.groupName 
+              : currentConversation.participantsInfo[0]?.displayName || 'User'}
+          </p>
+          
+          <p className="text-muted-foreground mb-6">
+            {formatTime(callTime)}
+          </p>
+          
+          <div className="flex justify-center mb-8">
+            {isGroup ? (
+              <div className="grid grid-cols-3 gap-2">
+                {currentConversation.participantsInfo.slice(0, 6).map((user) => (
+                  <div key={user.uid} className="flex flex-col items-center">
+                    <UserAvatar username={user.username} photoURL={user.photoURL} />
+                    <span className="text-xs mt-1">{user.displayName}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <UserAvatar 
+                username={currentConversation.participantsInfo[0]?.username || 'User'} 
+                photoURL={currentConversation.participantsInfo[0]?.photoURL}
+                size="lg"
+              />
+            )}
           </div>
-
-          {activeCallType === 'video' && (
-            <div className="bg-gray-200 w-full aspect-video rounded-lg flex items-center justify-center">
-              {isVideoOff ? (
-                <div className="text-muted-foreground">Video turned off</div>
-              ) : (
-                <div className="animate-pulse text-muted-foreground">
-                  Video preview (mock)
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-4">
-            <Button 
-              size="icon" 
-              variant={isMuted ? "default" : "outline"} 
-              onClick={toggleMute}
+          
+          <div className="flex justify-center space-x-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={() => setMuted(!muted)}
             >
-              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              {muted ? (
+                <MicOff className="h-6 w-6 text-destructive" />
+              ) : (
+                <Mic className="h-6 w-6 text-green-500" />
+              )}
             </Button>
             
-            {activeCallType === 'video' && (
-              <Button 
-                size="icon" 
-                variant={isVideoOff ? "default" : "outline"} 
-                onClick={toggleVideo}
-              >
-                {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-              </Button>
-            )}
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={endCall}
+            >
+              {activeCallType === 'video' ? (
+                <Video className="h-6 w-6" />
+              ) : (
+                <Phone className="h-6 w-6" />
+              )}
+            </Button>
             
-            <Button size="icon" variant="destructive" onClick={endCall}>
-              <PhoneOff className="h-5 w-5" />
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={endCall}
+            >
+              <X className="h-6 w-6" />
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
