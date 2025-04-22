@@ -1,7 +1,13 @@
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
+import { 
+  getFirestore, 
+  connectFirestoreEmulator,
+  enableIndexedDbPersistence,
+  enableMultiTabIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED
+} from 'firebase/firestore';
 
 // Replace these with your Firebase configuration values
 const firebaseConfig = {
@@ -18,5 +24,25 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+
+// Enable offline persistence (reduces server operations)
+try {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // Multiple tabs open, persistence can only be enabled in one tab at a time
+      console.log('Persistence failed: Multiple tabs open');
+    } else if (err.code === 'unimplemented') {
+      // The current browser does not support persistence
+      console.log('Persistence not supported by browser');
+    }
+  });
+} catch (e) {
+  console.error("Error enabling persistence:", e);
+}
+
+// Configure cache size
+db._setSettings({
+  cacheSizeBytes: CACHE_SIZE_UNLIMITED
+});
 
 export { auth, db, googleProvider };

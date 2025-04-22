@@ -7,13 +7,23 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import QuotaWarningBanner from "./components/QuotaWarningBanner";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Reduce retries to avoid extra Firebase calls
+      staleTime: 300000, // 5 minutes - keep data fresh longer
+      cacheTime: 900000, // 15 minutes - keep data in cache longer
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <QuotaWarningBanner />
         <Toaster />
         <Sonner />
         <BrowserRouter>
