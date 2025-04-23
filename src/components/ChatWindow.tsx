@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -69,12 +68,15 @@ const ChatWindow: React.FC = () => {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const rateLimitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const isModeratorUser = (user: { email?: string }) =>
     user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com";
+
+  
 
   useEffect(() => {
     if (currentUser?.email === 'vitorrossato812@gmail.com' || currentUser?.email === 'lukasbraga77@gmail.com') {
@@ -138,15 +140,18 @@ const ChatWindow: React.FC = () => {
   // Check if the current conversation partner is blocked
   useEffect(() => {
     const checkIfBlocked = async () => {
-      if (!currentConversation || currentConversation.isGroupChat) return;
+      if (!currentConversation || !currentConversation.participantsInfo || currentConversation.isGroupChat) return;
 
       try {
         const blockedUsers = await getBlockedUsers();
-        const blockedEntry = blockedUsers.find(
-          user => user.uid === currentConversation.participantsInfo[0]?.uid
-        );
-        setIsBlocked(!!blockedEntry);
-        setBlockedReason(blockedEntry?.reason || '');
+        // Make sure participantsInfo exists and has at least one element before accessing [0]
+        if (currentConversation.participantsInfo && currentConversation.participantsInfo.length > 0) {
+          const blockedEntry = blockedUsers.find(
+            user => user.uid === currentConversation.participantsInfo[0]?.uid
+          );
+          setIsBlocked(!!blockedEntry);
+          setBlockedReason(blockedEntry?.reason || '');
+        }
       } catch (error) {
         console.error("Error checking blocked status:", error);
       }
@@ -446,13 +451,15 @@ const ChatWindow: React.FC = () => {
     );
   }
   
+  // Make sure participantsInfo exists before accessing it
+  const participantsInfo = currentConversation.participantsInfo || [];
   const isGroup = currentConversation.isGroupChat;
   const conversationName = isGroup && currentConversation.groupName 
     ? currentConversation.groupName 
-    : currentConversation.participantsInfo[0]?.displayName || 'Chat';
+    : (participantsInfo.length > 0 ? participantsInfo[0]?.displayName : 'Chat');
   
   const otherUserIsModerator = !isGroup && 
-    isModeratorUser(currentConversation.participantsInfo[0] || {});
+    participantsInfo.length > 0 && isModeratorUser(participantsInfo[0] || {});
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -466,22 +473,22 @@ const ChatWindow: React.FC = () => {
               username={
                 isGroup && currentConversation.groupName 
                   ? currentConversation.groupName 
-                  : currentConversation.participantsInfo[0]?.username || "User"
+                  : (participantsInfo.length > 0 ? participantsInfo[0]?.username : "User")
               } 
               photoURL={
                 isGroup && currentConversation.groupPhotoURL 
                   ? currentConversation.groupPhotoURL 
-                  : currentConversation.participantsInfo[0]?.photoURL
+                  : (participantsInfo.length > 0 ? participantsInfo[0]?.photoURL : undefined)
               }
             />
           </div>
           <div>
             <h2 className="font-semibold">{conversationName}</h2>
-            {!isGroup && (
+            {!isGroup && participantsInfo.length > 0 && (
               <>
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-muted-foreground">
-                    @{currentConversation.participantsInfo[0]?.username || "User"}
+                    @{participantsInfo[0]?.username || "User"}
                   </p>
                   {otherUserIsModerator && (
                     <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
@@ -489,23 +496,23 @@ const ChatWindow: React.FC = () => {
                     </Badge>
                   )}
                   <span className={`h-2 w-2 rounded-full ${
-                    currentConversation.participantsInfo[0]?.onlineStatus === 'online'
+                    participantsInfo[0]?.onlineStatus === 'online'
                       ? 'bg-green-500'
-                      : currentConversation.participantsInfo[0]?.onlineStatus === 'away'
+                      : participantsInfo[0]?.onlineStatus === 'away'
                       ? 'bg-yellow-500'
                       : 'bg-gray-400'
                   }`}></span>
                 </div>
-                {currentConversation.participantsInfo[0]?.description && (
+                {participantsInfo[0]?.description && (
                   <p className="text-xs text-muted-foreground italic mt-1">
-                    "{currentConversation.participantsInfo[0]?.description}"
+                    "{participantsInfo[0]?.description}"
                   </p>
                 )}
               </>
             )}
             {isGroup && (
               <div className="text-xs text-muted-foreground">
-                {currentConversation.participants.length} members
+                {currentConversation.participants ? currentConversation.participants.length : 0} members
               </div>
             )}
           </div>
@@ -529,7 +536,7 @@ const ChatWindow: React.FC = () => {
               <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
                 <User className="h-4 w-4 mr-2" /> Edit Profile
               </DropdownMenuItem>
-              {!isGroup && !isBlocked && (
+              {!isGroup && !isBlocked && participantsInfo.length > 0 && (
                 <DropdownMenuItem onClick={() => setShowBlockDialog(true)}>
                   <UserX className="h-4 w-4 mr-2" /> Block User
                 </DropdownMenuItem>
@@ -585,23 +592,23 @@ const ChatWindow: React.FC = () => {
                   className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                 >
                   <div className="max-w-[80%] break-words">
-                    {!isOwnMessage && !isGroup && (
+                    {!isOwnMessage && !isGroup && participantsInfo.length > 0 && (
                       <div className="flex items-center mb-1">
                         <UserAvatar 
                           username={
-                            isModeratorUser(currentConversation.participantsInfo[0] || {}) 
+                            isModeratorUser(participantsInfo[0] || {}) 
                               ? "Moderator"
-                              : currentConversation.participantsInfo[0]?.username
+                              : participantsInfo[0]?.username
                           }
                           photoURL={
-                            isModeratorUser(currentConversation.participantsInfo[0] || {}) 
+                            isModeratorUser(participantsInfo[0] || {}) 
                               ? undefined
-                              : currentConversation.participantsInfo[0]?.photoURL
+                              : participantsInfo[0]?.photoURL
                           }
                           size="sm"
                         />
                         <span className="text-xs font-medium ml-2 flex items-center">
-                          {isModeratorUser(currentConversation.participantsInfo[0] || {}) ? (
+                          {isModeratorUser(participantsInfo[0] || {}) ? (
                             <>
                               <span>Moderator</span>
                               <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
@@ -609,7 +616,7 @@ const ChatWindow: React.FC = () => {
                               </Badge>
                             </>
                           ) : (
-                            currentConversation.participantsInfo[0]?.displayName
+                            participantsInfo[0]?.displayName
                           )}
                         </span>
                       </div>
@@ -619,22 +626,22 @@ const ChatWindow: React.FC = () => {
                       <div className="flex items-center mb-1">
                         <UserAvatar 
                           username={
-                            // Find user info from participants array
-                            currentConversation.participantsInfo.find(
-                              user => user.uid === message.senderId
+                            // Find user info from participants array - with null checks
+                            currentConversation.participantsInfo?.find(
+                              user => user?.uid === message.senderId
                             )?.username || "User"
                           }
                           photoURL={
-                            currentConversation.participantsInfo.find(
-                              user => user.uid === message.senderId
+                            currentConversation.participantsInfo?.find(
+                              user => user?.uid === message.senderId
                             )?.photoURL
                           }
                           size="sm"
                         />
                         <span className="text-xs font-medium ml-2">
-                          {isModeratorUser({email: 
+                          {currentConversation.participantsInfo && isModeratorUser({email: 
                             currentConversation.participantsInfo.find(
-                              user => user.uid === message.senderId
+                              user => user?.uid === message.senderId
                             )?.email || ""
                           }) ? (
                             <div className="flex items-center">
@@ -644,13 +651,14 @@ const ChatWindow: React.FC = () => {
                               </Badge>
                             </div>
                           ) : (
-                            currentConversation.participantsInfo.find(
-                              user => user.uid === message.senderId
+                            currentConversation.participantsInfo?.find(
+                              user => user?.uid === message.senderId
                             )?.displayName || "User"
                           )}
                         </span>
                       </div>
                     )}
+                    
                     
                     <div className="flex items-end gap-2">
                       <DropdownMenu>
@@ -737,7 +745,8 @@ const ChatWindow: React.FC = () => {
         </div>
       </ScrollArea>
       
-      {/* Scroll to bottom button */}
+      
+      
       {showScrollButton && (
         <Button
           size="icon"
@@ -748,7 +757,7 @@ const ChatWindow: React.FC = () => {
         </Button>
       )}
       
-      {/* Message input */}
+      
       <div className="p-4 border-t">
         {isRateLimited && (
           <div className="mb-2 py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-md flex items-center">
@@ -814,104 +823,8 @@ const ChatWindow: React.FC = () => {
         )}
       </div>
       
-      {/* Profile dialog */}
-      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Your Profile</DialogTitle>
-          </DialogHeader>
-          
-          <Tabs defaultValue="info" onValueChange={setProfileTab}>
-            <TabsList className="grid grid-cols-2 mb-4">
-              <TabsTrigger value="info">
-                <Info className="h-4 w-4 mr-2" />
-                Information
-              </TabsTrigger>
-              <TabsTrigger value="description">
-                <User className="h-4 w-4 mr-2" />
-                Description
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="info" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="profile-image">Profile Image</Label>
-                <Input 
-                  id="profile-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      toast({
-                        title: "File upload not available",
-                        description: "Profile picture upload is not yet supported. Please connect Supabase.",
-                        variant: "destructive"
-                      });
-                    }
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">Upload a new profile image</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <RadioGroup 
-                  defaultValue={onlineStatus} 
-                  onValueChange={(value) => setOnlineStatus(value as 'online' | 'away' | 'offline')}
-                  className="flex items-center gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="online" id="online" />
-                    <Label htmlFor="online" className="flex items-center">
-                      <UserCheck className="h-4 w-4 text-green-500 mr-2" />
-                      Online
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="away" id="away" />
-                    <Label htmlFor="away" className="flex items-center">
-                      <UserMinus className="h-4 w-4 text-yellow-500 mr-2" />
-                      Away
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="offline" id="offline" />
-                    <Label htmlFor="offline" className="flex items-center">
-                      <User className="h-4 w-4 text-gray-400 mr-2" />
-                      Offline
-                    </Label>
-                  </div>
-                </RadioGroup>
-                <p className="text-xs text-muted-foreground">
-                  Status is automatically updated based on your activity.
-                </p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="description" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">Profile Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Add a short description about yourself"
-                  value={profileDescription}
-                  onChange={(e) => setProfileDescription(e.target.value)}
-                  rows={5}
-                />
-                <p className="text-xs text-muted-foreground">This will be visible to other users</p>
-              </div>
-            </TabsContent>
-          </Tabs>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>Cancel</Button>
-            <Button onClick={handleUpdateProfile}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       
-      {/* Block user dialog */}
+      
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -920,7 +833,7 @@ const ChatWindow: React.FC = () => {
           
           <div className="py-4">
             <p>
-              Are you sure you want to block {currentConversation.participantsInfo[0]?.displayName || 'this user'}?
+              Are you sure you want to block {participantsInfo.length > 0 ? participantsInfo[0]?.displayName || 'this user' : 'this user'}?
               You will no longer receive messages from them.
             </p>
           </div>
@@ -935,26 +848,26 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* User info dialog */}
+      
       <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>User Profile</DialogTitle>
           </DialogHeader>
           
-          {!isGroup && currentConversation.participantsInfo[0] && (
+          {!isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
             <div className="py-4">
               <div className="flex justify-center mb-4">
                 <UserAvatar 
-                  username={currentConversation.participantsInfo[0].username} 
-                  photoURL={currentConversation.participantsInfo[0].photoURL}
+                  username={participantsInfo[0].username} 
+                  photoURL={participantsInfo[0].photoURL}
                   size="lg"
                 />
               </div>
               
               <div className="text-center mb-4">
                 <h3 className="text-lg font-medium">
-                  {currentConversation.participantsInfo[0].displayName}
+                  {participantsInfo[0].displayName}
                   {otherUserIsModerator && (
                     <Badge className="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                       <Shield className="h-3 w-3 mr-1" /> Moderator
@@ -962,14 +875,14 @@ const ChatWindow: React.FC = () => {
                   )}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  @{currentConversation.participantsInfo[0].username}
+                  @{participantsInfo[0].username}
                 </p>
               </div>
               
-              {currentConversation.participantsInfo[0].description && (
+              {participantsInfo[0].description && (
                 <div className="border-t border-b py-4 my-4">
                   <p className="text-sm italic">
-                    "{currentConversation.participantsInfo[0].description}"
+                    "{participantsInfo[0].description}"
                   </p>
                 </div>
               )}
@@ -996,7 +909,7 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Group settings dialog */}
+      
       <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -1011,109 +924,4 @@ const ChatWindow: React.FC = () => {
                   id="group-name"
                   value={newGroupName || (currentConversation.groupName || '')}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Enter group name"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="group-image">Group Image</Label>
-                <Input 
-                  id="group-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      toast({
-                        title: "File upload not available",
-                        description: "Group image upload is not yet supported. Please connect Supabase.",
-                        variant: "destructive"
-                      });
-                    }
-                  }}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Group Members</Label>
-                <div className="border rounded-md p-2">
-                  {currentConversation.participantsInfo.map((user) => (
-                    <div key={user.uid} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div className="flex items-center">
-                        <UserAvatar username={user.username} photoURL={user.photoURL} size="sm" />
-                        <div className="ml-2">
-                          <p className="text-sm font-medium">{user.displayName}</p>
-                          <p className="text-xs text-muted-foreground">@{user.username}</p>
-                        </div>
-                      </div>
-                      {isModeratorUser({email: user.email}) && (
-                        <Badge className="px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                          <Shield className="h-3 w-3 mr-1" /> Moderator
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <Button 
-                className="w-full" 
-                variant="outline"
-                onClick={() => {
-                  // Implement functionality to add users to the group
-                  toast({
-                    title: "Feature coming soon",
-                    description: "Adding members to existing groups will be available soon",
-                  });
-                }}
-              >
-                <UserPlus className="h-4 w-4 mr-2" /> Add Members
-              </Button>
-            </div>
-          </ScrollArea>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>Cancel</Button>
-            <Button onClick={handleUpdateGroupSettings}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete message confirmation dialog */}
-      <Dialog open={!!confirmDeleteMessage} onOpenChange={() => setConfirmDeleteMessage(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Message</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this message? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {confirmDeleteMessage && (
-              <div className="p-4 rounded-md bg-gray-100 dark:bg-gray-800">
-                <p>{confirmDeleteMessage.content}</p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              <Trash2 className="h-4 w-4 mr-2" /> Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* New message notification */}
-      {hasNewMessages && (
-        <div className="fixed bottom-4 right-4 bg-teams-purple text-white px-4 py-2 rounded-lg shadow-lg animate-pulse">
-          You have new messages
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ChatWindow;
+                  placeholder="
