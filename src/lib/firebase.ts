@@ -27,7 +27,9 @@ const auth = getAuth(app);
 // Initialize Firestore with settings BEFORE any operations
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager()
+    tabManager: persistentSingleTabManager({
+      forceOwnership: false // Adding a configuration option
+    })
   })
 });
 
