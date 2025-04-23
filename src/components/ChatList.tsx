@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useChat } from '@/context/ChatContext';
 import { Conversation } from '@/types/supabase';

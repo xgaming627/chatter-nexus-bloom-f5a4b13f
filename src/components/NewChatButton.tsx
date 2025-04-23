@@ -16,22 +16,16 @@ import { Input } from '@/components/ui/input';
 import { useChat } from '@/context/ChatContext';
 import { Badge } from '@/components/ui/badge';
 import SearchUsers from './SearchUsers';
-
-interface User {
-  uid: string;
-  username: string;
-  displayName: string;
-  photoURL: string;
-}
+import { ExtendedUser } from '@/types/supabase';
 
 const NewChatButton: React.FC = () => {
   const { createConversation, createGroupChat, setCurrentConversationId } = useChat();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<ExtendedUser[]>([]);
   const [groupName, setGroupName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleUserSelect = (user: User) => {
+  const handleUserSelect = (user: ExtendedUser) => {
     if (!selectedUsers.find(u => u.uid === user.uid)) {
       setSelectedUsers([...selectedUsers, user]);
     }

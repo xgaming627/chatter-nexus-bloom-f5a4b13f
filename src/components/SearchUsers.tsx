@@ -5,22 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
-
-interface User {
-  uid: string;
-  username: string;
-  displayName: string;
-  photoURL: string;
-}
+import { ExtendedUser } from '@/types/supabase';
 
 interface SearchUsersProps {
-  onUserSelected?: (user: User) => void;
+  onUserSelected?: (user: ExtendedUser) => void;
 }
 
 const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
   const { searchUsers, createConversation, setCurrentConversationId } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<User[]>([]);
+  const [results, setResults] = useState<ExtendedUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -55,7 +49,7 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
     };
   }, []);
 
-  const handleUserSelect = async (user: User) => {
+  const handleUserSelect = async (user: ExtendedUser) => {
     setShowResults(false);
     setSearchQuery('');
     
@@ -98,10 +92,10 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
                     onClick={() => handleUserSelect(user)}
                   >
                     <div className="flex items-center gap-2">
-                      <UserAvatar username={user.username} photoURL={user.photoURL} size="sm" />
+                      <UserAvatar username={user.username || ''} photoURL={user.photoURL || undefined} size="sm" />
                       <div className="text-left">
                         <div className="font-medium">{user.displayName}</div>
-                        <div className="text-xs text-muted-foreground">@{user.username}</div>
+                        <div className="text-xs text-muted-foreground">@{user.username || user.displayName}</div>
                       </div>
                     </div>
                   </Button>

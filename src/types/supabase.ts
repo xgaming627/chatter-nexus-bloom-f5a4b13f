@@ -1,10 +1,10 @@
 
-import { User as SupabaseUser } from '@supabase/supabase-js';
+import { User as FirebaseUser } from 'firebase/auth';
 
-export interface ExtendedUser extends SupabaseUser {
-  displayName?: string;
+export interface ExtendedUser extends FirebaseUser {
+  displayName: string | null;
   username?: string;
-  photoURL?: string;
+  photoURL: string | null;
   uid: string;
 }
 
@@ -29,7 +29,7 @@ export class Message {
     this.conversation_id = data.conversation_id;
     this.sender_id = data.sender_id;
     this.content = data.content;
-    this.timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+    this.timestamp = data.timestamp ? new Date(data.timestamp.toDate?.() || data.timestamp) : new Date();
     this.read = !!data.read;
     this.delivered = !!data.delivered;
     this.reported = !!data.reported;
@@ -93,12 +93,12 @@ export class Conversation {
     this.group_name = data.group_name;
     this.group_photo_url = data.group_photo_url;
     this.created_by = data.created_by;
-    this.created_at = data.created_at ? new Date(data.created_at) : new Date();
+    this.created_at = data.created_at ? new Date(data.created_at.toDate?.() || data.created_at) : new Date();
     
     if (data.last_message) {
       this.last_message = {
         content: data.last_message.content,
-        timestamp: data.last_message.timestamp ? new Date(data.last_message.timestamp) : new Date(),
+        timestamp: data.last_message.timestamp ? new Date(data.last_message.timestamp.toDate?.() || data.last_message.timestamp) : new Date(),
         sender_id: data.last_message.sender_id
       };
     }
@@ -127,4 +127,13 @@ export class Conversation {
 export interface UserMessageCooldown {
   user_id: string;
   last_message_time: Date;
+}
+
+// Define a User type for other components to use
+export interface User {
+  uid: string;
+  displayName: string;
+  username: string;
+  photoURL?: string;
+  email?: string;
 }

@@ -1,6 +1,15 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  GoogleAuthProvider, 
+  signInWithPopup,
+  sendPasswordResetEmail,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
 import { ExtendedUser } from '@/types/supabase';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -31,15 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // Extend Firebase user with our ExtendedUser properties
         const extendedUser: ExtendedUser = {
-          ...session.user,
-          uid: session.user.id,
-          displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0],
-          username: session.user.user_metadata?.username || session.user.email?.split('@')[0],
-          photoURL: session.user.user_metadata?.avatar_url
+          ...user,
+          uid: user.uid,
+          displayName: user.displayName || user.email?.split('@')[0] || null,
+          username: user.displayName || user.email?.split('@')[0] || undefined,
+          photoURL: user.photoURL
         };
         setCurrentUser(extendedUser);
       } else {
@@ -47,29 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        const extendedUser: ExtendedUser = {
-          ...session.user,
-          uid: session.user.id,
-          displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0],
-          username: session.user.user_metadata?.username || session.user.email?.split('@')[0],
-          photoURL: session.user.user_metadata?.avatar_url
-        };
-        setCurrentUser(extendedUser);
-      } else {
-        setCurrentUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -82,8 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      await createUserWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       toast({
         title: "Sign up failed",
@@ -94,10 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signOut = async () => {
+  const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut(auth);
     } catch (error: any) {
       toast({
         title: "Sign out failed",
@@ -108,17 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = signOut; // Alias for backward compatibility
+  const logout = handleSignOut; // Alias for backward compatibility
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        }
-      });
-      if (error) throw error;
+      await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       toast({
         title: "Google sign in failed",
@@ -131,10 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
+      await sendPasswordResetEmail(auth, email);
       
       toast({
         title: "Password reset email sent",
@@ -154,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Mock implementation
     toast({
       title: "Feature not implemented",
-      description: "Setting username is not yet implemented with Supabase",
+      description: "Setting username is not yet implemented",
     });
     return Promise.resolve();
   };
@@ -168,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentUser,
     signIn,
     signUp,
-    signOut,
+    signOut: handleSignOut,
     signInWithGoogle,
     resetPassword,
     logout,

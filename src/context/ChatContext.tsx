@@ -1,12 +1,26 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc,
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  updateDoc,
+  getDoc,
+  deleteDoc
+} from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Message, Conversation, ExtendedUser } from "@/types/supabase";
+import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
 
 // Re-export the types for consumers to use
-export type { Message, Conversation, ExtendedUser };
+export type { Message, Conversation, ExtendedUser, User };
 
 interface ChatContextType {
   conversations: Conversation[];
@@ -61,28 +75,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) return;
 
-    const channel = supabase
-      .channel('public:conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-          filter: `participants=cs.{${currentUser.uid}}`
-        },
-        () => {
-          fetchConversations();
-        }
-      )
-      .subscribe();
-
-    fetchConversations();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", currentUser.uid)
+      ),
+      (snapshot) => {
+        const conversationsData = snapshot.docs.map(doc => {
+          const data = { id: doc.id, ...doc.data() };
+          return new Conversation(data);
+        });
+        setConversations(conversationsData);
+      },
+      (error) => {
+        console.error("Error fetching conversations:", error);
+        toast({
+          title: "Error fetching conversations",
+          description: "Please try again later",
+          variant: "destructive"
+        });
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [currentUser, toast]);
 
   useEffect(() => {
     if (!currentConversation) {
@@ -90,41 +106,47 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const channel = supabase
-      .channel('public:messages')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${currentConversation.id}`
-        },
-        () => {
-          fetchMessages(currentConversation.id);
-        }
-      )
-      .subscribe();
-
-    fetchMessages(currentConversation.id);
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentConversation]);
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, "messages"),
+        where("conversation_id", "==", currentConversation.id),
+        orderBy("timestamp", "asc")
+      ),
+      (snapshot) => {
+        const messagesData = snapshot.docs.map(doc => {
+          const data = { id: doc.id, ...doc.data() };
+          return new Message(data);
+        });
+        setMessages(messagesData);
+      },
+      (error) => {
+        console.error("Error fetching messages:", error);
+        toast({
+          title: "Error fetching messages",
+          description: "Please try again later",
+          variant: "destructive"
+        });
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [currentConversation, toast]);
 
   const fetchConversations = async () => {
     if (!currentUser) return;
 
     try {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select('*')
-        .contains('participants', [currentUser.uid]);
-
-      if (error) throw error;
-      // Convert the raw data to Conversation objects
-      const conversationsData = data.map(conv => new Conversation(conv));
+      const q = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", currentUser.uid)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const conversationsData = querySnapshot.docs.map(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        return new Conversation(data);
+      });
+      
       setConversations(conversationsData);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -142,15 +164,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchMessages = async (conversationId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('timestamp', { ascending: true });
-
-      if (error) throw error;
-      // Convert the raw data to Message objects
-      const messagesData = data.map(msg => new Message(msg));
+      const q = query(
+        collection(db, "messages"),
+        where("conversation_id", "==", conversationId),
+        orderBy("timestamp", "asc")
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const messagesData = querySnapshot.docs.map(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        return new Message(data);
+      });
+      
       setMessages(messagesData);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -166,25 +191,26 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser || !content.trim()) return;
 
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: currentUser.uid,
-          content: content.trim()
-        });
-
-      if (error) {
-        if (error.message.includes('cooldown')) {
-          toast({
-            title: "Message cooldown",
-            description: "Please wait 2 seconds between messages",
-            variant: "destructive"
-          });
-        } else {
-          throw error;
+      await addDoc(collection(db, "messages"), {
+        conversation_id: conversationId,
+        sender_id: currentUser.uid,
+        content: content.trim(),
+        timestamp: serverTimestamp(),
+        read: false,
+        delivered: true,
+        reported: false,
+        flagged_for_moderation: false,
+        deleted: false
+      });
+      
+      // Update last message in conversation
+      await updateDoc(doc(db, "conversations", conversationId), {
+        last_message: {
+          content: content.trim(),
+          timestamp: serverTimestamp(),
+          sender_id: currentUser.uid
         }
-      }
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -203,19 +229,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participants.push(currentUser.uid);
       }
 
-      const { data, error } = await supabase
-        .from('conversations')
-        .insert({
-          participants,
-          is_group_chat: isGroup,
-          group_name: groupName,
-          created_by: currentUser.uid
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data.id;
+      const conversationData = {
+        participants,
+        is_group_chat: isGroup,
+        group_name: groupName,
+        created_by: currentUser.uid,
+        created_at: serverTimestamp()
+      };
+      
+      const docRef = await addDoc(collection(db, "conversations"), conversationData);
+      return docRef.id;
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -238,15 +261,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      // Convert to a Conversation object
-      setCurrentConversation(new Conversation(data));
+      const conversationDoc = await getDoc(doc(db, "conversations", id));
+      if (conversationDoc.exists()) {
+        const conversationData = { id: conversationDoc.id, ...conversationDoc.data() };
+        setCurrentConversation(new Conversation(conversationData));
+      } else {
+        throw new Error("Conversation not found");
+      }
     } catch (error) {
       console.error('Error fetching conversation:', error);
       toast({
@@ -260,19 +281,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const uploadFile = async (file: File, conversationId: string) => {
     toast({
       title: "Feature not implemented",
-      description: "File upload feature is not yet implemented with Supabase",
+      description: "File upload feature is not yet implemented",
       variant: "destructive"
     });
   };
 
   const markAsRead = async (messageId: string) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('id', messageId);
-      
-      if (error) throw error;
+      await updateDoc(doc(db, "messages", messageId), {
+        read: true
+      });
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
@@ -280,12 +298,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const reportMessage = async (messageId: string, reason: string) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ reported: true, flagged_for_moderation: true })
-        .eq('id', messageId);
-      
-      if (error) throw error;
+      await updateDoc(doc(db, "messages", messageId), {
+        reported: true,
+        flagged_for_moderation: true
+      });
     } catch (error) {
       console.error('Error reporting message:', error);
       toast({
@@ -353,15 +369,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteMessage = async (messageId: string, deletedBy: string) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ 
-          deleted: true,
-          deleted_by: deletedBy
-        })
-        .eq('id', messageId);
-      
-      if (error) throw error;
+      await updateDoc(doc(db, "messages", messageId), {
+        deleted: true,
+        deleted_by: deletedBy
+      });
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -373,13 +384,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const storeChat = async (conversationId: string) => {
-    const updatedConversations = conversations.map(conv => 
-      conv.id === conversationId ? { ...conv, isStored: true } : conv
-    );
+    const updatedConversations = conversations.map(conv => {
+      if (conv.id === conversationId) {
+        const newConv = new Conversation({...conv, isStored: true});
+        return newConv;
+      }
+      return conv;
+    });
+    
     setConversations(updatedConversations);
     
     if (currentConversation && currentConversation.id === conversationId) {
-      setCurrentConversation({ ...currentConversation, isStored: true });
+      setCurrentConversation(new Conversation({...currentConversation, isStored: true}));
     }
     
     toast({
@@ -391,13 +407,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const unstoreChat = async (conversationId: string) => {
-    const updatedConversations = conversations.map(conv => 
-      conv.id === conversationId ? { ...conv, isStored: false } : conv
-    );
+    const updatedConversations = conversations.map(conv => {
+      if (conv.id === conversationId) {
+        const newConv = new Conversation({...conv, isStored: false});
+        return newConv;
+      }
+      return conv;
+    });
+    
     setConversations(updatedConversations);
     
     if (currentConversation && currentConversation.id === conversationId) {
-      setCurrentConversation({ ...currentConversation, isStored: false });
+      setCurrentConversation(new Conversation({...currentConversation, isStored: false}));
     }
     
     toast({
@@ -408,27 +429,39 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve();
   };
 
-  const processConversations = (convs: Conversation[]) => {
-    return convs.map(conv => {
-      const participantsInfo = conv.participants.map(uid => ({
+  const processConversations = async (convs: Conversation[]) => {
+    if (!currentUser || convs.length === 0) return convs;
+    
+    // Fetch user information for participants
+    const processedConvs = await Promise.all(convs.map(async (conv) => {
+      // Exclude current user from participants to fetch
+      const otherParticipants = conv.participants.filter(uid => uid !== currentUser.uid);
+      
+      // This would be where you'd fetch user data for each participant
+      // For simplicity, we'll create placeholder data
+      const participantsInfo = otherParticipants.map(uid => ({
         uid,
         displayName: "User",
         username: "user",
-        onlineStatus: 'offline' as const,
+        photoURL: undefined,
+        onlineStatus: 'offline' as const
       }));
       
-      return {
+      // Return a new Conversation with participantsInfo
+      return new Conversation({
         ...conv,
-        participantsInfo,
-      };
-    });
+        participantsInfo
+      });
+    }));
+    
+    return processedConvs;
   };
 
-  const searchUsers = async (query: string) => {
+  const searchUsers = async (query: string): Promise<ExtendedUser[]> => {
     // Mock implementation
     toast({
       title: "Feature not implemented",
-      description: "User search feature is not yet implemented with Supabase",
+      description: "User search feature is not yet implemented",
     });
     return Promise.resolve([]);
   };
@@ -441,12 +474,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve();
   };
 
+  // Process conversations when they change
   useEffect(() => {
-    if (conversations.length > 0) {
-      const processedConversations = processConversations(conversations);
-      setConversations(processedConversations);
-    }
-  }, [conversations.length]);
+    const processConvs = async () => {
+      if (conversations.length > 0) {
+        const processedConversations = await processConversations(conversations);
+        setConversations(processedConversations);
+      }
+    };
+    
+    processConvs();
+  }, [conversations.length, currentUser]);
 
   const value = {
     conversations,
