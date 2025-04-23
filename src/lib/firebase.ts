@@ -25,7 +25,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // Initialize Firestore with settings BEFORE any operations
-// Corrected initialization without the invalid persistenceSettings property
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentSingleTabManager()
