@@ -14,7 +14,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1, // Reduce retries to avoid extra Firebase calls
       staleTime: 300000, // 5 minutes - keep data fresh longer
-      cacheTime: 900000, // 15 minutes - keep data in cache longer
+      gcTime: 900000, // 15 minutes - keep data in cache longer (formerly cacheTime)
     },
   },
 });
