@@ -33,7 +33,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
           
           <p className="text-lg font-semibold mb-2">
             {isGroup 
-              ? currentConversation.group_name 
+              ? currentConversation.groupName 
               : currentConversation.participantsInfo?.[0]?.displayName || 'User'}
           </p>
           

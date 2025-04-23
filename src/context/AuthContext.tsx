@@ -1,16 +1,19 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { ExtendedUser } from '@/types/supabase';
 import { useToast } from "@/components/ui/use-toast";
 
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: ExtendedUser | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  logout: () => Promise<void>; // Alias for signOut
+  setUsernameOnSignUp: (username: string) => Promise<void>;
+  isUsernameAvailable: (username: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -24,18 +27,40 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user ?? null);
+      if (session?.user) {
+        const extendedUser: ExtendedUser = {
+          ...session.user,
+          uid: session.user.id,
+          displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+          username: session.user.user_metadata?.username || session.user.email?.split('@')[0],
+          photoURL: session.user.user_metadata?.avatar_url
+        };
+        setCurrentUser(extendedUser);
+      } else {
+        setCurrentUser(null);
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setCurrentUser(session?.user ?? null);
+      if (session?.user) {
+        const extendedUser: ExtendedUser = {
+          ...session.user,
+          uid: session.user.id,
+          displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+          username: session.user.user_metadata?.username || session.user.email?.split('@')[0],
+          photoURL: session.user.user_metadata?.avatar_url
+        };
+        setCurrentUser(extendedUser);
+      } else {
+        setCurrentUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -83,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const logout = signOut; // Alias for backward compatibility
+
   const signInWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -123,13 +150,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setUsernameOnSignUp = async (username: string) => {
+    // Mock implementation
+    toast({
+      title: "Feature not implemented",
+      description: "Setting username is not yet implemented with Supabase",
+    });
+    return Promise.resolve();
+  };
+
+  const isUsernameAvailable = async (username: string) => {
+    // Mock implementation
+    return Promise.resolve(true);
+  };
+
   const value = {
     currentUser,
     signIn,
     signUp,
     signOut,
     signInWithGoogle,
-    resetPassword
+    resetPassword,
+    logout,
+    setUsernameOnSignUp,
+    isUsernameAvailable
   };
 
   return (

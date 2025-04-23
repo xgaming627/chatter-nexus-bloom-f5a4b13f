@@ -1,7 +1,6 @@
-
 import React, { useEffect } from 'react';
 import { useChat } from '@/context/ChatContext';
-import type { Conversation } from '@/types/supabase';
+import { Conversation } from '@/types/supabase';
 import UserAvatar from './UserAvatar';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -32,9 +31,7 @@ const ChatList: React.FC = () => {
   const getLastMessageTime = (conversation: Conversation) => {
     if (!conversation.last_message?.timestamp) return '';
     
-    const timestamp = conversation.last_message.timestamp.toDate ? 
-      conversation.last_message.timestamp.toDate() : 
-      new Date(conversation.last_message.timestamp);
+    const timestamp = new Date(conversation.last_message.timestamp);
     
     const now = new Date();
     const isToday = timestamp.getDate() === now.getDate() &&

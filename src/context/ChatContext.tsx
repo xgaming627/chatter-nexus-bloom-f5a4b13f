@@ -1,10 +1,12 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Message, Conversation } from "@/types/supabase";
+import { Message, Conversation, ExtendedUser } from "@/types/supabase";
 
-export type { Message, Conversation };
+// Re-export the types for consumers to use
+export type { Message, Conversation, ExtendedUser };
 
 interface ChatContextType {
   conversations: Conversation[];
@@ -13,6 +15,7 @@ interface ChatContextType {
   sendMessage: (content: string, conversationId: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
   createConversation: (participants: string[], isGroup?: boolean, groupName?: string) => Promise<string>;
+  createGroupChat: (groupName: string, participants: string[]) => Promise<string>;
   refreshConversations: () => Promise<void>;
   uploadFile: (file: File, conversationId: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
@@ -31,6 +34,8 @@ interface ChatContextType {
   deleteMessage: (messageId: string, deletedBy: string) => Promise<void>;
   storeChat: (conversationId: string) => Promise<void>;
   unstoreChat: (conversationId: string) => Promise<void>;
+  searchUsers: (query: string) => Promise<ExtendedUser[]>;
+  updateDmSettings: (settings: any) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -118,7 +123,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .contains('participants', [currentUser.uid]);
 
       if (error) throw error;
-      setConversations(data);
+      // Convert the raw data to Conversation objects
+      const conversationsData = data.map(conv => new Conversation(conv));
+      setConversations(conversationsData);
     } catch (error) {
       console.error('Error fetching conversations:', error);
       toast({
@@ -142,7 +149,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .order('timestamp', { ascending: true });
 
       if (error) throw error;
-      setMessages(data);
+      // Convert the raw data to Message objects
+      const messagesData = data.map(msg => new Message(msg));
+      setMessages(messagesData);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -218,6 +227,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const createGroupChat = async (groupName: string, participants: string[]) => {
+    return createConversation(participants, true, groupName);
+  };
+
   const setCurrentConversationId = async (id: string | null) => {
     if (!id) {
       setCurrentConversation(null);
@@ -232,7 +245,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) throw error;
-      setCurrentConversation(data);
+      // Convert to a Conversation object
+      setCurrentConversation(new Conversation(data));
     } catch (error) {
       console.error('Error fetching conversation:', error);
       toast({
@@ -410,6 +424,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const searchUsers = async (query: string) => {
+    // Mock implementation
+    toast({
+      title: "Feature not implemented",
+      description: "User search feature is not yet implemented with Supabase",
+    });
+    return Promise.resolve([]);
+  };
+
+  const updateDmSettings = async (settings: any) => {
+    toast({
+      title: "Feature not implemented",
+      description: "DM settings update is not yet implemented",
+    });
+    return Promise.resolve();
+  };
+
   useEffect(() => {
     if (conversations.length > 0) {
       const processedConversations = processConversations(conversations);
@@ -424,6 +455,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sendMessage,
     setCurrentConversationId,
     createConversation,
+    createGroupChat,
     refreshConversations,
     uploadFile,
     markAsRead,
@@ -441,7 +473,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getBlockedUsers,
     deleteMessage,
     storeChat,
-    unstoreChat
+    unstoreChat,
+    searchUsers,
+    updateDmSettings
   };
 
   return (
