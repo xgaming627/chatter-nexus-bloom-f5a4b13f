@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -922,3 +923,197 @@ const ChatWindow: React.FC = () => {
               Are you sure you want to block {currentConversation.participantsInfo[0]?.displayName || 'this user'}?
               You will no longer receive messages from them.
             </p>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleBlockUser}>
+              <UserX className="mr-2 h-4 w-4" />
+              Block User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* User info dialog */}
+      <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+          </DialogHeader>
+          
+          {!isGroup && currentConversation.participantsInfo[0] && (
+            <div className="py-4">
+              <div className="flex justify-center mb-4">
+                <UserAvatar 
+                  username={currentConversation.participantsInfo[0].username} 
+                  photoURL={currentConversation.participantsInfo[0].photoURL}
+                  size="lg"
+                />
+              </div>
+              
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-medium">
+                  {currentConversation.participantsInfo[0].displayName}
+                  {otherUserIsModerator && (
+                    <Badge className="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                      <Shield className="h-3 w-3 mr-1" /> Moderator
+                    </Badge>
+                  )}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  @{currentConversation.participantsInfo[0].username}
+                </p>
+              </div>
+              
+              {currentConversation.participantsInfo[0].description && (
+                <div className="border-t border-b py-4 my-4">
+                  <p className="text-sm italic">
+                    "{currentConversation.participantsInfo[0].description}"
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-center space-x-4 mt-4">
+                {!isBlocked ? (
+                  <Button variant="outline" onClick={() => {
+                    setShowUserInfoDialog(false);
+                    setShowBlockDialog(true);
+                  }}>
+                    <UserX className="mr-2 h-4 w-4" /> Block User
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => {
+                    handleUnblockUser();
+                    setShowUserInfoDialog(false);
+                  }}>
+                    <UserCheck className="mr-2 h-4 w-4" /> Unblock User
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Group settings dialog */}
+      <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Group Settings</DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[60vh] p-4">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="group-name">Group Name</Label>
+                <Input 
+                  id="group-name"
+                  value={newGroupName || (currentConversation.groupName || '')}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter group name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="group-image">Group Image</Label>
+                <Input 
+                  id="group-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      toast({
+                        title: "File upload not available",
+                        description: "Group image upload is not yet supported. Please connect Supabase.",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Group Members</Label>
+                <div className="border rounded-md p-2">
+                  {currentConversation.participantsInfo.map((user) => (
+                    <div key={user.uid} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                      <div className="flex items-center">
+                        <UserAvatar username={user.username} photoURL={user.photoURL} size="sm" />
+                        <div className="ml-2">
+                          <p className="text-sm font-medium">{user.displayName}</p>
+                          <p className="text-xs text-muted-foreground">@{user.username}</p>
+                        </div>
+                      </div>
+                      {isModeratorUser({email: user.email}) && (
+                        <Badge className="px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                          <Shield className="h-3 w-3 mr-1" /> Moderator
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => {
+                  // Implement functionality to add users to the group
+                  toast({
+                    title: "Feature coming soon",
+                    description: "Adding members to existing groups will be available soon",
+                  });
+                }}
+              >
+                <UserPlus className="h-4 w-4 mr-2" /> Add Members
+              </Button>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateGroupSettings}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete message confirmation dialog */}
+      <Dialog open={!!confirmDeleteMessage} onOpenChange={() => setConfirmDeleteMessage(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Message</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {confirmDeleteMessage && (
+              <div className="p-4 rounded-md bg-gray-100 dark:bg-gray-800">
+                <p>{confirmDeleteMessage.content}</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              <Trash2 className="h-4 w-4 mr-2" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* New message notification */}
+      {hasNewMessages && (
+        <div className="fixed bottom-4 right-4 bg-teams-purple text-white px-4 py-2 rounded-lg shadow-lg animate-pulse">
+          You have new messages
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatWindow;
