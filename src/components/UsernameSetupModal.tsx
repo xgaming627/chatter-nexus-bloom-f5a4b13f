@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -102,10 +101,16 @@ const UsernameSetupModal: React.FC = () => {
     try {
       const success = await setUsernameOnSignUp(username);
       
-      if (success) {
+      if (success === true) {
         setHasUsername(true);
         setShowTutorial(true);
         setOpen(false);
+      } else if (success === false) {
+        toast({
+          title: 'Username Setup Failed',
+          description: 'Unable to set username. Please try again.',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error setting username:', error);
