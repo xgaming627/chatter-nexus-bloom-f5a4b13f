@@ -33,8 +33,8 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
           
           <p className="text-lg font-semibold mb-2">
             {isGroup 
-              ? currentConversation.groupName 
-              : currentConversation.participantsInfo[0]?.displayName || 'User'}
+              ? currentConversation.group_name 
+              : currentConversation.participantsInfo?.[0]?.displayName || 'User'}
           </p>
           
           <p className="text-muted-foreground mb-6">
@@ -44,7 +44,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
           <div className="flex justify-center mb-8">
             {isGroup ? (
               <div className="grid grid-cols-3 gap-2">
-                {currentConversation.participantsInfo.slice(0, 6).map((user) => (
+                {currentConversation.participantsInfo?.slice(0, 6).map((user) => (
                   <div key={user.uid} className="flex flex-col items-center">
                     <UserAvatar username={user.username} photoURL={user.photoURL} />
                     <span className="text-xs mt-1">{user.displayName}</span>
@@ -53,8 +53,8 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
               </div>
             ) : (
               <UserAvatar 
-                username={currentConversation.participantsInfo[0]?.username || 'User'} 
-                photoURL={currentConversation.participantsInfo[0]?.photoURL}
+                username={currentConversation.participantsInfo?.[0]?.username || 'User'} 
+                photoURL={currentConversation.participantsInfo?.[0]?.photoURL}
                 size="lg"
               />
             )}

@@ -1,9 +1,10 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Conversation } from "@/types/supabase";
+
+export type { Message, Conversation };
 
 interface ChatContextType {
   conversations: Conversation[];
@@ -12,6 +13,24 @@ interface ChatContextType {
   sendMessage: (content: string, conversationId: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
   createConversation: (participants: string[], isGroup?: boolean, groupName?: string) => Promise<string>;
+  refreshConversations: () => Promise<void>;
+  uploadFile: (file: File, conversationId: string) => Promise<void>;
+  markAsRead: (messageId: string) => Promise<void>;
+  reportMessage: (messageId: string, reason: string) => Promise<void>;
+  startVideoCall: (conversationId: string) => void;
+  startVoiceCall: (conversationId: string) => void;
+  endCall: () => void;
+  isCallActive: boolean;
+  activeCallType: 'voice' | 'video' | null;
+  updateUserDescription: (description: string) => Promise<void>;
+  updateOnlineStatus: (status: 'online' | 'away' | 'offline') => void;
+  blockUser: (userId: string, reason?: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  hasNewMessages: boolean;
+  getBlockedUsers: () => Promise<any[]>;
+  deleteMessage: (messageId: string, deletedBy: string) => Promise<void>;
+  storeChat: (conversationId: string) => Promise<void>;
+  unstoreChat: (conversationId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -30,8 +49,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-
-  // Subscribe to conversations
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [activeCallType, setActiveCallType] = useState<'voice' | 'video' | null>(null);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  
   useEffect(() => {
     if (!currentUser) return;
 
@@ -58,7 +79,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [currentUser]);
 
-  // Subscribe to messages for current conversation
   useEffect(() => {
     if (!currentConversation) {
       setMessages([]);
@@ -109,6 +129,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshConversations = async () => {
+    await fetchConversations();
+  };
+
   const fetchMessages = async (conversationId: string) => {
     try {
       const { data, error } = await supabase
@@ -142,7 +166,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
       if (error) {
-        // Check if it's a cooldown error
         if (error.message.includes('cooldown')) {
           toast({
             title: "Message cooldown",
@@ -167,7 +190,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("Must be logged in to create conversations");
 
     try {
-      // Include current user in participants if not already included
       if (!participants.includes(currentUser.uid)) {
         participants.push(currentUser.uid);
       }
@@ -221,13 +243,205 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const uploadFile = async (file: File, conversationId: string) => {
+    toast({
+      title: "Feature not implemented",
+      description: "File upload feature is not yet implemented with Supabase",
+      variant: "destructive"
+    });
+  };
+
+  const markAsRead = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('id', messageId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
+  };
+
+  const reportMessage = async (messageId: string, reason: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ reported: true, flagged_for_moderation: true })
+        .eq('id', messageId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error reporting message:', error);
+      toast({
+        title: "Error reporting message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const startVideoCall = (conversationId: string) => {
+    setIsCallActive(true);
+    setActiveCallType('video');
+    toast({
+      title: "Video call started",
+      description: "Video call feature is limited in this demo",
+    });
+  };
+
+  const startVoiceCall = (conversationId: string) => {
+    setIsCallActive(true);
+    setActiveCallType('voice');
+    toast({
+      title: "Voice call started",
+      description: "Voice call feature is limited in this demo",
+    });
+  };
+
+  const endCall = () => {
+    setIsCallActive(false);
+    setActiveCallType(null);
+  };
+
+  const updateUserDescription = async (description: string) => {
+    toast({
+      title: "Feature not implemented",
+      description: "User profile update is not yet implemented",
+    });
+    return Promise.resolve();
+  };
+
+  const updateOnlineStatus = (status: 'online' | 'away' | 'offline') => {
+    console.log(`Status updated to: ${status}`);
+  };
+
+  const blockUser = async (userId: string, reason?: string) => {
+    toast({
+      title: "User blocked",
+      description: "User blocking feature is not fully implemented",
+    });
+    return Promise.resolve();
+  };
+
+  const unblockUser = async (userId: string) => {
+    toast({
+      title: "User unblocked",
+      description: "User unblocking feature is not fully implemented",
+    });
+    return Promise.resolve();
+  };
+
+  const getBlockedUsers = async () => {
+    return Promise.resolve([]);
+  };
+
+  const deleteMessage = async (messageId: string, deletedBy: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          deleted: true,
+          deleted_by: deletedBy
+        })
+        .eq('id', messageId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Error deleting message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const storeChat = async (conversationId: string) => {
+    const updatedConversations = conversations.map(conv => 
+      conv.id === conversationId ? { ...conv, isStored: true } : conv
+    );
+    setConversations(updatedConversations);
+    
+    if (currentConversation && currentConversation.id === conversationId) {
+      setCurrentConversation({ ...currentConversation, isStored: true });
+    }
+    
+    toast({
+      title: "Chat stored",
+      description: "This feature is not fully implemented with database storage",
+    });
+    
+    return Promise.resolve();
+  };
+
+  const unstoreChat = async (conversationId: string) => {
+    const updatedConversations = conversations.map(conv => 
+      conv.id === conversationId ? { ...conv, isStored: false } : conv
+    );
+    setConversations(updatedConversations);
+    
+    if (currentConversation && currentConversation.id === conversationId) {
+      setCurrentConversation({ ...currentConversation, isStored: false });
+    }
+    
+    toast({
+      title: "Chat unstored",
+      description: "This feature is not fully implemented with database storage",
+    });
+    
+    return Promise.resolve();
+  };
+
+  const processConversations = (convs: Conversation[]) => {
+    return convs.map(conv => {
+      const participantsInfo = conv.participants.map(uid => ({
+        uid,
+        displayName: "User",
+        username: "user",
+        onlineStatus: 'offline' as const,
+      }));
+      
+      return {
+        ...conv,
+        participantsInfo,
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      const processedConversations = processConversations(conversations);
+      setConversations(processedConversations);
+    }
+  }, [conversations.length]);
+
   const value = {
     conversations,
     currentConversation,
     messages,
     sendMessage,
     setCurrentConversationId,
-    createConversation
+    createConversation,
+    refreshConversations,
+    uploadFile,
+    markAsRead,
+    reportMessage,
+    startVideoCall,
+    startVoiceCall,
+    endCall,
+    isCallActive,
+    activeCallType,
+    updateUserDescription,
+    updateOnlineStatus,
+    blockUser,
+    unblockUser,
+    hasNewMessages,
+    getBlockedUsers,
+    deleteMessage,
+    storeChat,
+    unstoreChat
   };
 
   return (

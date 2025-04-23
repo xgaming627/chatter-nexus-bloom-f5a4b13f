@@ -14,6 +14,11 @@ export interface Message {
   file_url?: string;
   file_name?: string;
   file_type?: string;
+  
+  // Aliases for camelCase compatibility
+  get senderId(): string {
+    return this.sender_id;
+  }
 }
 
 export interface Conversation {
@@ -29,6 +34,33 @@ export interface Conversation {
     timestamp: Date;
     sender_id: string;
   };
+  isStored?: boolean;
+  participantsInfo?: {
+    uid: string;
+    displayName: string;
+    username: string;
+    photoURL?: string;
+    email?: string;
+    description?: string;
+    onlineStatus?: 'online' | 'away' | 'offline';
+  }[];
+  
+  // Aliases for camelCase compatibility
+  get isGroupChat(): boolean {
+    return this.is_group_chat;
+  }
+  
+  get groupName(): string | undefined {
+    return this.group_name;
+  }
+  
+  get groupPhotoURL(): string | undefined {
+    return this.group_photo_url;
+  }
+  
+  get lastMessage(): any {
+    return this.last_message;
+  }
 }
 
 export interface UserMessageCooldown {

@@ -1,6 +1,7 @@
 
 import React, { useEffect } from 'react';
-import { useChat, Conversation } from '@/context/ChatContext';
+import { useChat } from '@/context/ChatContext';
+import type { Conversation } from '@/types/supabase';
 import UserAvatar from './UserAvatar';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -17,11 +18,11 @@ const ChatList: React.FC = () => {
   }, []);
 
   const getConversationName = (conversation: Conversation) => {
-    if (conversation.isGroupChat && conversation.groupName) {
-      return conversation.groupName;
+    if (conversation.is_group_chat && conversation.group_name) {
+      return conversation.group_name;
     }
     
-    if (conversation.participantsInfo.length > 0) {
+    if (conversation.participantsInfo && conversation.participantsInfo.length > 0) {
       return conversation.participantsInfo[0].displayName;
     }
     
@@ -29,11 +30,11 @@ const ChatList: React.FC = () => {
   };
 
   const getLastMessageTime = (conversation: Conversation) => {
-    if (!conversation.lastMessage?.timestamp) return '';
+    if (!conversation.last_message?.timestamp) return '';
     
-    const timestamp = conversation.lastMessage.timestamp.toDate ? 
-      conversation.lastMessage.timestamp.toDate() : 
-      new Date(conversation.lastMessage.timestamp);
+    const timestamp = conversation.last_message.timestamp.toDate ? 
+      conversation.last_message.timestamp.toDate() : 
+      new Date(conversation.last_message.timestamp);
     
     const now = new Date();
     const isToday = timestamp.getDate() === now.getDate() &&
@@ -46,14 +47,14 @@ const ChatList: React.FC = () => {
   };
 
   const getAvatarInfo = (conversation: Conversation) => {
-    if (conversation.isGroupChat) {
+    if (conversation.is_group_chat) {
       return {
-        username: conversation.groupName || 'Group',
-        photoURL: conversation.groupPhotoURL
+        username: conversation.group_name || 'Group',
+        photoURL: conversation.group_photo_url
       };
     }
     
-    if (conversation.participantsInfo.length > 0) {
+    if (conversation.participantsInfo && conversation.participantsInfo.length > 0) {
       return {
         username: conversation.participantsInfo[0].username,
         photoURL: conversation.participantsInfo[0].photoURL
@@ -119,9 +120,9 @@ const ChatList: React.FC = () => {
                           {getLastMessageTime(conversation)}
                         </div>
                       </div>
-                      {conversation.lastMessage && (
+                      {conversation.last_message && (
                         <div className="text-sm text-muted-foreground truncate">
-                          {conversation.lastMessage.content}
+                          {conversation.last_message.content}
                         </div>
                       )}
                     </div>
