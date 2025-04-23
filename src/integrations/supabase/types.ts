@@ -9,7 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          group_name: string | null
+          group_photo_url: string | null
+          id: string
+          is_group_chat: boolean | null
+          last_message: Json | null
+          participants: string[]
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          group_name?: string | null
+          group_photo_url?: string | null
+          id?: string
+          is_group_chat?: boolean | null
+          last_message?: Json | null
+          participants: string[]
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          group_name?: string | null
+          group_photo_url?: string | null
+          id?: string
+          is_group_chat?: boolean | null
+          last_message?: Json | null
+          participants?: string[]
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          deleted: boolean | null
+          deleted_by: string | null
+          delivered: boolean | null
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          flagged_for_moderation: boolean | null
+          id: string
+          read: boolean | null
+          reported: boolean | null
+          sender_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          deleted?: boolean | null
+          deleted_by?: string | null
+          delivered?: boolean | null
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          flagged_for_moderation?: boolean | null
+          id?: string
+          read?: boolean | null
+          reported?: boolean | null
+          sender_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          deleted?: boolean | null
+          deleted_by?: string | null
+          delivered?: boolean | null
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          flagged_for_moderation?: boolean | null
+          id?: string
+          read?: boolean | null
+          reported?: boolean | null
+          sender_id?: string
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
+      user_message_cooldowns: {
+        Row: {
+          last_message_time: string | null
+          user_id: string
+        }
+        Insert: {
+          last_message_time?: string | null
+          user_id: string
+        }
+        Update: {
+          last_message_time?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
