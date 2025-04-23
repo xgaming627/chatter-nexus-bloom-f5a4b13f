@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   signInWithEmailAndPassword, 
@@ -6,7 +7,8 @@ import {
   GoogleAuthProvider, 
   signInWithPopup,
   sendPasswordResetEmail,
-  onAuthStateChanged
+  onAuthStateChanged,
+  updateProfile
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { ExtendedUser } from '@/types/supabase';
@@ -136,13 +138,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!currentUser) return false;
       
-      // Here we would actually update the username in Firebase
-      // For now, just a mock implementation that returns true
-      
-      // Update the displayName property
-      await auth.currentUser?.updateProfile({
-        displayName: username,
-      });
+      // Use the imported updateProfile function instead of trying to call it on the user
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: username,
+        });
+      }
       
       // Update local state
       setCurrentUser(prev => {
