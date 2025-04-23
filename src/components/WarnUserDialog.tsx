@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { AlertTriangle } from 'lucide-react';
 import { User } from '@/context/ChatContext';
+import { useToast } from "@/hooks/use-toast";
 
 interface WarnUserDialogProps {
   open: boolean;
@@ -31,11 +32,28 @@ const WarnUserDialog: React.FC<WarnUserDialogProps> = ({
   const [warnReason, setWarnReason] = useState('');
   const [duration, setDuration] = useState('24h');
   const [customDuration, setCustomDuration] = useState('');
+  const { toast } = useToast();
   
   const handleSubmit = () => {
-    const finalDuration = duration === 'custom' ? customDuration : duration;
-    onWarn(warnReason, finalDuration);
-    setWarnReason('');
+    try {
+      const finalDuration = duration === 'custom' ? customDuration : duration;
+      onWarn(warnReason, finalDuration);
+      
+      toast({
+        title: "Warning issued",
+        description: `Warning sent to ${user?.username || 'user'} for ${finalDuration}`,
+      });
+      
+      setWarnReason('');
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Warning failed",
+        description: "There was an error issuing the warning. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Error issuing warning:", error);
+    }
   };
   
   return (

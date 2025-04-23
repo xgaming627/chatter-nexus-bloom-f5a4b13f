@@ -33,9 +33,8 @@ const WarnUserNotification: React.FC = () => {
   const { currentUser } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
   const [warningInfo, setWarningInfo] = useState<any>(null);
-  const [showTerms, setShowTerms] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeTab, setActiveTab] = useState<string>('warning');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   
   useEffect(() => {
     if (!currentUser) return;
@@ -198,9 +197,7 @@ const WarnUserNotification: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="terms">
-            <div className="h-[300px] overflow-y-auto p-4 border rounded-md">
-              <TermsOfService />
-            </div>
+            <TermsOfService />
           </TabsContent>
         </Tabs>
 

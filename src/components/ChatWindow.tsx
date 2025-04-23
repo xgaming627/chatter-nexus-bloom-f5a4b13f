@@ -63,7 +63,11 @@ const ChatWindow: React.FC = () => {
   const [showGroupSettingsDialog, setShowGroupSettingsDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
-  
+  const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
+  const [messageCounter, setMessageCounter] = useState(0);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const rateLimitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -169,6 +173,41 @@ const ChatWindow: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
+  const checkRateLimit = (): boolean => {
+    const now = new Date();
+    
+    // If this is the first message or it's been more than 30 seconds since last message
+    if (!lastMessageTime || (now.getTime() - lastMessageTime.getTime() > 30000)) {
+      setLastMessageTime(now);
+      setMessageCounter(1);
+      return false;
+    }
+    
+    // Update the last message time
+    setLastMessageTime(now);
+    
+    // If we've sent 5 or more messages in the last 10 seconds, rate limit
+    if (messageCounter >= 4 && (now.getTime() - lastMessageTime.getTime() < 10000)) {
+      setIsRateLimited(true);
+      
+      // Reset rate limit after 10 seconds
+      if (rateLimitTimeoutRef.current) {
+        clearTimeout(rateLimitTimeoutRef.current);
+      }
+      
+      rateLimitTimeoutRef.current = setTimeout(() => {
+        setIsRateLimited(false);
+        setMessageCounter(0);
+      }, 10000);
+      
+      return true;
+    }
+    
+    // Increment the counter
+    setMessageCounter(prev => prev + 1);
+    return false;
+  };
+  
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -181,7 +220,21 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
+    if (isRateLimited) {
+      toast({
+        title: "Slow down",
+        description: "You're sending messages too quickly. Please wait a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (newMessage.trim() && currentConversation) {
+      // Check rate limit
+      if (checkRateLimit()) {
+        return;
+      }
+      
       console.log("Sending message to conversation:", currentConversation.id);
       sendMessage(newMessage, currentConversation.id);
       setNewMessage('');
@@ -211,6 +264,16 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
+    if (isRateLimited) {
+      toast({
+        title: "Slow down",
+        description: "You're sending messages too quickly. Please wait a moment.",
+        variant: "destructive",
+      });
+      e.target.value = '';
+      return;
+    }
+    
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Unsupported file type",
@@ -228,6 +291,12 @@ const ChatWindow: React.FC = () => {
         description: "Maximum file size is 5MB",
         variant: "destructive"
       });
+      e.target.value = '';
+      return;
+    }
+    
+    // Check rate limit
+    if (checkRateLimit()) {
       e.target.value = '';
       return;
     }
@@ -453,7 +522,7 @@ const ChatWindow: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
                 <ChevronDown className="h-5 w-5" />
-              </Button>
+              </DropdownMenuTrigger>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
@@ -680,13 +749,20 @@ const ChatWindow: React.FC = () => {
       
       {/* Message input */}
       <div className="p-4 border-t">
+        {isRateLimited && (
+          <div className="mb-2 py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-md flex items-center">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            You're sending messages too quickly. Please wait a moment.
+          </div>
+        )}
+        
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <Button
             type="button"
             size="icon"
             variant="ghost"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isBlocked}
+            disabled={isBlocked || isRateLimited}
           >
             <Paperclip className="h-5 w-5" />
             <input
@@ -695,21 +771,25 @@ const ChatWindow: React.FC = () => {
               accept="image/*"
               className="hidden"
               onChange={handleFileUpload}
-              disabled={isBlocked}
+              disabled={isBlocked || isRateLimited}
             />
           </Button>
 
           <Textarea
-            placeholder={isBlocked ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}` : "Type a message..."}
+            placeholder={
+              isRateLimited ? "Please wait a moment before sending more messages..." :
+              isBlocked ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}` : 
+              "Type a message..."
+            }
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 min-h-0 search-input bg-background text-foreground"
             rows={1}
-            disabled={isBlocked}
+            disabled={isBlocked || isRateLimited}
           />
 
-          <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked}>
+          <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked || isRateLimited}>
             <Send className="h-5 w-5" />
           </Button>
         </form>

@@ -11,13 +11,13 @@ const TermsOfService = () => {
           <FileText className="h-5 w-5 mr-2" />
           Terms of Service
         </h3>
-        <span className="text-xs text-muted-foreground">v1.13 • Updated Apr 19, 2025</span>
+        <span className="text-xs text-muted-foreground">v1.13 • Updated Apr 21, 2025</span>
       </div>
       
       <ScrollArea className="h-[500px] rounded-md border p-4">
         <div className="space-y-4">
           <h2 className="text-xl font-bold">Nexus Chat - Terms of Service</h2>
-          <p className="text-sm text-muted-foreground">Effective Date: 4/19/2025</p>
+          <p className="text-sm text-muted-foreground">Effective Date: 4/21/2025</p>
           <p className="text-sm text-muted-foreground">Version: 1.13</p>
           
           <p>Welcome to Nexus Chat, a service provided and operated by the Nexus Team ("we", "us", or "our"). By accessing or using Nexus Chat, including by agreeing to the welcome message, you acknowledge that you have read, understood, and agreed to these Terms of Service ("Terms") and our Privacy Policy. If you do not agree, do not use Nexus Chat.</p>
@@ -103,7 +103,7 @@ const TermsOfService = () => {
           <p>We may update these Terms periodically. If changes are significant, we will notify you in-app or by email. Continued use after changes go into effect constitutes your acceptance of the new Terms.</p>
           
           <h3 className="text-lg font-semibold mt-6">12. Governing Law</h3>
-          <p>These Terms are governed by the laws of [Insert Jurisdiction], without regard to conflict-of-law principles.</p>
+          <p>These Terms are governed by the laws of California, without regard to conflict-of-law principles.</p>
           
           <h3 className="text-lg font-semibold mt-6">13. Contact Information</h3>
           <p>Have questions or need support?</p>
@@ -121,4 +121,3 @@ const TermsOfService = () => {
 };
 
 export default TermsOfService;
-

@@ -36,6 +36,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setCurrentUser(null);
       }
+      setIsInitializing(false);
     });
 
     return () => unsubscribe();
@@ -132,12 +134,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setUsernameOnSignUp = async (username: string): Promise<boolean> => {
     try {
-      // Implement actual username setting logic here
+      if (!currentUser) return false;
+      
+      // Here we would actually update the username in Firebase
       // For now, just a mock implementation that returns true
+      
+      // Update the displayName property
+      await auth.currentUser?.updateProfile({
+        displayName: username,
+      });
+      
+      // Update local state
+      setCurrentUser(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          displayName: username,
+          username: username
+        };
+      });
+      
       toast({
         title: "Username Set",
         description: `Username set to ${username}`,
       });
+      
       return true;
     } catch (error) {
       toast({
@@ -150,9 +171,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isUsernameAvailable = async (username: string) => {
-    // Mock implementation
-    return Promise.resolve(true);
+    try {
+      // Check if the username already exists in Firebase
+      // This is a mock implementation that always returns true
+      // In a real app, you would query your database
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return Promise.resolve(true);
+    } catch (error) {
+      console.error("Error checking username availability:", error);
+      return Promise.resolve(false);
+    }
   };
+
+  // Loading state to prevent flashing of login form
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="space-y-4 text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const value = {
     currentUser,

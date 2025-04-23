@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from "@/components/ui/dialog";
+import TermsOfService from "./TermsOfService";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function AuthForms() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,11 +17,23 @@ export function AuthForms() {
   const [password, setPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [showReset, setShowReset] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const { toast } = useToast();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!agreedToTerms) {
+      toast({
+        title: "Terms agreement required",
+        description: "You must agree to the Terms of Service to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -35,6 +50,16 @@ export function AuthForms() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!agreedToTerms) {
+      toast({
+        title: "Terms agreement required",
+        description: "You must agree to the Terms of Service to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -51,6 +76,15 @@ export function AuthForms() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!agreedToTerms) {
+      toast({
+        title: "Terms agreement required",
+        description: "You must agree to the Terms of Service to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -163,6 +197,30 @@ export function AuthForms() {
                       required
                     />
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="terms" 
+                      checked={agreedToTerms}
+                      onCheckedChange={(checked) => {
+                        setAgreedToTerms(checked === true);
+                      }}
+                    />
+                    <label
+                      htmlFor="terms"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      I agree to the{" "}
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:underline"
+                        onClick={() => setShowTerms(true)}
+                      >
+                        Terms of Service
+                      </button>
+                    </label>
+                  </div>
+                  
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing In..." : "Sign In"}
                   </Button>
@@ -242,6 +300,30 @@ export function AuthForms() {
                       minLength={6}
                     />
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="signup-terms" 
+                      checked={agreedToTerms}
+                      onCheckedChange={(checked) => {
+                        setAgreedToTerms(checked === true);
+                      }}
+                    />
+                    <label
+                      htmlFor="signup-terms"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      I agree to the{" "}
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:underline"
+                        onClick={() => setShowTerms(true)}
+                      >
+                        Terms of Service
+                      </button>
+                    </label>
+                  </div>
+                  
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating Account..." : "Sign Up"}
                   </Button>
@@ -289,6 +371,33 @@ export function AuthForms() {
           </TabsContent>
         </Tabs>
       )}
+      
+      <Dialog open={showTerms} onOpenChange={setShowTerms}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Terms of Service</DialogTitle>
+            <DialogDescription>
+              Please read and agree to our Terms of Service to continue.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto pr-2">
+            <TermsOfService />
+          </div>
+          
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" onClick={() => setShowTerms(false)}>Close</Button>
+            <Button 
+              onClick={() => {
+                setAgreedToTerms(true);
+                setShowTerms(false);
+              }}
+            >
+              I Agree
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
