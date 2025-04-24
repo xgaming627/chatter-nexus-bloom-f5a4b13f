@@ -322,13 +322,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participants.push(currentUser.uid);
       }
 
-      const conversationData = {
+      const conversationData: any = {
         participants,
         is_group_chat: isGroup,
-        group_name: groupName,
         created_by: currentUser.uid,
         created_at: serverTimestamp()
       };
+      
+      if (isGroup && groupName) {
+        conversationData.group_name = groupName;
+      }
       
       const docRef = await addDoc(collection(db, "conversations"), conversationData);
       return docRef.id;
@@ -344,7 +347,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createGroupChat = async (groupName: string, participants: string[]) => {
-    return createConversation(participants, true, groupName);
+    if (!groupName || !groupName.trim()) {
+      toast({
+        title: "Group name required",
+        description: "Please provide a name for the group chat",
+        variant: "destructive"
+      });
+      throw new Error("Group name is required");
+    }
+    return createConversation(participants, true, groupName.trim());
   };
 
   const setCurrentConversationId = async (id: string | null) => {
