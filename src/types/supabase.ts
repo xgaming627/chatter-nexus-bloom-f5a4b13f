@@ -23,6 +23,7 @@ export class Message {
   file_url?: string;
   file_name?: string;
   file_type?: string;
+  is_system_message?: boolean;
   
   constructor(data: any) {
     this.id = data.id;
@@ -39,6 +40,7 @@ export class Message {
     this.file_url = data.file_url;
     this.file_name = data.file_name;
     this.file_type = data.file_type;
+    this.is_system_message = !!data.is_system_message;
   }
 
   get senderId(): string {
