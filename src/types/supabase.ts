@@ -6,7 +6,7 @@ export interface ExtendedUser extends FirebaseUser {
   username?: string;
   photoURL: string | null;
   uid: string;
-  email?: string;
+  email: string | null; // Changed from optional to required but nullable
 }
 
 export class Message {
