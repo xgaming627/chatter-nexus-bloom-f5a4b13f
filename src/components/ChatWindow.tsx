@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
@@ -659,7 +660,6 @@ const ChatWindow: React.FC = () => {
                       </div>
                     )}
                     
-                    
                     <div className="flex items-end gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -745,8 +745,6 @@ const ChatWindow: React.FC = () => {
         </div>
       </ScrollArea>
       
-      
-      
       {showScrollButton && (
         <Button
           size="icon"
@@ -756,7 +754,6 @@ const ChatWindow: React.FC = () => {
           <ChevronDown className="h-5 w-5" />
         </Button>
       )}
-      
       
       <div className="p-4 border-t">
         {isRateLimited && (
@@ -823,7 +820,101 @@ const ChatWindow: React.FC = () => {
         )}
       </div>
       
-      
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Your Profile</DialogTitle>
+          </DialogHeader>
+          
+          <Tabs defaultValue="info" onValueChange={setProfileTab}>
+            <TabsList className="grid grid-cols-2 mb-4">
+              <TabsTrigger value="info">
+                <Info className="h-4 w-4 mr-2" />
+                Information
+              </TabsTrigger>
+              <TabsTrigger value="description">
+                <User className="h-4 w-4 mr-2" />
+                Description
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="info" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="profile-image">Profile Image</Label>
+                <Input 
+                  id="profile-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      toast({
+                        title: "File upload not available",
+                        description: "Profile picture upload is not yet supported. Please connect Supabase.",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Upload a new profile image</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <RadioGroup 
+                  defaultValue={onlineStatus} 
+                  onValueChange={(value) => setOnlineStatus(value as 'online' | 'away' | 'offline')}
+                  className="flex items-center gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="online" id="online" />
+                    <Label htmlFor="online" className="flex items-center">
+                      <UserCheck className="h-4 w-4 text-green-500 mr-2" />
+                      Online
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="away" id="away" />
+                    <Label htmlFor="away" className="flex items-center">
+                      <UserMinus className="h-4 w-4 text-yellow-500 mr-2" />
+                      Away
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="offline" id="offline" />
+                    <Label htmlFor="offline" className="flex items-center">
+                      <User className="h-4 w-4 text-gray-400 mr-2" />
+                      Offline
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground">
+                  Status is automatically updated based on your activity.
+                </p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="description" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Profile Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Add a short description about yourself"
+                  value={profileDescription}
+                  onChange={(e) => setProfileDescription(e.target.value)}
+                  rows={5}
+                />
+                <p className="text-xs text-muted-foreground">This will be visible to other users</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateProfile}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent className="sm:max-w-[425px]">
@@ -847,7 +938,6 @@ const ChatWindow: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
       
       <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
         <DialogContent className="sm:max-w-[425px]">
@@ -909,7 +999,6 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      
       <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -924,4 +1013,103 @@ const ChatWindow: React.FC = () => {
                   id="group-name"
                   value={newGroupName || (currentConversation.groupName || '')}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="
+                  placeholder="Enter group name"
+                />
+              </div>
+              
+              {/* Group members section */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Group Members</h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {currentConversation.participantsInfo?.map((participant) => (
+                    <div key={participant?.uid} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserAvatar 
+                          username={participant?.username || "User"} 
+                          photoURL={participant?.photoURL}
+                          size="sm"
+                        />
+                        <span>{participant?.displayName || participant?.username || "User"}</span>
+                      </div>
+                      {isModerator && (
+                        <Button variant="ghost" size="sm">
+                          <UserMinus className="h-4 w-4" />
+                          <span className="sr-only">Remove</span>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Add members section */}
+              {isModerator && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Add Members</h3>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Username or email" 
+                      className="flex-1"
+                    />
+                    <Button>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Notifications section */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Notifications</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    <span>Mute notifications</span>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    Off
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateGroupSettings}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={!!confirmDeleteMessage} onOpenChange={(isOpen) => {
+        if (!isOpen) setConfirmDeleteMessage(null);
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Message</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this message? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ChatWindow;
