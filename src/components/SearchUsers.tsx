@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
 import { ExtendedUser } from '@/types/supabase';
+import { collection, query, getDocs, where, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface SearchUsersProps {
   onUserSelected?: (user: ExtendedUser) => void;
@@ -28,11 +30,48 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
       
       setLoading(true);
       try {
-        const users = await searchUsers(searchQuery);
-        console.log("Search results:", users);
-        setResults(users);
+        // Use direct Firebase querying instead of relying on context function
+        const usersRef = collection(db, "users");
+        const q = query(
+          usersRef,
+          where("displayName", ">=", searchQuery),
+          where("displayName", "<=", searchQuery + '\uf8ff'),
+          limit(10)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const users: ExtendedUser[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const userData = doc.data();
+          users.push({
+            uid: userData.uid,
+            displayName: userData.displayName || 'Unknown User',
+            username: userData.username || '',
+            email: userData.email || null,
+            photoURL: userData.photoURL || null,
+          });
+        });
+        
+        console.log("Direct Firebase search results:", users);
+        
+        if (users.length === 0) {
+          // Fall back to context-provided search function as backup
+          const contextUsers = await searchUsers(searchQuery);
+          setResults(contextUsers);
+        } else {
+          setResults(users);
+        }
       } catch (error) {
         console.error("Error searching users:", error);
+        // Attempt fallback search method
+        try {
+          const contextUsers = await searchUsers(searchQuery);
+          setResults(contextUsers);
+        } catch (innerError) {
+          console.error("Fallback search also failed:", innerError);
+          setResults([]);
+        }
       } finally {
         setLoading(false);
       }
