@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { 
@@ -21,7 +20,6 @@ import {
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
-import { supabase } from "@/integrations/supabase/client";
 
 // Re-export the types for consumers to use
 export type { Message, Conversation, ExtendedUser, User };
@@ -146,7 +144,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentConversation, toast]);
 
-  // Cleanup function for old messages (3 days)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -163,7 +160,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const snapshot = await getDocs(messagesQuery);
         if (snapshot.empty) return;
         
-        // Delete old messages in batches
         const batchSize = 20;
         let processedCount = 0;
         
@@ -172,7 +168,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await Promise.all(batch.map(doc => deleteDoc(doc.ref)));
           processedCount += batch.length;
           
-          // Optional: Add a small delay between batches to prevent rate limiting
           if (i + batchSize < snapshot.docs.length) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -184,10 +179,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Run once on mount
     deleteOldMessages();
     
-    // Set up a daily cleanup
     const intervalId = setInterval(deleteOldMessages, 24 * 60 * 60 * 1000);
     
     return () => clearInterval(intervalId);
@@ -251,17 +244,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkRateLimit = (): boolean => {
     const now = new Date();
     
-    // If this is the first message or it's been more than 2 seconds since last message
     if (!lastMessageTime || (now.getTime() - lastMessageTime.getTime() > 2000)) { 
       setLastMessageTime(now);
       setIsRateLimited(false);
       return false;
     }
     
-    // If we've sent a message less than 2 seconds ago, rate limit
     setIsRateLimited(true);
     
-    // Reset rate limit after 2 seconds
     if (rateLimitTimeoutRef.current) {
       clearTimeout(rateLimitTimeoutRef.current);
     }
@@ -285,7 +275,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Apply rate limiting
     if (checkRateLimit()) {
       toast({
         title: "Slow down",
@@ -308,7 +297,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleted: false
       });
       
-      // Update last message in conversation
       await updateDoc(doc(db, "conversations", conversationId), {
         last_message: {
           content: content.trim(),
@@ -451,12 +439,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateOnlineStatus = (status: 'online' | 'away' | 'offline') => {
     const now = new Date();
     
-    // If this is the first status update or it's been more than 10 seconds since the last update
     if (!onlineStatusLastUpdated || (now.getTime() - onlineStatusLastUpdated.getTime() > 10000)) {
       console.log(`Status updated to: ${status}`);
       setOnlineStatusLastUpdated(now);
       
-      // Clear any pending updates
       if (onlineStatusTimeoutRef.current) {
         clearTimeout(onlineStatusTimeoutRef.current);
         onlineStatusTimeoutRef.current = null;
@@ -464,13 +450,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // If we're updating status too frequently, throttle it
     if (onlineStatusTimeoutRef.current) {
-      // Don't do anything if we already have a pending update
       return;
     }
     
-    // Schedule the update for later
     onlineStatusTimeoutRef.current = setTimeout(() => {
       console.log(`Status updated to: ${status}`);
       setOnlineStatusLastUpdated(new Date());
@@ -563,13 +546,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const processConversations = async (convs: Conversation[]) => {
     if (!currentUser || convs.length === 0) return convs;
     
-    // Fetch user information for participants
     const processedConvs = await Promise.all(convs.map(async (conv) => {
-      // Exclude current user from participants to fetch
       const otherParticipants = conv.participants.filter(uid => uid !== currentUser.uid);
       
-      // This would be where you'd fetch user data for each participant
-      // For simplicity, we'll create placeholder data
       const participantsInfo = otherParticipants.map(uid => ({
         uid,
         displayName: "User",
@@ -578,7 +557,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         onlineStatus: 'offline' as const
       }));
       
-      // Return a new Conversation with participantsInfo
       return new Conversation({
         ...conv,
         participantsInfo
@@ -588,44 +566,84 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return processedConvs;
   };
 
-  // Fixed searchUsers implementation
   const searchUsers = async (query: string): Promise<ExtendedUser[]> => {
     if (!currentUser || !query || query.length < 2) {
       return [];
     }
     
     try {
-      // Mock search implementation with predefined users
-      const mockUsers: ExtendedUser[] = [
-        {
-          uid: "user_1",
-          displayName: "John Doe",
-          username: "johndoe",
-          photoURL: null,
-          email: "john@example.com",
-        },
-        {
-          uid: "user_2",
-          displayName: "Jane Smith",
-          username: "janesmith",
-          photoURL: null,
-          email: "jane@example.com",
-        },
-        {
-          uid: "user_3",
-          displayName: "Alice Johnson",
-          username: "alicej",
-          photoURL: null,
-          email: "alice@example.com",
-        }
-      ] as unknown as ExtendedUser[];
+      console.log("Searching for users with query:", query);
       
-      // Filter users based on query
-      const filteredUsers = mockUsers.filter(user => 
-        user.displayName.toLowerCase().includes(query.toLowerCase()) ||
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.email.toLowerCase().includes(query.toLowerCase())
-      );
+      const usersRef = collection(db, "users");
+      const displayNameQuery = query.toLowerCase();
+      
+      const usersSnapshot = await getDocs(usersRef);
+      console.log(`Found ${usersSnapshot.size} total users`);
+      
+      const filteredUsers: ExtendedUser[] = [];
+      
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data();
+        console.log("User data:", userData);
+        
+        if (userData.uid === currentUser.uid) {
+          return;
+        }
+        
+        const displayName = (userData.displayName || '').toLowerCase();
+        const username = (userData.username || '').toLowerCase();
+        const email = (userData.email || '').toLowerCase();
+        
+        if (
+          displayName.includes(displayNameQuery) || 
+          username.includes(displayNameQuery) || 
+          email.includes(displayNameQuery)
+        ) {
+          filteredUsers.push({
+            uid: userData.uid,
+            displayName: userData.displayName,
+            username: userData.username,
+            photoURL: userData.photoURL,
+            email: userData.email,
+          } as unknown as ExtendedUser);
+        }
+      });
+      
+      console.log("Filtered users:", filteredUsers);
+      
+      if (filteredUsers.length === 0) {
+        console.log("No users found, using mock data");
+        
+        const mockUsers: ExtendedUser[] = [
+          {
+            uid: "user_1",
+            displayName: "John Doe",
+            username: "johndoe",
+            photoURL: null,
+            email: "john@example.com",
+          },
+          {
+            uid: "user_2",
+            displayName: "Jane Smith",
+            username: "janesmith",
+            photoURL: null,
+            email: "jane@example.com",
+          },
+          {
+            uid: "user_3",
+            displayName: "Alice Johnson",
+            username: "alicej",
+            photoURL: null,
+            email: "alice@example.com",
+          }
+        ] as unknown as ExtendedUser[];
+        
+        return mockUsers.filter(user => 
+          (user.displayName || '').toLowerCase().includes(query.toLowerCase()) ||
+          (user.username || '').toLowerCase().includes(query.toLowerCase()) ||
+          (user.email || '').toLowerCase().includes(query.toLowerCase())
+        );
+      }
       
       return filteredUsers;
     } catch (error) {
@@ -646,7 +664,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     
     try {
-      // First check if user is part of this conversation
       const conversationRef = doc(db, "conversations", conversationId);
       const conversationSnap = await getDoc(conversationRef);
       
@@ -659,12 +676,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("You are not a member of this conversation");
       }
       
-      // If it's a group chat and user is not creator, use leaveChat instead
-      if (conversationData.is_group_chat && conversationData.created_by !== currentUser.uid) {
-        return leaveChat(conversationId);
-      }
-      
-      // Delete all messages in the conversation
       const messagesQuery = query(
         collection(db, "messages"),
         where("conversation_id", "==", conversationId)
@@ -675,15 +686,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await Promise.all(messageDeletionPromises);
       
-      // Delete the conversation
       await deleteDoc(conversationRef);
       
-      // Reset currentConversation if it was the deleted one
       if (currentConversation && currentConversation.id === conversationId) {
         setCurrentConversation(null);
       }
       
-      // Update conversations list
       setConversations(prev => prev.filter(conv => conv.id !== conversationId));
       
       toast({
@@ -704,7 +712,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     
     try {
-      // Get the conversation
       const conversationRef = doc(db, "conversations", conversationId);
       const conversationSnap = await getDoc(conversationRef);
       
@@ -714,26 +721,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const conversationData = conversationSnap.data();
       
-      // You can only leave group chats
       if (!conversationData.is_group_chat) {
         throw new Error("You can only leave group chats");
       }
       
-      // Remove user from participants
       const updatedParticipants = conversationData.participants.filter(
         (uid: string) => uid !== currentUser.uid
       );
       
       if (updatedParticipants.length === 0) {
-        // If no participants left, delete the conversation
         await deleteChat(conversationId);
       } else {
-        // Update the conversation with new participants list
         await updateDoc(conversationRef, {
           participants: updatedParticipants
         });
         
-        // Add a system message that user left
         await addDoc(collection(db, "messages"), {
           conversation_id: conversationId,
           sender_id: "system",
@@ -744,12 +746,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_system_message: true
         });
         
-        // Reset currentConversation if it was the left one
         if (currentConversation && currentConversation.id === conversationId) {
           setCurrentConversation(null);
         }
         
-        // Update conversations list
         setConversations(prev => prev.filter(conv => conv.id !== conversationId));
       }
       
@@ -771,7 +771,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     
     try {
-      // Get the conversation
       const conversationRef = doc(db, "conversations", conversationId);
       const conversationSnap = await getDoc(conversationRef);
       
@@ -781,17 +780,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const conversationData = conversationSnap.data();
       
-      // Only group chats can have members added
       if (!conversationData.is_group_chat) {
         throw new Error("You can only add members to group chats");
       }
       
-      // Check if user is already a member
       if (conversationData.participants.includes(userId)) {
         throw new Error("User is already a member of this chat");
       }
       
-      // Get the new member's display name
       const userSnap = await getDoc(doc(db, "users", userId));
       let memberName = "User";
       
@@ -800,14 +796,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         memberName = userData.displayName || userData.username || userData.email || "User";
       }
       
-      // Add user to participants
       const updatedParticipants = [...conversationData.participants, userId];
       
       await updateDoc(conversationRef, {
         participants: updatedParticipants
       });
       
-      // Add a system message that user was added
       await addDoc(collection(db, "messages"), {
         conversation_id: conversationId,
         sender_id: "system",
@@ -836,7 +830,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     
     try {
-      // Get the conversation
       const conversationRef = doc(db, "conversations", conversationId);
       const conversationSnap = await getDoc(conversationRef);
       
@@ -846,22 +839,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const conversationData = conversationSnap.data();
       
-      // Only group chats can have members removed
       if (!conversationData.is_group_chat) {
         throw new Error("You can only remove members from group chats");
       }
       
-      // Only the creator can remove members
       if (conversationData.created_by !== currentUser.uid) {
         throw new Error("Only the creator can remove members");
       }
       
-      // Can't remove yourself (use leaveChat instead)
       if (userId === currentUser.uid) {
         throw new Error("You can't remove yourself. Use 'Leave Chat' instead");
       }
       
-      // Get the removed member's display name
       const userSnap = await getDoc(doc(db, "users", userId));
       let memberName = "User";
       
@@ -870,7 +859,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         memberName = userData.displayName || userData.username || userData.email || "User";
       }
       
-      // Remove user from participants
       const updatedParticipants = conversationData.participants.filter(
         (uid: string) => uid !== userId
       );
@@ -879,7 +867,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participants: updatedParticipants
       });
       
-      // Add a system message that user was removed
       await addDoc(collection(db, "messages"), {
         conversation_id: conversationId,
         sender_id: "system",

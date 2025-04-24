@@ -29,6 +29,7 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
       setLoading(true);
       try {
         const users = await searchUsers(searchQuery);
+        console.log("Search results:", users);
         setResults(users);
       } catch (error) {
         console.error("Error searching users:", error);
