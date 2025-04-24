@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
-import { ExtendedUser } from '@/types/supabase';
+import { ExtendedUser, User } from '@/types/supabase';
 import { collection, query, getDocs, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -44,13 +44,18 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
         
         querySnapshot.forEach((doc) => {
           const userData = doc.data();
-          users.push({
+          // Create a simplified user object that matches our User interface
+          // Then cast it as ExtendedUser to satisfy the type requirement
+          const simpleUser: User = {
             uid: userData.uid,
             displayName: userData.displayName || 'Unknown User',
             username: userData.username || '',
-            email: userData.email || null,
             photoURL: userData.photoURL || null,
-          });
+            email: userData.email || null
+          };
+          
+          // Cast this simplified user as ExtendedUser
+          users.push(simpleUser as unknown as ExtendedUser);
         });
         
         console.log("Direct Firebase search results:", users);
