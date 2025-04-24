@@ -929,4 +929,311 @@ const ChatWindow: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="away" id="away" />
                     <Label htmlFor="away" className="flex items-center">
-                      <UserMinus className="h-
+                      <UserMinus className="h-4 w-4 text-yellow-500 mr-2" />
+                      Away
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="offline" id="offline" />
+                    <Label htmlFor="offline" className="flex items-center">
+                      <UserX className="h-4 w-4 text-gray-500 mr-2" />
+                      Offline
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="description" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">About me</Label>
+                <Textarea
+                  id="description"
+                  value={profileDescription}
+                  onChange={(e) => setProfileDescription(e.target.value)}
+                  placeholder="Tell others about yourself..."
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-muted-foreground">This will be visible to other users</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateProfile}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Block User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to block this user? You will no longer receive messages from them.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="block-reason">Reason (optional)</Label>
+              <Textarea
+                id="block-reason"
+                value={blockedReason}
+                onChange={(e) => setBlockedReason(e.target.value)}
+                placeholder="Why are you blocking this user?"
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleBlockUser}>Block User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Information</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {participantsInfo.length > 0 && participantsInfo[0] && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <UserAvatar 
+                    username={participantsInfo[0]?.username || "User"}
+                    photoURL={participantsInfo[0]?.photoURL}
+                    size="lg"
+                  />
+                  <div>
+                    <h3 className="font-semibold">{participantsInfo[0]?.displayName}</h3>
+                    <p className="text-sm text-muted-foreground">@{participantsInfo[0]?.username}</p>
+                    {otherUserIsModerator && (
+                      <Badge className="mt-1">Moderator</Badge>
+                    )}
+                  </div>
+                </div>
+                
+                {participantsInfo[0]?.description && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">About</h4>
+                    <p className="text-sm text-muted-foreground italic">"{participantsInfo[0].description}"</p>
+                  </div>
+                )}
+                
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Status</h4>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${
+                      participantsInfo[0]?.onlineStatus === 'online'
+                        ? 'bg-green-500'
+                        : participantsInfo[0]?.onlineStatus === 'away'
+                        ? 'bg-yellow-500'
+                        : 'bg-gray-400'
+                    }`}></span>
+                    <span className="text-sm">
+                      {participantsInfo[0]?.onlineStatus === 'online'
+                        ? 'Online'
+                        : participantsInfo[0]?.onlineStatus === 'away'
+                        ? 'Away'
+                        : 'Offline'
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            {!isBlocked ? (
+              <Button variant="destructive" onClick={() => {
+                setShowUserInfoDialog(false);
+                setShowBlockDialog(true);
+              }}>
+                <UserX className="h-4 w-4 mr-2" /> Block User
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => {
+                handleUnblockUser();
+                setShowUserInfoDialog(false);
+              }}>
+                <UserCheck className="h-4 w-4 mr-2" /> Unblock User
+              </Button>
+            )}
+            <Button onClick={() => setShowUserInfoDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Group Settings</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="group-name">Group Name</Label>
+              <Input
+                id="group-name"
+                value={newGroupName || (currentConversation?.groupName || '')}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Enter group name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Members</Label>
+              <div className="border rounded-md p-2 max-h-[200px] overflow-y-auto">
+                {currentConversation?.participantsInfo?.map((participant) => (
+                  <div key={participant.uid} className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-2">
+                      <UserAvatar username={participant.username || "User"} photoURL={participant.photoURL} size="sm" />
+                      <span>{participant.displayName || participant.username}</span>
+                    </div>
+                    
+                    {currentConversation.created_by === currentUser?.uid && 
+                      participant.uid !== currentUser?.uid && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setMemberToRemove(participant.uid);
+                            setShowRemoveMemberDialog(true);
+                            setShowGroupSettingsDialog(false);
+                          }}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      )
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateGroupSettings}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDeleteMessage} onOpenChange={(open) => !open && setConfirmDeleteMessage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Message</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showDeleteChatDialog} onOpenChange={setShowDeleteChatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Chat</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this chat? All messages will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteChatDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteChat}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showLeaveChatDialog} onOpenChange={setShowLeaveChatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave Chat</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave this group chat? You will need to be added back by another member to rejoin.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLeaveChatDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleLeaveChat}>Leave</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Member</DialogTitle>
+            <DialogDescription>
+              Enter the username of the person you want to add to this group.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="member-username">Username</Label>
+              <Input
+                id="member-username"
+                value={newMemberUsername}
+                onChange={(e) => setNewMemberUsername(e.target.value)}
+                placeholder="Enter username"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddMember}>Add Member</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showRemoveMemberDialog} onOpenChange={setShowRemoveMemberDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this member from the group?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {currentConversation?.participantsInfo?.find(p => p.uid === memberToRemove) && (
+              <div className="flex items-center gap-2">
+                <UserAvatar 
+                  username={currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.username || "User"}
+                  photoURL={currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.photoURL}
+                />
+                <span>
+                  {currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.displayName || 
+                   currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.username}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRemoveMemberDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleRemoveMember}>Remove</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ChatWindow;
