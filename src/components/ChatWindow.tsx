@@ -1,9 +1,29 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { AlertTriangle, ChevronDown, Phone, Video, Paperclip, Send, Shield, X, Info, User, UserCheck, UserMinus, UserX, Trash2, Bell, Folder, UserPlus, MessageSquare } from 'lucide-react';
+import { 
+  AlertTriangle, 
+  ChevronDown, 
+  Phone, 
+  Video, 
+  Paperclip, 
+  Send, 
+  Shield, 
+  X, 
+  Info, 
+  User, 
+  UserCheck, 
+  UserMinus, 
+  UserX, 
+  Trash2, 
+  Bell, 
+  Folder, 
+  UserPlus, 
+  MessageSquare,
+  LogOut,
+  Users 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
@@ -11,7 +31,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import CallModal from './CallModal';
 import { cn } from '@/lib/utils';
@@ -45,6 +66,11 @@ const ChatWindow: React.FC = () => {
     deleteMessage,
     storeChat,
     unstoreChat,
+    deleteChat,
+    leaveChat,
+    addMemberToChat,
+    removeMemberFromChat,
+    isRateLimited
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
@@ -64,20 +90,20 @@ const ChatWindow: React.FC = () => {
   const [showGroupSettingsDialog, setShowGroupSettingsDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
-  const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
-  const [messageCounter, setMessageCounter] = useState(0);
-  const [isRateLimited, setIsRateLimited] = useState(false);
-  const rateLimitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  
+  const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
+  const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [newMemberUsername, setNewMemberUsername] = useState('');
+  const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const isModeratorUser = (user: { email?: string }) =>
-    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com";
-
-  
+    user?.email === "vitorrossato812@gmail.com" || user?.email === "lukasbraga77@gmail.com";
 
   useEffect(() => {
     if (currentUser?.email === 'vitorrossato812@gmail.com' || currentUser?.email === 'lukasbraga77@gmail.com') {
@@ -86,7 +112,6 @@ const ChatWindow: React.FC = () => {
       setIsModerator(false);
     }
     
-    // Check if current user is online
     if (document.visibilityState === 'visible') {
       updateOnlineStatus('online');
     }
@@ -102,23 +127,19 @@ const ChatWindow: React.FC = () => {
     const handleUserActivity = () => {
       let timeout: NodeJS.Timeout;
       
-      // Reset the timeout and set status to online
       const resetTimeout = () => {
         if (timeout) clearTimeout(timeout);
         updateOnlineStatus('online');
         
-        // Set away status after 10 minutes of inactivity
         timeout = setTimeout(() => {
           updateOnlineStatus('away');
-        }, 10 * 60 * 1000); // 10 minutes
+        }, 10 * 60 * 1000);
       };
       
-      // Add event listeners for user activity
       document.addEventListener('mousemove', resetTimeout);
       document.addEventListener('keydown', resetTimeout);
       document.addEventListener('click', resetTimeout);
       
-      // Start the timeout
       resetTimeout();
       
       return () => {
@@ -138,14 +159,12 @@ const ChatWindow: React.FC = () => {
     };
   }, [currentUser, updateOnlineStatus]);
   
-  // Check if the current conversation partner is blocked
   useEffect(() => {
     const checkIfBlocked = async () => {
       if (!currentConversation || !currentConversation.participantsInfo || currentConversation.isGroupChat) return;
 
       try {
         const blockedUsers = await getBlockedUsers();
-        // Make sure participantsInfo exists and has at least one element before accessing [0]
         if (currentConversation.participantsInfo && currentConversation.participantsInfo.length > 0) {
           const blockedEntry = blockedUsers.find(
             user => user.uid === currentConversation.participantsInfo[0]?.uid
@@ -180,41 +199,6 @@ const ChatWindow: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  const checkRateLimit = (): boolean => {
-    const now = new Date();
-    
-    // If this is the first message or it's been more than 30 seconds since last message
-    if (!lastMessageTime || (now.getTime() - lastMessageTime.getTime() > 30000)) {
-      setLastMessageTime(now);
-      setMessageCounter(1);
-      return false;
-    }
-    
-    // Update the last message time
-    setLastMessageTime(now);
-    
-    // If we've sent 5 or more messages in the last 10 seconds, rate limit
-    if (messageCounter >= 4 && (now.getTime() - lastMessageTime.getTime() < 10000)) {
-      setIsRateLimited(true);
-      
-      // Reset rate limit after 10 seconds
-      if (rateLimitTimeoutRef.current) {
-        clearTimeout(rateLimitTimeoutRef.current);
-      }
-      
-      rateLimitTimeoutRef.current = setTimeout(() => {
-        setIsRateLimited(false);
-        setMessageCounter(0);
-      }, 10000);
-      
-      return true;
-    }
-    
-    // Increment the counter
-    setMessageCounter(prev => prev + 1);
-    return false;
-  };
-  
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -230,18 +214,13 @@ const ChatWindow: React.FC = () => {
     if (isRateLimited) {
       toast({
         title: "Slow down",
-        description: "You're sending messages too quickly. Please wait a moment.",
+        description: "Please wait 2 seconds between messages.",
         variant: "destructive",
       });
       return;
     }
     
     if (newMessage.trim() && currentConversation) {
-      // Check rate limit
-      if (checkRateLimit()) {
-        return;
-      }
-      
       console.log("Sending message to conversation:", currentConversation.id);
       sendMessage(newMessage, currentConversation.id);
       setNewMessage('');
@@ -274,7 +253,7 @@ const ChatWindow: React.FC = () => {
     if (isRateLimited) {
       toast({
         title: "Slow down",
-        description: "You're sending messages too quickly. Please wait a moment.",
+        description: "You're sending messages too quickly. Please wait 2 seconds between messages.",
         variant: "destructive",
       });
       e.target.value = '';
@@ -291,19 +270,13 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    const maxSizeInBytes = 5 * 1024 * 1024;
     if (file.size > maxSizeInBytes) {
       toast({
         title: "File too large",
         description: "Maximum file size is 5MB",
         variant: "destructive"
       });
-      e.target.value = '';
-      return;
-    }
-    
-    // Check rate limit
-    if (checkRateLimit()) {
       e.target.value = '';
       return;
     }
@@ -385,9 +358,6 @@ const ChatWindow: React.FC = () => {
   const handleUpdateGroupSettings = async () => {
     if (!currentConversation || !currentConversation.isGroupChat) return;
     
-    // This function would be implemented in ChatContext
-    // await updateGroupSettings(currentConversation.id, newGroupName);
-    
     toast({
       title: "Group updated",
       description: "Group settings have been updated",
@@ -441,6 +411,54 @@ const ChatWindow: React.FC = () => {
     }
   };
   
+  const handleDeleteChat = async () => {
+    if (!currentConversation) return;
+    
+    try {
+      await deleteChat(currentConversation.id);
+      setShowDeleteChatDialog(false);
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+    }
+  };
+  
+  const handleLeaveChat = async () => {
+    if (!currentConversation) return;
+    
+    try {
+      await leaveChat(currentConversation.id);
+      setShowLeaveChatDialog(false);
+    } catch (error) {
+      console.error("Error leaving chat:", error);
+    }
+  };
+  
+  const handleAddMember = async () => {
+    if (!currentConversation || !newMemberUsername.trim()) return;
+    
+    try {
+      const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
+      
+      await addMemberToChat(currentConversation.id, userId);
+      setShowAddMemberDialog(false);
+      setNewMemberUsername('');
+    } catch (error) {
+      console.error("Error adding member:", error);
+    }
+  };
+  
+  const handleRemoveMember = async () => {
+    if (!currentConversation || !memberToRemove) return;
+    
+    try {
+      await removeMemberFromChat(currentConversation.id, memberToRemove);
+      setShowRemoveMemberDialog(false);
+      setMemberToRemove(null);
+    } catch (error) {
+      console.error("Error removing member:", error);
+    }
+  };
+  
   if (!currentConversation) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
@@ -452,21 +470,19 @@ const ChatWindow: React.FC = () => {
     );
   }
   
-  // Make sure participantsInfo exists before accessing it
   const participantsInfo = currentConversation.participantsInfo || [];
   const isGroup = currentConversation.isGroupChat;
   const conversationName = isGroup && currentConversation.groupName 
     ? currentConversation.groupName 
-    : (participantsInfo.length > 0 ? participantsInfo[0]?.displayName : 'Chat');
+    : (participantsInfo.length > 0 && participantsInfo[0] ? participantsInfo[0]?.displayName : 'Chat');
   
   const otherUserIsModerator = !isGroup && 
-    participantsInfo.length > 0 && isModeratorUser(participantsInfo[0] || {});
+    participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]);
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {isCallActive && <CallModal isGroup={isGroup} />}
       
-      {/* Chat header */}
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
           <div onClick={handleAvatarClick} className="cursor-pointer">
@@ -474,18 +490,18 @@ const ChatWindow: React.FC = () => {
               username={
                 isGroup && currentConversation.groupName 
                   ? currentConversation.groupName 
-                  : (participantsInfo.length > 0 ? participantsInfo[0]?.username : "User")
+                  : (participantsInfo.length > 0 && participantsInfo[0] ? participantsInfo[0]?.username : "User")
               } 
               photoURL={
                 isGroup && currentConversation.groupPhotoURL 
                   ? currentConversation.groupPhotoURL 
-                  : (participantsInfo.length > 0 ? participantsInfo[0]?.photoURL : undefined)
+                  : (participantsInfo.length > 0 && participantsInfo[0] ? participantsInfo[0]?.photoURL : undefined)
               }
             />
           </div>
           <div>
             <h2 className="font-semibold">{conversationName}</h2>
-            {!isGroup && participantsInfo.length > 0 && (
+            {!isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
               <>
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-muted-foreground">
@@ -537,21 +553,49 @@ const ChatWindow: React.FC = () => {
               <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
                 <User className="h-4 w-4 mr-2" /> Edit Profile
               </DropdownMenuItem>
-              {!isGroup && !isBlocked && participantsInfo.length > 0 && (
+              
+              {!isGroup && !isBlocked && participantsInfo.length > 0 && participantsInfo[0] && (
                 <DropdownMenuItem onClick={() => setShowBlockDialog(true)}>
                   <UserX className="h-4 w-4 mr-2" /> Block User
                 </DropdownMenuItem>
               )}
+              
               {!isGroup && isBlocked && (
                 <DropdownMenuItem onClick={handleUnblockUser}>
                   <UserCheck className="h-4 w-4 mr-2" /> Unblock User
                 </DropdownMenuItem>
               )}
+              
               {isGroup && (
-                <DropdownMenuItem onClick={() => setShowGroupSettingsDialog(true)}>
-                  <MessageSquare className="h-4 w-4 mr-2" /> Group Settings
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => setShowGroupSettingsDialog(true)}>
+                    <MessageSquare className="h-4 w-4 mr-2" /> Group Settings
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => setShowAddMemberDialog(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" /> Add Member
+                  </DropdownMenuItem>
+                  
+                  {currentConversation.created_by === currentUser?.uid && (
+                    <DropdownMenuItem onClick={() => setShowRemoveMemberDialog(true)}>
+                      <UserMinus className="h-4 w-4 mr-2" /> Remove Member
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuItem onClick={() => setShowLeaveChatDialog(true)}>
+                    <LogOut className="h-4 w-4 mr-2" /> Leave Chat
+                  </DropdownMenuItem>
+                </>
               )}
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteChatDialog(true)}
+                className="text-red-500 focus:text-red-500"
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Delete Chat
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button 
@@ -575,16 +619,26 @@ const ChatWindow: React.FC = () => {
         </div>
       </div>
       
-      {/* Messages */}
       <ScrollArea ref={messageContainerRef} className="flex-1">
         <div className="p-4 space-y-4">
           {messages.length > 0 ? (
             messages.map((message) => {
               const isOwnMessage = message.senderId === currentUser?.uid;
               const isModeratorMessage = isModerator && !isOwnMessage;
+              const isSystemMessage = message.senderId === "system" || message.is_system_message;
               
-              if (!isOwnMessage && !message.read) {
+              if (!isOwnMessage && !message.read && !isSystemMessage) {
                 markAsRead(message.id);
+              }
+              
+              if (isSystemMessage) {
+                return (
+                  <div key={message.id} className="flex justify-center">
+                    <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full text-xs text-center text-gray-600 dark:text-gray-300">
+                      {message.content}
+                    </div>
+                  </div>
+                );
               }
               
               return (
@@ -593,23 +647,23 @@ const ChatWindow: React.FC = () => {
                   className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                 >
                   <div className="max-w-[80%] break-words">
-                    {!isOwnMessage && !isGroup && participantsInfo.length > 0 && (
+                    {!isOwnMessage && !isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
                       <div className="flex items-center mb-1">
                         <UserAvatar 
                           username={
-                            isModeratorUser(participantsInfo[0] || {}) 
+                            isModeratorUser(participantsInfo[0]) 
                               ? "Moderator"
                               : participantsInfo[0]?.username
                           }
                           photoURL={
-                            isModeratorUser(participantsInfo[0] || {}) 
+                            isModeratorUser(participantsInfo[0]) 
                               ? undefined
                               : participantsInfo[0]?.photoURL
                           }
                           size="sm"
                         />
                         <span className="text-xs font-medium ml-2 flex items-center">
-                          {isModeratorUser(participantsInfo[0] || {}) ? (
+                          {isModeratorUser(participantsInfo[0]) ? (
                             <>
                               <span>Moderator</span>
                               <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
@@ -627,7 +681,6 @@ const ChatWindow: React.FC = () => {
                       <div className="flex items-center mb-1">
                         <UserAvatar 
                           username={
-                            // Find user info from participants array - with null checks
                             currentConversation.participantsInfo?.find(
                               user => user?.uid === message.senderId
                             )?.username || "User"
@@ -759,7 +812,7 @@ const ChatWindow: React.FC = () => {
         {isRateLimited && (
           <div className="mb-2 py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-md flex items-center">
             <AlertTriangle className="h-4 w-4 mr-2" />
-            You're sending messages too quickly. Please wait a moment.
+            You're sending messages too quickly. Please wait 2 seconds between messages.
           </div>
         )}
         
@@ -784,7 +837,7 @@ const ChatWindow: React.FC = () => {
 
           <Textarea
             placeholder={
-              isRateLimited ? "Please wait a moment before sending more messages..." :
+              isRateLimited ? "Please wait 2 seconds between messages..." :
               isBlocked ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}` : 
               "Type a message..."
             }
@@ -876,240 +929,4 @@ const ChatWindow: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="away" id="away" />
                     <Label htmlFor="away" className="flex items-center">
-                      <UserMinus className="h-4 w-4 text-yellow-500 mr-2" />
-                      Away
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="offline" id="offline" />
-                    <Label htmlFor="offline" className="flex items-center">
-                      <User className="h-4 w-4 text-gray-400 mr-2" />
-                      Offline
-                    </Label>
-                  </div>
-                </RadioGroup>
-                <p className="text-xs text-muted-foreground">
-                  Status is automatically updated based on your activity.
-                </p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="description" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">Profile Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Add a short description about yourself"
-                  value={profileDescription}
-                  onChange={(e) => setProfileDescription(e.target.value)}
-                  rows={5}
-                />
-                <p className="text-xs text-muted-foreground">This will be visible to other users</p>
-              </div>
-            </TabsContent>
-          </Tabs>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>Cancel</Button>
-            <Button onClick={handleUpdateProfile}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Block User</DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <p>
-              Are you sure you want to block {participantsInfo.length > 0 ? participantsInfo[0]?.displayName || 'this user' : 'this user'}?
-              You will no longer receive messages from them.
-            </p>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleBlockUser}>
-              <UserX className="mr-2 h-4 w-4" />
-              Block User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showUserInfoDialog} onOpenChange={setShowUserInfoDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>User Profile</DialogTitle>
-          </DialogHeader>
-          
-          {!isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
-            <div className="py-4">
-              <div className="flex justify-center mb-4">
-                <UserAvatar 
-                  username={participantsInfo[0].username} 
-                  photoURL={participantsInfo[0].photoURL}
-                  size="lg"
-                />
-              </div>
-              
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-medium">
-                  {participantsInfo[0].displayName}
-                  {otherUserIsModerator && (
-                    <Badge className="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                      <Shield className="h-3 w-3 mr-1" /> Moderator
-                    </Badge>
-                  )}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  @{participantsInfo[0].username}
-                </p>
-              </div>
-              
-              {participantsInfo[0].description && (
-                <div className="border-t border-b py-4 my-4">
-                  <p className="text-sm italic">
-                    "{participantsInfo[0].description}"
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex justify-center space-x-4 mt-4">
-                {!isBlocked ? (
-                  <Button variant="outline" onClick={() => {
-                    setShowUserInfoDialog(false);
-                    setShowBlockDialog(true);
-                  }}>
-                    <UserX className="mr-2 h-4 w-4" /> Block User
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => {
-                    handleUnblockUser();
-                    setShowUserInfoDialog(false);
-                  }}>
-                    <UserCheck className="mr-2 h-4 w-4" /> Unblock User
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showGroupSettingsDialog} onOpenChange={setShowGroupSettingsDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Group Settings</DialogTitle>
-          </DialogHeader>
-          
-          <ScrollArea className="h-[60vh] p-4">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="group-name">Group Name</Label>
-                <Input 
-                  id="group-name"
-                  value={newGroupName || (currentConversation.groupName || '')}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Enter group name"
-                />
-              </div>
-              
-              {/* Group members section */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Group Members</h3>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {currentConversation.participantsInfo?.map((participant) => (
-                    <div key={participant?.uid} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar 
-                          username={participant?.username || "User"} 
-                          photoURL={participant?.photoURL}
-                          size="sm"
-                        />
-                        <span>{participant?.displayName || participant?.username || "User"}</span>
-                      </div>
-                      {isModerator && (
-                        <Button variant="ghost" size="sm">
-                          <UserMinus className="h-4 w-4" />
-                          <span className="sr-only">Remove</span>
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Add members section */}
-              {isModerator && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Add Members</h3>
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Username or email" 
-                      className="flex-1"
-                    />
-                    <Button>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {/* Notifications section */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Notifications</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    <span>Mute notifications</span>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Off
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGroupSettingsDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateGroupSettings}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={!!confirmDeleteMessage} onOpenChange={(isOpen) => {
-        if (!isOpen) setConfirmDeleteMessage(null);
-      }}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Message</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this message? This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default ChatWindow;
+                      <UserMinus className="h-

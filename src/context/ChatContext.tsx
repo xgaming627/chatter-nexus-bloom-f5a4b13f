@@ -1,6 +1,5 @@
-
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import { db, auth } from "@/lib/firebase";
 import { 
   collection, 
   addDoc, 
@@ -13,7 +12,8 @@ import {
   serverTimestamp,
   updateDoc,
   getDoc,
-  deleteDoc
+  deleteDoc,
+  Timestamp
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,11 @@ interface ChatContextType {
   unstoreChat: (conversationId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<ExtendedUser[]>;
   updateDmSettings: (settings: any) => Promise<void>;
+  deleteChat: (conversationId: string) => Promise<void>;
+  leaveChat: (conversationId: string) => Promise<void>;
+  addMemberToChat: (conversationId: string, userId: string) => Promise<void>;
+  removeMemberFromChat: (conversationId: string, userId: string) => Promise<void>;
+  isRateLimited: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -71,6 +76,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCallActive, setIsCallActive] = useState(false);
   const [activeCallType, setActiveCallType] = useState<'voice' | 'video' | null>(null);
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
+  const rateLimitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (!currentUser) return;
@@ -187,8 +195,52 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const checkRateLimit = (): boolean => {
+    const now = new Date();
+    
+    // If this is the first message or it's been more than 2 seconds since last message
+    if (!lastMessageTime || (now.getTime() - lastMessageTime.getTime() > 2000)) { 
+      setLastMessageTime(now);
+      setIsRateLimited(false);
+      return false;
+    }
+    
+    // If we've sent a message less than 2 seconds ago, rate limit
+    setIsRateLimited(true);
+    
+    // Reset rate limit after 2 seconds
+    if (rateLimitTimeoutRef.current) {
+      clearTimeout(rateLimitTimeoutRef.current);
+    }
+    
+    rateLimitTimeoutRef.current = setTimeout(() => {
+      setIsRateLimited(false);
+    }, 2000);
+    
+    return true;
+  };
+
   const sendMessage = async (content: string, conversationId: string) => {
     if (!currentUser || !content.trim()) return;
+    
+    if (isRateLimited) {
+      toast({
+        title: "Rate limited",
+        description: "Please wait 2 seconds between messages",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Apply rate limiting
+    if (checkRateLimit()) {
+      toast({
+        title: "Slow down",
+        description: "Please wait 2 seconds between messages",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       await addDoc(collection(db, "messages"), {
@@ -474,17 +526,267 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve();
   };
 
-  // Process conversations when they change
-  useEffect(() => {
-    const processConvs = async () => {
-      if (conversations.length > 0) {
-        const processedConversations = await processConversations(conversations);
-        setConversations(processedConversations);
-      }
-    };
+  const deleteChat = async (conversationId: string) => {
+    if (!currentUser) return;
     
-    processConvs();
-  }, [conversations.length, currentUser]);
+    try {
+      // First check if user is part of this conversation
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      if (!conversationSnap.exists()) {
+        throw new Error("Conversation not found");
+      }
+      
+      const conversationData = conversationSnap.data();
+      if (!conversationData.participants.includes(currentUser.uid)) {
+        throw new Error("You are not a member of this conversation");
+      }
+      
+      // If it's a group chat and user is not creator, use leaveChat instead
+      if (conversationData.is_group_chat && conversationData.created_by !== currentUser.uid) {
+        return leaveChat(conversationId);
+      }
+      
+      // Delete all messages in the conversation
+      const messagesQuery = query(
+        collection(db, "messages"),
+        where("conversation_id", "==", conversationId)
+      );
+      
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const messageDeletionPromises = messagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      
+      await Promise.all(messageDeletionPromises);
+      
+      // Delete the conversation
+      await deleteDoc(conversationRef);
+      
+      // Reset currentConversation if it was the deleted one
+      if (currentConversation && currentConversation.id === conversationId) {
+        setCurrentConversation(null);
+      }
+      
+      // Update conversations list
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      
+      toast({
+        title: "Chat deleted",
+        description: "The conversation has been deleted"
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast({
+        title: "Error deleting conversation",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const leaveChat = async (conversationId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      // Get the conversation
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      if (!conversationSnap.exists()) {
+        throw new Error("Conversation not found");
+      }
+      
+      const conversationData = conversationSnap.data();
+      
+      // You can only leave group chats
+      if (!conversationData.is_group_chat) {
+        throw new Error("You can only leave group chats");
+      }
+      
+      // Remove user from participants
+      const updatedParticipants = conversationData.participants.filter(
+        (uid: string) => uid !== currentUser.uid
+      );
+      
+      if (updatedParticipants.length === 0) {
+        // If no participants left, delete the conversation
+        await deleteChat(conversationId);
+      } else {
+        // Update the conversation with new participants list
+        await updateDoc(conversationRef, {
+          participants: updatedParticipants
+        });
+        
+        // Add a system message that user left
+        await addDoc(collection(db, "messages"), {
+          conversation_id: conversationId,
+          sender_id: "system",
+          content: `${currentUser.displayName || currentUser.email || "User"} has left the chat`,
+          timestamp: serverTimestamp(),
+          read: false,
+          delivered: true,
+          is_system_message: true
+        });
+        
+        // Reset currentConversation if it was the left one
+        if (currentConversation && currentConversation.id === conversationId) {
+          setCurrentConversation(null);
+        }
+        
+        // Update conversations list
+        setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      }
+      
+      toast({
+        title: "Left chat",
+        description: "You have left the conversation"
+      });
+    } catch (error) {
+      console.error('Error leaving conversation:', error);
+      toast({
+        title: "Error leaving conversation",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const addMemberToChat = async (conversationId: string, userId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      // Get the conversation
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      if (!conversationSnap.exists()) {
+        throw new Error("Conversation not found");
+      }
+      
+      const conversationData = conversationSnap.data();
+      
+      // Only group chats can have members added
+      if (!conversationData.is_group_chat) {
+        throw new Error("You can only add members to group chats");
+      }
+      
+      // Check if user is already a member
+      if (conversationData.participants.includes(userId)) {
+        throw new Error("User is already a member of this chat");
+      }
+      
+      // Get the new member's display name
+      const userSnap = await getDoc(doc(db, "users", userId));
+      let memberName = "User";
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        memberName = userData.displayName || userData.username || userData.email || "User";
+      }
+      
+      // Add user to participants
+      const updatedParticipants = [...conversationData.participants, userId];
+      
+      await updateDoc(conversationRef, {
+        participants: updatedParticipants
+      });
+      
+      // Add a system message that user was added
+      await addDoc(collection(db, "messages"), {
+        conversation_id: conversationId,
+        sender_id: "system",
+        content: `${currentUser.displayName || currentUser.email || "User"} added ${memberName} to the chat`,
+        timestamp: serverTimestamp(),
+        read: false,
+        delivered: true,
+        is_system_message: true
+      });
+      
+      toast({
+        title: "Member added",
+        description: `${memberName} has been added to the chat`
+      });
+    } catch (error) {
+      console.error('Error adding member:', error);
+      toast({
+        title: "Error adding member",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const removeMemberFromChat = async (conversationId: string, userId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      // Get the conversation
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      if (!conversationSnap.exists()) {
+        throw new Error("Conversation not found");
+      }
+      
+      const conversationData = conversationSnap.data();
+      
+      // Only group chats can have members removed
+      if (!conversationData.is_group_chat) {
+        throw new Error("You can only remove members from group chats");
+      }
+      
+      // Only the creator can remove members
+      if (conversationData.created_by !== currentUser.uid) {
+        throw new Error("Only the creator can remove members");
+      }
+      
+      // Can't remove yourself (use leaveChat instead)
+      if (userId === currentUser.uid) {
+        throw new Error("You can't remove yourself. Use 'Leave Chat' instead");
+      }
+      
+      // Get the removed member's display name
+      const userSnap = await getDoc(doc(db, "users", userId));
+      let memberName = "User";
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        memberName = userData.displayName || userData.username || userData.email || "User";
+      }
+      
+      // Remove user from participants
+      const updatedParticipants = conversationData.participants.filter(
+        (uid: string) => uid !== userId
+      );
+      
+      await updateDoc(conversationRef, {
+        participants: updatedParticipants
+      });
+      
+      // Add a system message that user was removed
+      await addDoc(collection(db, "messages"), {
+        conversation_id: conversationId,
+        sender_id: "system",
+        content: `${currentUser.displayName || currentUser.email || "User"} removed ${memberName} from the chat`,
+        timestamp: serverTimestamp(),
+        read: false,
+        delivered: true,
+        is_system_message: true
+      });
+      
+      toast({
+        title: "Member removed",
+        description: `${memberName} has been removed from the chat`
+      });
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast({
+        title: "Error removing member",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
 
   const value = {
     conversations,
@@ -513,7 +815,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storeChat,
     unstoreChat,
     searchUsers,
-    updateDmSettings
+    updateDmSettings,
+    deleteChat,
+    leaveChat,
+    addMemberToChat,
+    removeMemberFromChat,
+    isRateLimited
   };
 
   return (

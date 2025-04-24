@@ -8,16 +8,49 @@ interface QuotaWarningBannerProps {
 }
 
 const QuotaWarningBanner: React.FC<QuotaWarningBannerProps> = ({ permanent = false }) => {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false); // Default to not visible
   const bannerKey = 'quotaWarningDismissed';
+  const warningThreshold = 170000; // Show warning when approaching 180k limit
   
   useEffect(() => {
-    if (!permanent) {
-      const dismissed = localStorage.getItem(bannerKey);
-      if (dismissed && Date.now() - parseInt(dismissed) < 86400000) { // 24 hours
-        setIsVisible(false);
+    // Check if there's a real resource issue before showing the banner
+    const checkResourceStatus = async () => {
+      try {
+        // This would ideally be an API call to check actual resource usage
+        // For now we'll simulate with localStorage to avoid showing on every reload
+        const lastCheck = localStorage.getItem('lastResourceCheck');
+        const currentUsage = localStorage.getItem('currentResourceUsage');
+        
+        // Only check once per day or if no previous check
+        if (!lastCheck || Date.now() - parseInt(lastCheck) > 86400000) {
+          // In a real app, this would be an API call to check actual usage
+          // For demo purposes, randomly show warning ~10% of the time if no previous dismissal
+          const shouldShowWarning = !localStorage.getItem(bannerKey) && 
+            (currentUsage ? parseInt(currentUsage) > warningThreshold : Math.random() < 0.1);
+          
+          if (shouldShowWarning || permanent) {
+            setIsVisible(true);
+          }
+          
+          localStorage.setItem('lastResourceCheck', Date.now().toString());
+          // In a real app, you would store the actual usage here
+          localStorage.setItem('currentResourceUsage', (Math.random() * 180000).toString());
+        } else if (permanent) {
+          setIsVisible(true);
+        } else if (currentUsage && parseInt(currentUsage) > warningThreshold) {
+          // Only show if usage is high and hasn't been dismissed recently
+          const dismissed = localStorage.getItem(bannerKey);
+          if (!dismissed || Date.now() - parseInt(dismissed) > 86400000) { // 24 hours
+            setIsVisible(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking resource status:", error);
+        // If we can't check, don't show the banner
       }
-    }
+    };
+    
+    checkResourceStatus();
   }, [permanent]);
   
   const handleDismiss = () => {
