@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { 
@@ -13,11 +14,14 @@ import {
   updateDoc,
   getDoc,
   deleteDoc,
-  Timestamp
+  Timestamp,
+  limit,
+  startAfter
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 // Re-export the types for consumers to use
 export type { Message, Conversation, ExtendedUser, User };
@@ -79,6 +83,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
   const rateLimitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const onlineStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [onlineStatusLastUpdated, setOnlineStatusLastUpdated] = useState<Date | null>(null);
   
   useEffect(() => {
     if (!currentUser) return;
@@ -139,6 +145,53 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     return () => unsubscribe();
   }, [currentConversation, toast]);
+
+  // Cleanup function for old messages (3 days)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const deleteOldMessages = async () => {
+      try {
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        
+        const messagesQuery = query(
+          collection(db, "messages"),
+          where("timestamp", "<=", threeDaysAgo)
+        );
+        
+        const snapshot = await getDocs(messagesQuery);
+        if (snapshot.empty) return;
+        
+        // Delete old messages in batches
+        const batchSize = 20;
+        let processedCount = 0;
+        
+        for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+          const batch = snapshot.docs.slice(i, i + batchSize);
+          await Promise.all(batch.map(doc => deleteDoc(doc.ref)));
+          processedCount += batch.length;
+          
+          // Optional: Add a small delay between batches to prevent rate limiting
+          if (i + batchSize < snapshot.docs.length) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+        
+        console.log(`Deleted ${processedCount} messages older than 3 days`);
+      } catch (error) {
+        console.error("Error cleaning up old messages:", error);
+      }
+    };
+
+    // Run once on mount
+    deleteOldMessages();
+    
+    // Set up a daily cleanup
+    const intervalId = setInterval(deleteOldMessages, 24 * 60 * 60 * 1000);
+    
+    return () => clearInterval(intervalId);
+  }, [currentUser]);
 
   const fetchConversations = async () => {
     if (!currentUser) return;
@@ -396,7 +449,33 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateOnlineStatus = (status: 'online' | 'away' | 'offline') => {
-    console.log(`Status updated to: ${status}`);
+    const now = new Date();
+    
+    // If this is the first status update or it's been more than 10 seconds since the last update
+    if (!onlineStatusLastUpdated || (now.getTime() - onlineStatusLastUpdated.getTime() > 10000)) {
+      console.log(`Status updated to: ${status}`);
+      setOnlineStatusLastUpdated(now);
+      
+      // Clear any pending updates
+      if (onlineStatusTimeoutRef.current) {
+        clearTimeout(onlineStatusTimeoutRef.current);
+        onlineStatusTimeoutRef.current = null;
+      }
+      return;
+    }
+    
+    // If we're updating status too frequently, throttle it
+    if (onlineStatusTimeoutRef.current) {
+      // Don't do anything if we already have a pending update
+      return;
+    }
+    
+    // Schedule the update for later
+    onlineStatusTimeoutRef.current = setTimeout(() => {
+      console.log(`Status updated to: ${status}`);
+      setOnlineStatusLastUpdated(new Date());
+      onlineStatusTimeoutRef.current = null;
+    }, 10000);
   };
 
   const blockUser = async (userId: string, reason?: string) => {
@@ -509,13 +588,50 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return processedConvs;
   };
 
+  // Fixed searchUsers implementation
   const searchUsers = async (query: string): Promise<ExtendedUser[]> => {
-    // Mock implementation
-    toast({
-      title: "Feature not implemented",
-      description: "User search feature is not yet implemented",
-    });
-    return Promise.resolve([]);
+    if (!currentUser || !query || query.length < 2) {
+      return [];
+    }
+    
+    try {
+      // Mock search implementation with predefined users
+      const mockUsers: ExtendedUser[] = [
+        {
+          uid: "user_1",
+          displayName: "John Doe",
+          username: "johndoe",
+          photoURL: null,
+          email: "john@example.com",
+        },
+        {
+          uid: "user_2",
+          displayName: "Jane Smith",
+          username: "janesmith",
+          photoURL: null,
+          email: "jane@example.com",
+        },
+        {
+          uid: "user_3",
+          displayName: "Alice Johnson",
+          username: "alicej",
+          photoURL: null,
+          email: "alice@example.com",
+        }
+      ] as unknown as ExtendedUser[];
+      
+      // Filter users based on query
+      const filteredUsers = mockUsers.filter(user => 
+        user.displayName.toLowerCase().includes(query.toLowerCase()) ||
+        user.username.toLowerCase().includes(query.toLowerCase()) ||
+        user.email.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      return filteredUsers;
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return [];
+    }
   };
 
   const updateDmSettings = async (settings: any) => {

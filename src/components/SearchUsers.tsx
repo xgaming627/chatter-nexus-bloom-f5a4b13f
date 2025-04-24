@@ -27,9 +27,14 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
       }
       
       setLoading(true);
-      const users = await searchUsers(searchQuery);
-      setResults(users);
-      setLoading(false);
+      try {
+        const users = await searchUsers(searchQuery);
+        setResults(users);
+      } catch (error) {
+        console.error("Error searching users:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     const debounce = setTimeout(handleSearch, 300);
@@ -58,9 +63,13 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
       return;
     }
     
-    // Create a new conversation with the selected user
-    const conversationId = await createConversation([user.uid]);
-    setCurrentConversationId(conversationId);
+    try {
+      // Create a new conversation with the selected user
+      const conversationId = await createConversation([user.uid]);
+      setCurrentConversationId(conversationId);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+    }
   };
 
   return (

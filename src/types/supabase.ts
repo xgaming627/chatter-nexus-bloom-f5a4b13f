@@ -6,6 +6,7 @@ export interface ExtendedUser extends FirebaseUser {
   username?: string;
   photoURL: string | null;
   uid: string;
+  email?: string;
 }
 
 export class Message {
@@ -138,4 +139,5 @@ export interface User {
   username: string;
   photoURL?: string;
   email?: string;
+  description?: string;
 }
