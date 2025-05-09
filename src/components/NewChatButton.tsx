@@ -16,16 +16,24 @@ import { Input } from '@/components/ui/input';
 import { useChat } from '@/context/ChatContext';
 import { Badge } from '@/components/ui/badge';
 import SearchUsers from './SearchUsers';
-import { ExtendedUser } from '@/types/supabase';
+
+// Define a simpler User type that matches what we get from Firebase
+interface SimpleUser {
+  uid: string;
+  displayName: string;
+  username?: string;
+  email?: string;
+  photoURL?: string | null;
+}
 
 const NewChatButton: React.FC = () => {
   const { createConversation, createGroupChat, setCurrentConversationId } = useChat();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<ExtendedUser[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<SimpleUser[]>([]);
   const [groupName, setGroupName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleUserSelect = (user: ExtendedUser) => {
+  const handleUserSelect = (user: SimpleUser) => {
     if (!selectedUsers.find(u => u.uid === user.uid)) {
       setSelectedUsers([...selectedUsers, user]);
     }

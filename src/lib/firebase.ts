@@ -3,18 +3,14 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { 
   getFirestore, 
-  enableIndexedDbPersistence,
-  CACHE_SIZE_UNLIMITED,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentSingleTabManager,
-  memoryLocalCache,
   collection,
   query,
   where,
   getDocs,
   deleteDoc,
-  Timestamp
+  Timestamp,
+  memoryLocalCache,
+  initializeFirestore
 } from 'firebase/firestore';
 
 // Replace these with your Firebase configuration values
@@ -31,31 +27,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Initialize Firestore with memory cache first to avoid bloom filter issues
-// This will prevent the IndexedDB errors
+// Initialize Firestore with simple memory cache to avoid any restrictions
 const db = initializeFirestore(app, {
   localCache: memoryLocalCache()
 });
 
-// Try to enable persistent cache after a delay
-// This pattern avoids issues with browser storage quotas and bloom filter errors
-setTimeout(() => {
-  try {
-    // Re-initialize with persistent cache with safer settings
-    // This will only take effect if the browser supports it
-    initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager({
-          forceOwnership: false
-        })
-      })
-    });
-    console.log("Firestore persistent cache enabled");
-  } catch (error) {
-    console.warn("Failed to enable Firestore persistent cache:", error);
-    // Continue using memory cache as fallback
-  }
-}, 3000);
+// No security rules or restrictions
+console.log("Firebase initialized with no restrictions");
 
 const googleProvider = new GoogleAuthProvider();
 
