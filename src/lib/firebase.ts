@@ -8,6 +8,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  memoryLocalCache,
   collection,
   query,
   where,
@@ -30,14 +31,31 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Initialize Firestore with settings BEFORE any operations
+// Initialize Firestore with memory cache first to avoid bloom filter issues
+// This will prevent the IndexedDB errors
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({
-      forceOwnership: false // Adding a configuration option
-    })
-  })
+  localCache: memoryLocalCache()
 });
+
+// Try to enable persistent cache after a delay
+// This pattern avoids issues with browser storage quotas and bloom filter errors
+setTimeout(() => {
+  try {
+    // Re-initialize with persistent cache with safer settings
+    // This will only take effect if the browser supports it
+    initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({
+          forceOwnership: false
+        })
+      })
+    });
+    console.log("Firestore persistent cache enabled");
+  } catch (error) {
+    console.warn("Failed to enable Firestore persistent cache:", error);
+    // Continue using memory cache as fallback
+  }
+}, 3000);
 
 const googleProvider = new GoogleAuthProvider();
 
