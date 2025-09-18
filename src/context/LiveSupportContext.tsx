@@ -1,58 +1,44 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { 
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  getDoc,
-  getDocs,
-  Timestamp
-} from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SupportMessage {
   id: string;
-  sessionId: string;
-  senderId: string;
-  senderRole: 'user' | 'moderator' | 'system';
+  session_id: string;
+  sender_id: string;
+  sender_role: 'user' | 'moderator' | 'system';
   content: string;
-  timestamp: any;
+  timestamp: string;
   read: boolean;
 }
 
 export interface SupportSession {
   id: string;
-  userId: string;
+  user_id: string;
   userInfo?: {
-    displayName: string;
+    display_name: string;
     email: string;
     username: string;
-    uid: string;
-    photoURL?: string;
-    createdAt?: any;
+    user_id: string;
+    photo_url?: string;
+    created_at?: string;
     messageCount?: number;
     ipAddress?: string;
     vpnDetected?: boolean;
     warnings?: number;
-    lastWarning?: any;
+    lastWarning?: string;
   };
-  createdAt: any;
-  lastMessage?: {
+  created_at: string;
+  last_message?: {
     content: string;
-    timestamp: any;
-    senderId: string;
+    timestamp: string;
+    sender_id: string;
   };
   status: 'active' | 'ended' | 'requested-end';
   rating?: number;
   feedback?: string;
-  lastReadByModerator: boolean;
+  last_read_by_moderator: boolean;
 }
 
 interface LiveSupportContextType {
@@ -105,70 +91,107 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     checkModerator();
     
-    let q;
+    // Set up real-time subscriptions
+    const sessionsChannel = supabase
+      .channel('support-sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'support_sessions',
+        },
+        (payload) => {
+          console.log('Support session change:', payload);
+          fetchSupportSessions();
+        }
+      )
+      .subscribe();
+
+    fetchSupportSessions();
     
-    if (isModerator) {
-      q = query(
-        collection(db, "supportSessions"),
-        where("status", "in", ["active", "requested-end"]),
-        orderBy("lastMessage.timestamp", "desc")
-      );
-    } else {
-      q = query(
-        collection(db, "supportSessions"),
-        where("userId", "==", currentUser.uid),
-        orderBy("lastMessage.timestamp", "desc")
-      );
+    return () => {
+      supabase.removeChannel(sessionsChannel);
+    };
+  }, [currentUser, isModerator]);
+  
+  useEffect(() => {
+    if (!currentSupportSession) {
+      setSupportMessages([]);
+      return;
     }
     
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const sessionsData: SupportSession[] = [];
-      let hasNewMessages = false;
-      
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data() as Omit<SupportSession, 'id' | 'userInfo'>;
-        
-        // For non-moderators, if there's a new message and it wasn't sent by the current user
-        if (!isModerator && data.lastMessage && data.lastMessage.senderId !== currentUser.uid) {
-          hasNewMessages = true;
+    const messagesChannel = supabase
+      .channel('support-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `session_id=eq.${currentSupportSession.id}`
+        },
+        (payload) => {
+          console.log('Support message change:', payload);
+          fetchSupportMessages(currentSupportSession.id);
         }
-        
-        // For moderators, if there's a session that hasn't been read
-        if (isModerator && data.lastReadByModerator === false) {
-          hasNewMessages = true;
-        }
-        
-        let userInfo;
-        if (isModerator) {
-          const userDocRef = doc(db, "users", data.userId);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            userInfo = userDocSnap.data();
-            
-            // Simulate IP and VPN for demo
-            userInfo.ipAddress = `192.168.0.${Math.floor(Math.random() * 255)}`;
-            userInfo.vpnDetected = Math.random() > 0.7; // 30% chance of VPN detected
-            
-            const messagesQuery = query(
-              collection(db, "messages"),
-              where("senderId", "==", data.userId)
-            );
-            const messagesSnap = await getDocs(messagesQuery);
-            userInfo.messageCount = messagesSnap.size;
-          }
-        }
-        
-        sessionsData.push({
-          id: docSnap.id,
-          ...data,
-          userInfo,
-          lastReadByModerator: data.lastReadByModerator !== undefined ? data.lastReadByModerator : false
-        });
+      )
+      .subscribe();
+
+    fetchSupportMessages(currentSupportSession.id);
+    
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [currentSupportSession]);
+
+  const fetchSupportSessions = async () => {
+    if (!currentUser) return;
+
+    try {
+      let query = supabase
+        .from('support_sessions')
+        .select(`
+          *,
+          profiles!support_sessions_user_id_fkey(user_id, username, display_name, photo_url, created_at)
+        `);
+
+      if (isModerator) {
+        query = query.in('status', ['active', 'requested-end']);
+      } else {
+        query = query.eq('user_id', currentUser.uid);
       }
-      
+
+      const { data, error } = await query.order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      const sessionsData: SupportSession[] = data.map(session => ({
+        id: session.id,
+        user_id: session.user_id,
+        created_at: session.created_at,
+        status: session.status,
+        rating: session.rating,
+        feedback: session.feedback,
+        last_read_by_moderator: session.last_read_by_moderator,
+        userInfo: session.profiles ? {
+          display_name: session.profiles.display_name || 'Unknown User',
+          email: currentUser.email || '',
+          username: session.profiles.username || 'unknown',
+          user_id: session.profiles.user_id,
+          photo_url: session.profiles.photo_url,
+          created_at: session.profiles.created_at,
+          // Mock data for demo
+          messageCount: Math.floor(Math.random() * 100),
+          ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
+          vpnDetected: Math.random() > 0.7,
+          warnings: Math.floor(Math.random() * 3),
+          lastWarning: new Date().toISOString(),
+        } : undefined
+      }));
+
       setSupportSessions(sessionsData);
-      setHasNewSupportMessages(hasNewMessages);
-      
+
       if (!isModerator) {
         const hasActiveSession = sessionsData.some(session => 
           session.status === 'active' || session.status === 'requested-end'
@@ -184,39 +207,31 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           }
         }
       }
-    });
-    
-    return () => unsubscribe();
-  }, [currentUser, isModerator]);
-  
-  useEffect(() => {
-    if (!currentSupportSession) {
-      setSupportMessages([]);
-      return;
+    } catch (error) {
+      console.error('Error fetching support sessions:', error);
     }
-    
-    const q = query(
-      collection(db, "supportMessages"),
-      where("sessionId", "==", currentSupportSession.id),
-      orderBy("timestamp", "asc")
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messagesData: SupportMessage[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SupportMessage));
+  };
+
+  const fetchSupportMessages = async (sessionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('support_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('timestamp', { ascending: true });
+
+      if (error) throw error;
+
+      setSupportMessages(data || []);
       
-      setSupportMessages(messagesData);
-      
-      // If messages are viewed, clear new messages flag
+      // Clear new messages flag when viewing messages
       if (currentSupportSession) {
         setHasNewSupportMessages(false);
       }
-    });
-    
-    return () => unsubscribe();
-  }, [currentSupportSession]);
+    } catch (error) {
+      console.error('Error fetching support messages:', error);
+    }
+  };
   
   const setCurrentSupportSessionId = async (id: string | null) => {
     if (!id) {
@@ -225,43 +240,50 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     
     try {
-      const sessionDoc = await getDoc(doc(db, "supportSessions", id));
+      const { data, error } = await supabase
+        .from('support_sessions')
+        .select(`
+          *,
+          profiles!support_sessions_user_id_fkey(user_id, username, display_name, photo_url, created_at)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      const session: SupportSession = {
+        id: data.id,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        status: data.status,
+        rating: data.rating,
+        feedback: data.feedback,
+        last_read_by_moderator: data.last_read_by_moderator,
+        userInfo: data.profiles ? {
+          display_name: data.profiles.display_name || 'Unknown User',
+          email: currentUser?.email || '',
+          username: data.profiles.username || 'unknown',
+          user_id: data.profiles.user_id,
+          photo_url: data.profiles.photo_url,
+          created_at: data.profiles.created_at,
+          // Mock data for demo
+          messageCount: Math.floor(Math.random() * 100),
+          ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
+          vpnDetected: Math.random() > 0.7,
+          warnings: Math.floor(Math.random() * 3),
+          lastWarning: new Date().toISOString(),
+        } : undefined
+      };
       
-      if (sessionDoc.exists()) {
-        const data = sessionDoc.data() as SupportSession;
-        
-        if (isModerator) {
-          const userDocRef = doc(db, "users", data.userId);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            data.userInfo = userDocSnap.data() as any;
-            
-            // Add IP address and VPN status for demo
-            data.userInfo.ipAddress = `192.168.0.${Math.floor(Math.random() * 255)}`;
-            data.userInfo.vpnDetected = Math.random() > 0.7; // 30% chance of VPN detected
-            
-            const messagesQuery = query(
-              collection(db, "messages"),
-              where("senderId", "==", data.userId)
-            );
-            const messagesSnap = await getDocs(messagesQuery);
-            data.userInfo.messageCount = messagesSnap.size;
-          }
-          
-          // Mark as read when a moderator opens the session
-          if (!data.lastReadByModerator) {
-            await updateDoc(doc(db, "supportSessions", id), {
-              lastReadByModerator: true
-            });
-          }
-        }
-        
-        setCurrentSupportSession({
-          id: sessionDoc.id,
-          ...data,
-          lastReadByModerator: data.lastReadByModerator || false
-        });
+      // Mark as read when a moderator opens the session
+      if (isModerator && !data.last_read_by_moderator) {
+        await supabase
+          .from('support_sessions')
+          .update({ last_read_by_moderator: true })
+          .eq('id', id);
       }
+      
+      setCurrentSupportSession(session);
     } catch (error) {
       console.error("Error fetching support session:", error);
     }
@@ -281,38 +303,38 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
       }
       
-      const sessionData = {
-        userId: currentUser.uid,
-        createdAt: serverTimestamp(),
-        status: 'active',
-        lastMessage: {
-          content: "Support session started",
-          timestamp: serverTimestamp(),
-          senderId: "system"
-        },
-        lastReadByModerator: false
-      };
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('support_sessions')
+        .insert({
+          user_id: currentUser.uid,
+          status: 'active',
+          last_read_by_moderator: false
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
       
-      const docRef = await addDoc(collection(db, "supportSessions"), sessionData);
-      
-      await addDoc(collection(db, "supportMessages"), {
-        sessionId: docRef.id,
-        senderId: "system",
-        senderRole: "system",
-        content: "Thanks for contacting support! One of our representatives will speak to you shortly!",
-        timestamp: serverTimestamp(),
-        read: false
-      });
+      const { error: messageError } = await supabase
+        .from('support_messages')
+        .insert({
+          session_id: sessionData.id,
+          sender_id: null,
+          sender_role: 'system',
+          content: 'Thanks for contacting support! One of our representatives will speak to you shortly!',
+        });
+
+      if (messageError) throw messageError;
       
       setIsActiveSupportSession(true);
-      await setCurrentSupportSessionId(docRef.id);
+      await setCurrentSupportSessionId(sessionData.id);
       
       toast({
         title: "Support session created",
         description: "A support representative will be with you shortly."
       });
       
-      return docRef.id;
+      return sessionData.id;
     } catch (error) {
       console.error("Error creating support session:", error);
       toast({
@@ -332,25 +354,25 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const role = senderRole || (isModerator ? 'moderator' : 'user');
       
-      const messageData = {
-        sessionId: currentSupportSession.id,
-        senderId: role === 'system' ? 'system' : currentUser!.uid,
-        senderRole: role,
-        content,
-        timestamp: serverTimestamp(),
-        read: false
-      };
-      
-      await addDoc(collection(db, "supportMessages"), messageData);
-      
-      await updateDoc(doc(db, "supportSessions", currentSupportSession.id), {
-        lastMessage: {
+      const { error } = await supabase
+        .from('support_messages')
+        .insert({
+          session_id: currentSupportSession.id,
+          sender_id: role === 'system' ? null : currentUser!.uid,
+          sender_role: role,
           content,
-          timestamp: serverTimestamp(),
-          senderId: role === 'system' ? 'system' : currentUser!.uid
-        },
-        lastReadByModerator: isModerator
-      });
+        });
+
+      if (error) throw error;
+
+      // Update session's last_read_by_moderator status
+      await supabase
+        .from('support_sessions')
+        .update({ 
+          last_read_by_moderator: isModerator,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentSupportSession.id);
       
     } catch (error) {
       console.error("Error sending support message:", error);
@@ -366,18 +388,21 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentSupportSession) return;
     
     try {
-      await updateDoc(doc(db, "supportSessions", currentSupportSession.id), {
-        status: 'requested-end'
-      });
+      const { error } = await supabase
+        .from('support_sessions')
+        .update({ status: 'requested-end' })
+        .eq('id', currentSupportSession.id);
+
+      if (error) throw error;
       
-      await addDoc(collection(db, "supportMessages"), {
-        sessionId: currentSupportSession.id,
-        senderId: "system",
-        senderRole: "system",
-        content: `${isModerator ? "Support representative" : "User"} has requested to end this support session.`,
-        timestamp: serverTimestamp(),
-        read: false
-      });
+      await supabase
+        .from('support_messages')
+        .insert({
+          session_id: currentSupportSession.id,
+          sender_id: null,
+          sender_role: 'system',
+          content: `${isModerator ? "Support representative" : "User"} has requested to end this support session.`,
+        });
       
       toast({
         title: "End request sent",
@@ -401,18 +426,21 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentSupportSession) return;
     
     try {
-      await updateDoc(doc(db, "supportSessions", currentSupportSession.id), {
-        status: 'ended'
-      });
+      const { error } = await supabase
+        .from('support_sessions')
+        .update({ status: 'ended' })
+        .eq('id', currentSupportSession.id);
+
+      if (error) throw error;
       
-      await addDoc(collection(db, "supportMessages"), {
-        sessionId: currentSupportSession.id,
-        senderId: "system",
-        senderRole: "system",
-        content: "This support session has ended.",
-        timestamp: serverTimestamp(),
-        read: false
-      });
+      await supabase
+        .from('support_messages')
+        .insert({
+          session_id: currentSupportSession.id,
+          sender_id: null,
+          sender_role: 'system',
+          content: 'This support session has ended.',
+        });
       
       if (!isModerator) {
         setIsActiveSupportSession(false);
@@ -438,10 +466,15 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentSupportSession) return;
     
     try {
-      await updateDoc(doc(db, "supportSessions", currentSupportSession.id), {
-        rating,
-        feedback: feedback || null
-      });
+      const { error } = await supabase
+        .from('support_sessions')
+        .update({ 
+          rating,
+          feedback: feedback || null 
+        })
+        .eq('id', currentSupportSession.id);
+
+      if (error) throw error;
       
       toast({
         title: "Feedback submitted",
@@ -450,7 +483,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       // Update local state
       setCurrentSupportSession(prev => 
-        prev ? { ...prev, rating, feedback: feedback || null } : null
+        prev ? { ...prev, rating, feedback: feedback || undefined } : null
       );
     } catch (error) {
       console.error("Error submitting feedback:", error);
@@ -464,48 +497,45 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   
   const getUserSupportStats = async (userId: string) => {
     try {
-      const userDocRef = doc(db, "users", userId);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (!userDocSnap.exists()) {
-        throw new Error("User not found");
-      }
-      
-      const userData = userDocSnap.data();
-      
-      const sessionsQuery = query(
-        collection(db, "supportSessions"),
-        where("userId", "==", userId)
-      );
-      
-      const sessionsSnap = await getDocs(sessionsQuery);
-      const sessions = sessionsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      const messagesQuery = query(
-        collection(db, "messages"),
-        where("senderId", "==", userId)
-      );
-      
-      const messagesSnap = await getDocs(messagesQuery);
-      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('support_sessions')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (sessionsError) throw sessionsError;
+
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('sender_id', userId);
+
+      if (messagesError) throw messagesError;
+
       return {
-        userInfo: userData,
+        userInfo: profile,
         supportSessions: sessions,
-        messageCount: messagesSnap.size,
-        createdAt: userData.createdAt,
+        messageCount: messages.length,
+        createdAt: profile.created_at,
         // Add mock IP and VPN data for demo
         ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
-        vpnDetected: Math.random() > 0.7 // 30% chance of VPN
+        vpnDetected: Math.random() > 0.7,
+        warnings: Math.floor(Math.random() * 3),
+        lastWarning: new Date().toISOString(),
       };
     } catch (error) {
       console.error("Error getting user support stats:", error);
       throw error;
     }
   };
-  
+
   const value = {
     supportSessions,
     currentSupportSession,
@@ -519,9 +549,9 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     isActiveSupportSession,
     isModerator,
     getUserSupportStats,
-    hasNewSupportMessages
+    hasNewSupportMessages,
   };
-  
+
   return (
     <LiveSupportContext.Provider value={value}>
       {children}

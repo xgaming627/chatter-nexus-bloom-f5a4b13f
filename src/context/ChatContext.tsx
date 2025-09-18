@@ -1,22 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
-import { db, auth } from "@/lib/firebase";
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  doc,
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  serverTimestamp,
-  updateDoc,
-  getDoc,
-  deleteDoc,
-  Timestamp,
-  limit,
-  startAfter
-} from "firebase/firestore";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
@@ -87,30 +70,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) return;
 
-    const unsubscribe = onSnapshot(
-      query(
-        collection(db, "conversations"),
-        where("participants", "array-contains", currentUser.uid)
-      ),
-      (snapshot) => {
-        const conversationsData = snapshot.docs.map(doc => {
-          const data = { id: doc.id, ...doc.data() };
-          return new Conversation(data);
-        });
-        setConversations(conversationsData);
-      },
-      (error) => {
-        console.error("Error fetching conversations:", error);
-        toast({
-          title: "Error fetching conversations",
-          description: "Please try again later",
-          variant: "destructive"
-        });
-      }
-    );
+    const channel = supabase
+      .channel('conversations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `participants.cs.{${currentUser.uid}}`
+        },
+        (payload) => {
+          console.log('Conversation change:', payload);
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    fetchConversations();
     
-    return () => unsubscribe();
-  }, [currentUser, toast]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentConversation) {
@@ -118,88 +100,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const unsubscribe = onSnapshot(
-      query(
-        collection(db, "messages"),
-        where("conversation_id", "==", currentConversation.id),
-        orderBy("timestamp", "asc")
-      ),
-      (snapshot) => {
-        const messagesData = snapshot.docs.map(doc => {
-          const data = { id: doc.id, ...doc.data() };
-          return new Message(data);
-        });
-        setMessages(messagesData);
-      },
-      (error) => {
-        console.error("Error fetching messages:", error);
-        toast({
-          title: "Error fetching messages",
-          description: "Please try again later",
-          variant: "destructive"
-        });
-      }
-    );
-    
-    return () => unsubscribe();
-  }, [currentConversation, toast]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const deleteOldMessages = async () => {
-      try {
-        const threeDaysAgo = new Date();
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-        
-        const messagesQuery = query(
-          collection(db, "messages"),
-          where("timestamp", "<=", threeDaysAgo)
-        );
-        
-        const snapshot = await getDocs(messagesQuery);
-        if (snapshot.empty) return;
-        
-        const batchSize = 20;
-        let processedCount = 0;
-        
-        for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-          const batch = snapshot.docs.slice(i, i + batchSize);
-          await Promise.all(batch.map(doc => deleteDoc(doc.ref)));
-          processedCount += batch.length;
-          
-          if (i + batchSize < snapshot.docs.length) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${currentConversation.id}`
+        },
+        (payload) => {
+          console.log('Message change:', payload);
+          fetchMessages(currentConversation.id);
         }
-        
-        console.log(`Deleted ${processedCount} messages older than 3 days`);
-      } catch (error) {
-        console.error("Error cleaning up old messages:", error);
-      }
-    };
+      )
+      .subscribe();
 
-    deleteOldMessages();
+    fetchMessages(currentConversation.id);
     
-    const intervalId = setInterval(deleteOldMessages, 24 * 60 * 60 * 1000);
-    
-    return () => clearInterval(intervalId);
-  }, [currentUser]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentConversation]);
 
   const fetchConversations = async () => {
     if (!currentUser) return;
 
     try {
-      const q = query(
-        collection(db, "conversations"),
-        where("participants", "array-contains", currentUser.uid)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const conversationsData = querySnapshot.docs.map(doc => {
-        const data = { id: doc.id, ...doc.data() };
-        return new Conversation(data);
-      });
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          *,
+          profiles!conversations_created_by_fkey(username, display_name, photo_url)
+        `)
+        .contains('participants', [currentUser.uid])
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      const conversationsData = data.map(conv => new Conversation({
+        id: conv.id,
+        ...conv,
+        created_at: conv.created_at,
+        updated_at: conv.updated_at
+      }));
       
       setConversations(conversationsData);
     } catch (error) {
@@ -218,17 +163,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchMessages = async (conversationId: string) => {
     try {
-      const q = query(
-        collection(db, "messages"),
-        where("conversation_id", "==", conversationId),
-        orderBy("timestamp", "asc")
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const messagesData = querySnapshot.docs.map(doc => {
-        const data = { id: doc.id, ...doc.data() };
-        return new Message(data);
-      });
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles!messages_sender_id_fkey(username, display_name, photo_url)
+        `)
+        .eq('conversation_id', conversationId)
+        .order('timestamp', { ascending: true });
+
+      if (error) throw error;
+
+      const messagesData = data.map(msg => new Message({
+        id: msg.id,
+        ...msg
+      }));
       
       setMessages(messagesData);
     } catch (error) {
@@ -285,25 +234,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      await addDoc(collection(db, "messages"), {
-        conversation_id: conversationId,
-        sender_id: currentUser.uid,
-        content: content.trim(),
-        timestamp: serverTimestamp(),
-        read: false,
-        delivered: true,
-        reported: false,
-        flagged_for_moderation: false,
-        deleted: false
-      });
-      
-      await updateDoc(doc(db, "conversations", conversationId), {
-        last_message: {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUser.uid,
           content: content.trim(),
-          timestamp: serverTimestamp(),
-          sender_id: currentUser.uid
-        }
-      });
+        });
+
+      if (error) throw error;
+
+      // Update conversation's updated_at timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -326,15 +272,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participants,
         is_group_chat: isGroup,
         created_by: currentUser.uid,
-        created_at: serverTimestamp()
       };
       
       if (isGroup && groupName) {
         conversationData.group_name = groupName;
       }
       
-      const docRef = await addDoc(collection(db, "conversations"), conversationData);
-      return docRef.id;
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert(conversationData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      return data.id;
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -365,13 +317,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const conversationDoc = await getDoc(doc(db, "conversations", id));
-      if (conversationDoc.exists()) {
-        const conversationData = { id: conversationDoc.id, ...conversationDoc.data() };
-        setCurrentConversation(new Conversation(conversationData));
-      } else {
-        throw new Error("Conversation not found");
-      }
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentConversation(new Conversation({
+        id: data.id,
+        ...data
+      }));
     } catch (error) {
       console.error('Error fetching conversation:', error);
       toast({
@@ -392,9 +349,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const markAsRead = async (messageId: string) => {
     try {
-      await updateDoc(doc(db, "messages", messageId), {
-        read: true
-      });
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('id', messageId);
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
@@ -402,10 +360,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const reportMessage = async (messageId: string, reason: string) => {
     try {
-      await updateDoc(doc(db, "messages", messageId), {
-        reported: true,
-        flagged_for_moderation: true
-      });
+      await supabase
+        .from('messages')
+        .update({ 
+          reported: true,
+          flagged_for_moderation: true 
+        })
+        .eq('id', messageId);
     } catch (error) {
       console.error('Error reporting message:', error);
       toast({
@@ -440,23 +401,50 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserDescription = async (description: string) => {
-    toast({
-      title: "Feature not implemented",
-      description: "User profile update is not yet implemented",
-    });
-    return Promise.resolve();
+    if (!currentUser) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ description })
+        .eq('user_id', currentUser.uid);
+
+      if (error) throw error;
+
+      toast({
+        title: "Profile updated",
+        description: "Your description has been updated",
+      });
+    } catch (error) {
+      console.error('Error updating description:', error);
+      toast({
+        title: "Error updating profile",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateOnlineStatus = (status: 'online' | 'away' | 'offline') => {
+  const updateOnlineStatus = async (status: 'online' | 'away' | 'offline') => {
+    if (!currentUser) return;
+
     const now = new Date();
     
     if (!onlineStatusLastUpdated || (now.getTime() - onlineStatusLastUpdated.getTime() > 10000)) {
-      console.log(`Status updated to: ${status}`);
-      setOnlineStatusLastUpdated(now);
-      
-      if (onlineStatusTimeoutRef.current) {
-        clearTimeout(onlineStatusTimeoutRef.current);
-        onlineStatusTimeoutRef.current = null;
+      try {
+        await supabase
+          .from('profiles')
+          .update({ online_status: status })
+          .eq('user_id', currentUser.uid);
+        
+        setOnlineStatusLastUpdated(now);
+        
+        if (onlineStatusTimeoutRef.current) {
+          clearTimeout(onlineStatusTimeoutRef.current);
+          onlineStatusTimeoutRef.current = null;
+        }
+      } catch (error) {
+        console.error('Error updating online status:', error);
       }
       return;
     }
@@ -465,10 +453,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    onlineStatusTimeoutRef.current = setTimeout(() => {
-      console.log(`Status updated to: ${status}`);
-      setOnlineStatusLastUpdated(new Date());
-      onlineStatusTimeoutRef.current = null;
+    onlineStatusTimeoutRef.current = setTimeout(async () => {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ online_status: status })
+          .eq('user_id', currentUser.uid);
+        
+        setOnlineStatusLastUpdated(new Date());
+        onlineStatusTimeoutRef.current = null;
+      } catch (error) {
+        console.error('Error updating online status:', error);
+      }
     }, 10000);
   };
 
@@ -494,10 +490,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteMessage = async (messageId: string, deletedBy: string) => {
     try {
-      await updateDoc(doc(db, "messages", messageId), {
-        deleted: true,
-        deleted_by: deletedBy
-      });
+      await supabase
+        .from('messages')
+        .update({ 
+          deleted: true,
+          deleted_by: deletedBy 
+        })
+        .eq('id', messageId);
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -509,154 +508,39 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const storeChat = async (conversationId: string) => {
-    const updatedConversations = conversations.map(conv => {
-      if (conv.id === conversationId) {
-        const newConv = new Conversation({...conv, isStored: true});
-        return newConv;
-      }
-      return conv;
-    });
-    
-    setConversations(updatedConversations);
-    
-    if (currentConversation && currentConversation.id === conversationId) {
-      setCurrentConversation(new Conversation({...currentConversation, isStored: true}));
-    }
-    
     toast({
       title: "Chat stored",
-      description: "This feature is not fully implemented with database storage",
+      description: "Chat storage feature is not fully implemented",
     });
-    
-    return Promise.resolve();
   };
 
   const unstoreChat = async (conversationId: string) => {
-    const updatedConversations = conversations.map(conv => {
-      if (conv.id === conversationId) {
-        const newConv = new Conversation({...conv, isStored: false});
-        return newConv;
-      }
-      return conv;
-    });
-    
-    setConversations(updatedConversations);
-    
-    if (currentConversation && currentConversation.id === conversationId) {
-      setCurrentConversation(new Conversation({...currentConversation, isStored: false}));
-    }
-    
     toast({
       title: "Chat unstored",
-      description: "This feature is not fully implemented with database storage",
+      description: "Chat storage feature is not fully implemented",
     });
-    
-    return Promise.resolve();
-  };
-
-  const processConversations = async (convs: Conversation[]) => {
-    if (!currentUser || convs.length === 0) return convs;
-    
-    const processedConvs = await Promise.all(convs.map(async (conv) => {
-      const otherParticipants = conv.participants.filter(uid => uid !== currentUser.uid);
-      
-      const participantsInfo = otherParticipants.map(uid => ({
-        uid,
-        displayName: "User",
-        username: "user",
-        photoURL: undefined,
-        onlineStatus: 'offline' as const
-      }));
-      
-      return new Conversation({
-        ...conv,
-        participantsInfo
-      });
-    }));
-    
-    return processedConvs;
   };
 
   const searchUsers = async (query: string): Promise<ExtendedUser[]> => {
-    if (!currentUser || !query || query.length < 2) {
-      return [];
-    }
-    
+    if (!query.trim()) return [];
+
     try {
-      console.log("Searching for users with query:", query);
-      
-      const usersRef = collection(db, "users");
-      const displayNameQuery = query.toLowerCase();
-      
-      const usersSnapshot = await getDocs(usersRef);
-      console.log(`Found ${usersSnapshot.size} total users`);
-      
-      const filteredUsers: ExtendedUser[] = [];
-      
-      usersSnapshot.forEach(doc => {
-        const userData = doc.data();
-        console.log("User data:", userData);
-        
-        if (userData.uid === currentUser.uid) {
-          return;
-        }
-        
-        const displayName = (userData.displayName || '').toLowerCase();
-        const username = (userData.username || '').toLowerCase();
-        const email = (userData.email || '').toLowerCase();
-        
-        if (
-          displayName.includes(displayNameQuery) || 
-          username.includes(displayNameQuery) || 
-          email.includes(displayNameQuery)
-        ) {
-          filteredUsers.push({
-            uid: userData.uid,
-            displayName: userData.displayName,
-            username: userData.username,
-            photoURL: userData.photoURL,
-            email: userData.email,
-          } as unknown as ExtendedUser);
-        }
-      });
-      
-      console.log("Filtered users:", filteredUsers);
-      
-      if (filteredUsers.length === 0) {
-        console.log("No users found, using mock data");
-        
-        const mockUsers: ExtendedUser[] = [
-          {
-            uid: "user_1",
-            displayName: "John Doe",
-            username: "johndoe",
-            photoURL: null,
-            email: "john@example.com",
-          },
-          {
-            uid: "user_2",
-            displayName: "Jane Smith",
-            username: "janesmith",
-            photoURL: null,
-            email: "jane@example.com",
-          },
-          {
-            uid: "user_3",
-            displayName: "Alice Johnson",
-            username: "alicej",
-            photoURL: null,
-            email: "alice@example.com",
-          }
-        ] as unknown as ExtendedUser[];
-        
-        return mockUsers.filter(user => 
-          (user.displayName || '').toLowerCase().includes(query.toLowerCase()) ||
-          (user.username || '').toLowerCase().includes(query.toLowerCase()) ||
-          (user.email || '').toLowerCase().includes(query.toLowerCase())
-        );
-      }
-      
-      return filteredUsers;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      return data.map(profile => ({
+        id: profile.user_id,
+        uid: profile.user_id,
+        email: null,
+        displayName: profile.display_name,
+        username: profile.username,
+        photoURL: profile.photo_url,
+      }));
     } catch (error) {
       console.error('Error searching users:', error);
       return [];
@@ -665,238 +549,134 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateDmSettings = async (settings: any) => {
     toast({
-      title: "Feature not implemented",
-      description: "DM settings update is not yet implemented",
+      title: "Settings updated",
+      description: "DM settings feature is not fully implemented",
     });
-    return Promise.resolve();
   };
 
   const deleteChat = async (conversationId: string) => {
-    if (!currentUser) return;
-    
     try {
-      const conversationRef = doc(db, "conversations", conversationId);
-      const conversationSnap = await getDoc(conversationRef);
-      
-      if (!conversationSnap.exists()) {
-        throw new Error("Conversation not found");
-      }
-      
-      const conversationData = conversationSnap.data();
-      if (!conversationData.participants.includes(currentUser.uid)) {
-        throw new Error("You are not a member of this conversation");
-      }
-      
-      const messagesQuery = query(
-        collection(db, "messages"),
-        where("conversation_id", "==", conversationId)
-      );
-      
-      const messagesSnapshot = await getDocs(messagesQuery);
-      const messageDeletionPromises = messagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      
-      await Promise.all(messageDeletionPromises);
-      
-      await deleteDoc(conversationRef);
-      
-      if (currentConversation && currentConversation.id === conversationId) {
-        setCurrentConversation(null);
-      }
-      
-      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
-      
+      await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+
       toast({
         title: "Chat deleted",
-        description: "The conversation has been deleted"
+        description: "The chat has been permanently deleted",
       });
     } catch (error) {
-      console.error('Error deleting conversation:', error);
+      console.error('Error deleting chat:', error);
       toast({
-        title: "Error deleting conversation",
-        description: error instanceof Error ? error.message : "Please try again later",
+        title: "Error deleting chat",
+        description: "Please try again later",
         variant: "destructive"
       });
     }
   };
-  
+
   const leaveChat = async (conversationId: string) => {
     if (!currentUser) return;
-    
+
     try {
-      const conversationRef = doc(db, "conversations", conversationId);
-      const conversationSnap = await getDoc(conversationRef);
-      
-      if (!conversationSnap.exists()) {
-        throw new Error("Conversation not found");
-      }
-      
-      const conversationData = conversationSnap.data();
-      
-      if (!conversationData.is_group_chat) {
-        throw new Error("You can only leave group chats");
-      }
-      
-      const updatedParticipants = conversationData.participants.filter(
-        (uid: string) => uid !== currentUser.uid
+      // Get current conversation
+      const { data: conversation, error } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) throw error;
+
+      // Remove current user from participants
+      const updatedParticipants = conversation.participants.filter(
+        (participant: string) => participant !== currentUser.uid
       );
-      
-      if (updatedParticipants.length === 0) {
-        await deleteChat(conversationId);
-      } else {
-        await updateDoc(conversationRef, {
-          participants: updatedParticipants
-        });
-        
-        await addDoc(collection(db, "messages"), {
-          conversation_id: conversationId,
-          sender_id: "system",
-          content: `${currentUser.displayName || currentUser.email || "User"} has left the chat`,
-          timestamp: serverTimestamp(),
-          read: false,
-          delivered: true,
-          is_system_message: true
-        });
-        
-        if (currentConversation && currentConversation.id === conversationId) {
-          setCurrentConversation(null);
-        }
-        
-        setConversations(prev => prev.filter(conv => conv.id !== conversationId));
-      }
-      
+
+      await supabase
+        .from('conversations')
+        .update({ participants: updatedParticipants })
+        .eq('id', conversationId);
+
       toast({
         title: "Left chat",
-        description: "You have left the conversation"
+        description: "You have left the chat",
       });
     } catch (error) {
-      console.error('Error leaving conversation:', error);
+      console.error('Error leaving chat:', error);
       toast({
-        title: "Error leaving conversation",
-        description: error instanceof Error ? error.message : "Please try again later",
+        title: "Error leaving chat",
+        description: "Please try again later",
         variant: "destructive"
       });
     }
   };
-  
+
   const addMemberToChat = async (conversationId: string, userId: string) => {
-    if (!currentUser) return;
-    
     try {
-      const conversationRef = doc(db, "conversations", conversationId);
-      const conversationSnap = await getDoc(conversationRef);
-      
-      if (!conversationSnap.exists()) {
-        throw new Error("Conversation not found");
+      // Get current conversation
+      const { data: conversation, error } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) throw error;
+
+      // Add user to participants if not already included
+      if (!conversation.participants.includes(userId)) {
+        const updatedParticipants = [...conversation.participants, userId];
+
+        await supabase
+          .from('conversations')
+          .update({ participants: updatedParticipants })
+          .eq('id', conversationId);
+
+        toast({
+          title: "Member added",
+          description: "User has been added to the chat",
+        });
       }
-      
-      const conversationData = conversationSnap.data();
-      
-      if (!conversationData.is_group_chat) {
-        throw new Error("You can only add members to group chats");
-      }
-      
-      if (conversationData.participants.includes(userId)) {
-        throw new Error("User is already a member of this chat");
-      }
-      
-      const userSnap = await getDoc(doc(db, "users", userId));
-      let memberName = "User";
-      
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        memberName = userData.displayName || userData.username || userData.email || "User";
-      }
-      
-      const updatedParticipants = [...conversationData.participants, userId];
-      
-      await updateDoc(conversationRef, {
-        participants: updatedParticipants
-      });
-      
-      await addDoc(collection(db, "messages"), {
-        conversation_id: conversationId,
-        sender_id: "system",
-        content: `${currentUser.displayName || currentUser.email || "User"} added ${memberName} to the chat`,
-        timestamp: serverTimestamp(),
-        read: false,
-        delivered: true,
-        is_system_message: true
-      });
-      
-      toast({
-        title: "Member added",
-        description: `${memberName} has been added to the chat`
-      });
     } catch (error) {
       console.error('Error adding member:', error);
       toast({
         title: "Error adding member",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: "Please try again later",
         variant: "destructive"
       });
     }
   };
-  
+
   const removeMemberFromChat = async (conversationId: string, userId: string) => {
-    if (!currentUser) return;
-    
     try {
-      const conversationRef = doc(db, "conversations", conversationId);
-      const conversationSnap = await getDoc(conversationRef);
-      
-      if (!conversationSnap.exists()) {
-        throw new Error("Conversation not found");
-      }
-      
-      const conversationData = conversationSnap.data();
-      
-      if (!conversationData.is_group_chat) {
-        throw new Error("You can only remove members from group chats");
-      }
-      
-      if (conversationData.created_by !== currentUser.uid) {
-        throw new Error("Only the creator can remove members");
-      }
-      
-      if (userId === currentUser.uid) {
-        throw new Error("You can't remove yourself. Use 'Leave Chat' instead");
-      }
-      
-      const userSnap = await getDoc(doc(db, "users", userId));
-      let memberName = "User";
-      
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        memberName = userData.displayName || userData.username || userData.email || "User";
-      }
-      
-      const updatedParticipants = conversationData.participants.filter(
-        (uid: string) => uid !== userId
+      // Get current conversation
+      const { data: conversation, error } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) throw error;
+
+      // Remove user from participants
+      const updatedParticipants = conversation.participants.filter(
+        (participant: string) => participant !== userId
       );
-      
-      await updateDoc(conversationRef, {
-        participants: updatedParticipants
-      });
-      
-      await addDoc(collection(db, "messages"), {
-        conversation_id: conversationId,
-        sender_id: "system",
-        content: `${currentUser.displayName || currentUser.email || "User"} removed ${memberName} from the chat`,
-        timestamp: serverTimestamp(),
-        read: false,
-        delivered: true,
-        is_system_message: true
-      });
-      
+
+      await supabase
+        .from('conversations')
+        .update({ participants: updatedParticipants })
+        .eq('id', conversationId);
+
       toast({
         title: "Member removed",
-        description: `${memberName} has been removed from the chat`
+        description: "User has been removed from the chat",
       });
     } catch (error) {
       console.error('Error removing member:', error);
       toast({
         title: "Error removing member",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: "Please try again later",
         variant: "destructive"
       });
     }
@@ -934,7 +714,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     leaveChat,
     addMemberToChat,
     removeMemberFromChat,
-    isRateLimited
+    isRateLimited,
   };
 
   return (
@@ -943,5 +723,3 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </ChatContext.Provider>
   );
 };
-
-export default ChatProvider;

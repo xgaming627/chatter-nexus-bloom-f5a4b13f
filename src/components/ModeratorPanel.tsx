@@ -1,12 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
-import { 
-  collection, query, where, getDocs, doc, updateDoc, 
-  Timestamp, orderBy, onSnapshot, increment as firestoreIncrement,
-  setDoc, serverTimestamp, getDoc, addDoc
-} from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

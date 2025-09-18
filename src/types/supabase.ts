@@ -1,12 +1,11 @@
 
-import { User as FirebaseUser } from 'firebase/auth';
-
-export interface ExtendedUser extends FirebaseUser {
+export interface ExtendedUser {
+  id: string;
+  uid: string;
+  email: string | null;
   displayName: string | null;
   username?: string;
   photoURL: string | null;
-  uid: string;
-  email: string | null; // Changed from optional to required but nullable
 }
 
 export class Message {

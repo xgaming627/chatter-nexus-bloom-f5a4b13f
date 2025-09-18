@@ -1,21 +1,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  GoogleAuthProvider, 
-  signInWithPopup,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  updateProfile
-} from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { ExtendedUser } from '@/types/supabase';
 import { useToast } from "@/components/ui/use-toast";
+import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   currentUser: ExtendedUser | null;
+  session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -38,33 +30,61 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Extend Firebase user with our ExtendedUser properties
-        const extendedUser: ExtendedUser = {
-          ...user,
-          uid: user.uid,
-          displayName: user.displayName || user.email?.split('@')[0] || null,
-          username: user.displayName || user.email?.split('@')[0] || undefined,
-          photoURL: user.photoURL
-        };
-        setCurrentUser(extendedUser);
-      } else {
-        setCurrentUser(null);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Fetch profile data for the user
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+
+          const extendedUser: ExtendedUser = {
+            id: session.user.id,
+            uid: session.user.id,
+            email: session.user.email || null,
+            displayName: profile?.display_name || session.user.email?.split('@')[0] || null,
+            username: profile?.username || session.user.email?.split('@')[0] || undefined,
+            photoURL: profile?.photo_url || null,
+          };
+          setCurrentUser(extendedUser);
+        } else {
+          setCurrentUser(null);
+        }
+        setIsInitializing(false);
       }
-      setIsInitializing(false);
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSession(session);
+        // The auth state change listener will handle setting the user
+      } else {
+        setIsInitializing(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -77,7 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string) => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+      
+      if (error) throw error;
     } catch (error: any) {
       toast({
         title: "Sign up failed",
@@ -90,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
     } catch (error: any) {
       toast({
         title: "Sign out failed",
@@ -105,7 +135,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      
+      if (error) throw error;
     } catch (error: any) {
       toast({
         title: "Google sign in failed",
@@ -118,7 +152,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string) => {
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) throw error;
       
       toast({
         title: "Password reset email sent",
@@ -138,12 +174,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!currentUser) return false;
       
-      // Use the imported updateProfile function instead of trying to call it on the user
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: username,
-        });
-      }
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          username,
+          display_name: username 
+        })
+        .eq('user_id', currentUser.uid);
+      
+      if (error) throw error;
       
       // Update local state
       setCurrentUser(prev => {
@@ -173,17 +212,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isUsernameAvailable = async (username: string) => {
     try {
-      // Check if the username already exists in Firebase
-      // This is a mock implementation that always returns true
-      // In a real app, you would query your database
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single();
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      return Promise.resolve(true);
+      // If no error and no data, username is available
+      // If error and error.code is 'PGRST116' (no rows), username is available
+      return !data || (error && error.code === 'PGRST116');
     } catch (error) {
       console.error("Error checking username availability:", error);
-      return Promise.resolve(false);
+      return false;
     }
   };
 
@@ -201,6 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     currentUser,
+    session,
     signIn,
     signUp,
     signOut: handleSignOut,

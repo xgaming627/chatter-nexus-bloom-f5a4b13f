@@ -14,7 +14,245 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          group_name: string | null
+          group_photo_url: string | null
+          id: string
+          is_group_chat: boolean
+          participants: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          group_name?: string | null
+          group_photo_url?: string | null
+          id?: string
+          is_group_chat?: boolean
+          participants: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          group_name?: string | null
+          group_photo_url?: string | null
+          id?: string
+          is_group_chat?: boolean
+          participants?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          deleted: boolean
+          deleted_by: string | null
+          delivered: boolean
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          flagged_for_moderation: boolean
+          id: string
+          is_system_message: boolean
+          read: boolean
+          reported: boolean
+          sender_id: string
+          timestamp: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          deleted?: boolean
+          deleted_by?: string | null
+          delivered?: boolean
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          flagged_for_moderation?: boolean
+          id?: string
+          is_system_message?: boolean
+          read?: boolean
+          reported?: boolean
+          sender_id: string
+          timestamp?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          deleted?: boolean
+          deleted_by?: string | null
+          delivered?: boolean
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          flagged_for_moderation?: boolean
+          id?: string
+          is_system_message?: boolean
+          read?: boolean
+          reported?: boolean
+          sender_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string | null
+          id: string
+          online_status: string | null
+          photo_url: string | null
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name?: string | null
+          id?: string
+          online_status?: string | null
+          photo_url?: string | null
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string | null
+          id?: string
+          online_status?: string | null
+          photo_url?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          content: string
+          id: string
+          read: boolean
+          sender_id: string | null
+          sender_role: string
+          session_id: string
+          timestamp: string
+        }
+        Insert: {
+          content: string
+          id?: string
+          read?: boolean
+          sender_id?: string | null
+          sender_role: string
+          session_id: string
+          timestamp?: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          read?: boolean
+          sender_id?: string | null
+          sender_role?: string
+          session_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "support_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "support_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_sessions: {
+        Row: {
+          created_at: string
+          feedback: string | null
+          id: string
+          last_read_by_moderator: boolean
+          rating: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          last_read_by_moderator?: boolean
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          last_read_by_moderator?: boolean
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
