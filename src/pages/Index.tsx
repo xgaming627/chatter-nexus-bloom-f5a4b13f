@@ -22,8 +22,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
@@ -62,38 +60,13 @@ const Index = () => {
     }
   }, [currentUser]);
 
-  // Fetch user notifications
+  // Simplified notifications (since we don't have a notifications system in Supabase yet)
   useEffect(() => {
     if (!currentUser) return;
     
-    const fetchNotifications = async () => {
-      try {
-        const notificationsRef = collection(db, "notifications");
-        const q = query(
-          notificationsRef,
-          where("userId", "==", currentUser.uid)
-        );
-        const snapshot = await getDocs(q);
-        
-        const notifs = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          read: doc.data().read || false
-        }));
-        
-        setNotifications(notifs);
-        setUnreadNotifications(notifs.filter(n => !n.read).length);
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-      }
-    };
-    
-    fetchNotifications();
-    
-    // Set up interval to check for new notifications
-    const interval = setInterval(fetchNotifications, 30000); // Check every 30 seconds
-    
-    return () => clearInterval(interval);
+    // Mock notifications for now
+    setNotifications([]);
+    setUnreadNotifications(0);
   }, [currentUser]);
 
   const handleAcceptTerms = () => {
@@ -102,24 +75,8 @@ const Index = () => {
   };
 
   const markNotificationsAsRead = async () => {
-    if (!currentUser || notifications.length === 0) return;
-    
-    try {
-      // Mark all notifications as read
-      for (const notification of notifications) {
-        if (!notification.read && !notification.requiresAction) {
-          await updateDoc(doc(db, "notifications", notification.id), {
-            read: true
-          });
-        }
-      }
-      
-      // Update local state
-      setNotifications(prev => prev.map(n => ({ ...n, read: n.requiresAction ? n.read : true })));
-      setUnreadNotifications(0);
-    } catch (error) {
-      console.error("Error marking notifications as read:", error);
-    }
+    // Simplified - no action needed since we don't have real notifications yet
+    setUnreadNotifications(0);
   };
   
   // If user is not logged in, show auth forms
@@ -199,7 +156,7 @@ const Index = () => {
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {notification.timestamp ? format(notification.timestamp.toDate(), 'PPp') : ''}
+                                {notification.timestamp ? format(new Date(notification.timestamp), 'PPp') : ''}
                               </p>
                             </div>
                           ))}

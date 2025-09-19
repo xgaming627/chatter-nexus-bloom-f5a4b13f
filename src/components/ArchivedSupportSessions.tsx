@@ -42,11 +42,11 @@ const ArchivedSupportSessions: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <UserAvatar 
                           username={session.userInfo?.username || "User"} 
-                          photoURL={session.userInfo?.photoURL} 
+                          photoURL={session.userInfo?.photo_url} 
                           size="sm"
                         />
                         <div>
-                          <div className="font-medium">{session.userInfo?.displayName || "User"}</div>
+                          <div className="font-medium">{session.userInfo?.display_name || "User"}</div>
                           <div className="text-xs text-muted-foreground">
                             @{session.userInfo?.username || "user"}
                           </div>
@@ -70,12 +70,12 @@ const ArchivedSupportSessions: React.FC = () => {
                     </div>
                     
                     <div className="text-sm text-muted-foreground mb-3">
-                      {session.createdAt ? format(session.createdAt.toDate(), 'PPpp') : "Unknown date"}
+                      {session.created_at ? format(new Date(session.created_at), 'PPpp') : "Unknown date"}
                     </div>
                     
-                    {session.lastMessage && (
+                    {session.last_message && (
                       <div className="text-sm border-l-2 pl-2 mb-3">
-                        "{session.lastMessage.content}"
+                        "{session.last_message.content}"
                       </div>
                     )}
                     

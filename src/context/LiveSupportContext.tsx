@@ -170,7 +170,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: session.id,
         user_id: session.user_id,
         created_at: session.created_at,
-        status: session.status,
+        status: session.status as 'active' | 'ended' | 'requested-end',
         rating: session.rating,
         feedback: session.feedback,
         last_read_by_moderator: session.last_read_by_moderator,
@@ -222,7 +222,11 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       if (error) throw error;
 
-      setSupportMessages(data || []);
+      const messagesWithTypes = (data || []).map(msg => ({
+        ...msg,
+        sender_role: msg.sender_role as 'user' | 'moderator' | 'system'
+      }));
+      setSupportMessages(messagesWithTypes);
       
       // Clear new messages flag when viewing messages
       if (currentSupportSession) {
@@ -255,7 +259,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: data.id,
         user_id: data.user_id,
         created_at: data.created_at,
-        status: data.status,
+        status: data.status as 'active' | 'ended' | 'requested-end',
         rating: data.rating,
         feedback: data.feedback,
         last_read_by_moderator: data.last_read_by_moderator,

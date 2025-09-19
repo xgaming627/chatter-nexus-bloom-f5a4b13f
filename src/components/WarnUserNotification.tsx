@@ -1,8 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, getDocs, query, where, updateDoc, collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { AlertTriangle, Shield, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,12 +19,12 @@ import { Badge } from '@/components/ui/badge';
 
 interface Notification {
   id: string;
-  userId: string;
+  user_id: string;
   type: 'ban' | 'warning' | 'system' | 'mention';
   content: string;
   read: boolean;
-  timestamp: any;
-  requiresAction?: boolean;
+  timestamp: string;
+  requires_action?: boolean;
 }
 
 const WarnUserNotification: React.FC = () => {
@@ -39,23 +37,24 @@ const WarnUserNotification: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     
-    // Check for warnings
+    // Check for warnings in profile description (simplified approach)
     const checkWarnings = async () => {
       try {
-        const userRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(userRef);
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('description')
+          .eq('user_id', currentUser.uid)
+          .single();
+
+        if (error) throw error;
         
-        if (userDoc.exists() && userDoc.data().warnings && userDoc.data().warnings > 0) {
-          // Check if warning is still active
-          const warningExpiry = userDoc.data().warningExpiry?.toDate();
-          if (warningExpiry && warningExpiry > new Date()) {
-            setWarningInfo({
-              reason: userDoc.data().lastWarningReason || "Terms of Service violation",
-              expires: warningExpiry,
-              count: userDoc.data().warnings
-            });
-            setShowWarning(true);
-          }
+        if (profile?.description && profile.description.includes('Warning:')) {
+          setWarningInfo({
+            reason: profile.description,
+            expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+            count: 1
+          });
+          setShowWarning(true);
         }
       } catch (error) {
         console.error("Error checking warnings:", error);
@@ -63,49 +62,21 @@ const WarnUserNotification: React.FC = () => {
     };
     
     checkWarnings();
-    
-    // Listen for notifications
-    const notificationsRef = collection(db, "notifications");
-    const q = query(
-      notificationsRef,
-      where("userId", "==", currentUser.uid),
-      where("requiresAction", "==", true)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notificationData: Notification[] = [];
-      snapshot.forEach((doc) => {
-        notificationData.push({
-          id: doc.id,
-          ...doc.data()
-        } as Notification);
-      });
-      
-      if (notificationData.length > 0) {
-        setNotifications(notificationData);
-        // If we have warning notifications, show the warning dialog
-        if (notificationData.some(n => n.type === 'warning')) {
-          setShowWarning(true);
-        }
-      }
-    });
-    
-    return () => unsubscribe();
   }, [currentUser]);
   
   const handleAccept = async () => {
     if (!currentUser) return;
     
     try {
-      // Mark warning notifications as read
-      const warningNotifications = notifications.filter(n => n.type === 'warning');
-      
-      for (const notification of warningNotifications) {
-        await updateDoc(doc(db, "notifications", notification.id), {
-          read: true,
-          requiresAction: false
-        });
-      }
+      // Clear the warning from profile description
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          description: ''
+        })
+        .eq('user_id', currentUser.uid);
+
+      if (error) throw error;
       
       setShowWarning(false);
       

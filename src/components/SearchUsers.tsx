@@ -5,8 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
-import { collection, query, getDocs, where, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 
 // Define a simpler User type that matches what we get from Firebase
 interface SimpleUser {
@@ -38,30 +37,23 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
       
       setLoading(true);
       try {
-        // Use direct Firebase querying
-        const usersRef = collection(db, "users");
-        const q = query(
-          usersRef,
-          where("displayName", ">=", searchQuery),
-          where("displayName", "<=", searchQuery + '\uf8ff'),
-          limit(10)
-        );
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('user_id, username, display_name, photo_url')
+          .ilike('display_name', `%${searchQuery}%`)
+          .limit(10);
+
+        if (error) throw error;
+
+        const users: SimpleUser[] = profiles?.map(profile => ({
+          uid: profile.user_id,
+          displayName: profile.display_name || 'Unknown User',
+          username: profile.username || '',
+          email: `${profile.username}@example.com`, // Mock email
+          photoURL: profile.photo_url || null
+        })) || [];
         
-        const querySnapshot = await getDocs(q);
-        const users: SimpleUser[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const userData = doc.data();
-          users.push({
-            uid: userData.uid || doc.id,
-            displayName: userData.displayName || 'Unknown User',
-            username: userData.username || '',
-            email: userData.email || null,
-            photoURL: userData.photoURL || null
-          });
-        });
-        
-        console.log("Firebase search results:", users);
+        console.log("Supabase search results:", users);
         
         if (users.length === 0) {
           // If no real users found, add mock users for testing

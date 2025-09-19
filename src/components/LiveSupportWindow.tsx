@@ -170,8 +170,8 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-4">
             {supportMessages.length > 0 ? (
               supportMessages.map((message) => {
-                const isOwnMessage = message.senderId === currentUser?.uid;
-                const isSystemMessage = message.senderRole === 'system';
+                const isOwnMessage = message.sender_id === currentUser?.uid;
+                const isSystemMessage = message.sender_role === 'system';
                 
                 return (
                   <div 

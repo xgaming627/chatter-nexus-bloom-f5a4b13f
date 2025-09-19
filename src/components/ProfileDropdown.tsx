@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -25,8 +26,6 @@ import { Settings, LogOut, Sun, Moon, Languages, User, MessageSquare } from "luc
 import { useTheme } from "next-themes";
 import LiveSupportWindow from "./LiveSupportWindow";
 import { toast } from "@/hooks/use-toast";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 const ProfileDropdown = () => {
   const { currentUser, logout } = useAuth();
@@ -49,22 +48,16 @@ const ProfileDropdown = () => {
     if (!currentUser) return;
     
     try {
-      // Update user profile directly in firestore
-      const userRef = doc(db, "users", currentUser.uid);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          display_name: username || currentUser.displayName,
+          photo_url: photoURL || currentUser.photoURL
+        })
+        .eq('user_id', currentUser.uid);
+
+      if (error) throw error;
       
-      const updates: Record<string, any> = {};
-      
-      if (username && username !== currentUser.displayName) {
-        updates.displayName = username;
-      }
-      
-      if (photoURL && photoURL !== currentUser.photoURL) {
-        updates.photoURL = photoURL;
-      }
-      
-      await updateDoc(userRef, updates);
-      
-      // Refresh the page to see changes
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully."

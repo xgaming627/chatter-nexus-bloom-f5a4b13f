@@ -111,9 +111,9 @@ const LiveSupportChat: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {supportMessages.length > 0 ? (
           supportMessages.map((message) => {
-            const isOwnMessage = message.senderId === currentUser?.uid;
-            const isSystemMessage = message.senderRole === 'system';
-            const isUserMessage = message.senderRole === 'user';
+            const isOwnMessage = message.sender_id === currentUser?.uid;
+            const isSystemMessage = message.sender_role === 'system';
+            const isUserMessage = message.sender_role === 'user';
             
             return (
               <div 
@@ -125,12 +125,12 @@ const LiveSupportChat: React.FC = () => {
                     <div className="flex items-center mb-1">
                       <UserAvatar 
                         username={isUserMessage ? currentSupportSession.userInfo?.username || "User" : "Support"} 
-                        photoURL={isUserMessage ? currentSupportSession.userInfo?.photoURL : undefined}
+                        photoURL={isUserMessage ? currentSupportSession.userInfo?.photo_url : undefined}
                         size="sm" 
                       />
                       <span className="text-xs font-medium ml-2">
                         {isUserMessage 
-                          ? currentSupportSession.userInfo?.displayName || "User" 
+                          ? currentSupportSession.userInfo?.display_name || "User" 
                           : "Support Agent"}
                       </span>
                     </div>

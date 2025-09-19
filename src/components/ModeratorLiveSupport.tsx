@@ -57,7 +57,7 @@ const ModeratorLiveSupport: React.FC = () => {
   useEffect(() => {
     const unreadSessions = supportSessions.filter(session => 
       session.status === 'active' && 
-      session.lastReadByModerator === false
+      session.last_read_by_moderator === false
     );
     
     if (unreadSessions.length > 0) {
@@ -74,8 +74,8 @@ const ModeratorLiveSupport: React.FC = () => {
       setSelectedSession(session);
       await setCurrentSupportSessionId(session.id);
       
-      if (session.userId) {
-        const stats = await getUserSupportStats(session.userId);
+      if (session.user_id) {
+        const stats = await getUserSupportStats(session.user_id);
         setUserStats(stats);
       }
       
@@ -102,7 +102,7 @@ const ModeratorLiveSupport: React.FC = () => {
             supportSessions
               .filter(s => s.status !== 'ended')
               .map(session => {
-                const isRead = session.lastReadByModerator === true;
+                const isRead = session.last_read_by_moderator === true;
                 const userHasVPN = session.userInfo?.vpnDetected;
                 
                 return (
@@ -115,11 +115,11 @@ const ModeratorLiveSupport: React.FC = () => {
                     <div className="flex items-start gap-3 w-full">
                       <UserAvatar 
                         username={session.userInfo?.username || "User"} 
-                        photoURL={session.userInfo?.photoURL} 
+                        photoURL={session.userInfo?.photo_url} 
                       />
                       <div className="flex-1 text-left">
                         <div className="font-medium flex justify-between">
-                          <span>{session.userInfo?.displayName || "User"}</span>
+                          <span>{session.userInfo?.display_name || "User"}</span>
                           <div className="flex space-x-1">
                             {userHasVPN && (
                               <Badge variant="outline" className="ml-2 bg-orange-200 text-orange-800 text-xs">
@@ -134,9 +134,9 @@ const ModeratorLiveSupport: React.FC = () => {
                         <div className="text-xs text-muted-foreground">
                           @{session.userInfo?.username || "user"}
                         </div>
-                        {session.lastMessage && (
+                        {session.last_message && (
                           <div className="text-sm text-muted-foreground truncate mt-1">
-                            {session.lastMessage.content}
+                            {session.last_message.content}
                           </div>
                         )}
                       </div>
@@ -160,10 +160,10 @@ const ModeratorLiveSupport: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <UserAvatar 
                     username={selectedSession.userInfo?.username || "User"} 
-                    photoURL={selectedSession.userInfo?.photoURL} 
+                    photoURL={selectedSession.userInfo?.photo_url} 
                   />
                   <div>
-                    {selectedSession.userInfo?.displayName || "User"}
+                    {selectedSession.userInfo?.display_name || "User"}
                     <div className="text-xs text-muted-foreground">
                       @{selectedSession.userInfo?.username || "user"}
                     </div>
@@ -192,8 +192,8 @@ const ModeratorLiveSupport: React.FC = () => {
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Account Created</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedSession.userInfo?.createdAt ? 
-                     format(selectedSession.userInfo.createdAt.toDate(), 'PPP') : 
+                    {selectedSession.userInfo?.created_at ? 
+                     format(new Date(selectedSession.userInfo.created_at), 'PPP') : 
                      "Unknown"}
                   </p>
                 </div>
@@ -212,8 +212,8 @@ const ModeratorLiveSupport: React.FC = () => {
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Support Session Started</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedSession.createdAt ? 
-                     format(selectedSession.createdAt.toDate(), 'PPp') : 
+                    {selectedSession.created_at ? 
+                     format(new Date(selectedSession.created_at), 'PPp') : 
                      "Unknown"}
                   </p>
                 </div>
@@ -287,7 +287,7 @@ const ModeratorLiveSupport: React.FC = () => {
                           ))}
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          {session.createdAt ? format(session.createdAt.toDate(), 'PPp') : ''}
+                          {session.created_at ? format(new Date(session.created_at), 'PPp') : ''}
                         </span>
                       </div>
                       <p className="text-sm">{session.feedback}</p>
