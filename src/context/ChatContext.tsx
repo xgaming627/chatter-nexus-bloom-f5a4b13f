@@ -167,7 +167,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(username, display_name, photo_url)
+          profiles!sender_id(username, display_name, photo_url)
         `)
         .eq('conversation_id', conversationId)
         .order('timestamp', { ascending: true });
