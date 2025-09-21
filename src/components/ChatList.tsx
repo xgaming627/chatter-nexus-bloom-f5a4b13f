@@ -23,7 +23,8 @@ const ChatList: React.FC = () => {
     }
     
     if (conversation.participantsInfo && conversation.participantsInfo.length > 0) {
-      return conversation.participantsInfo[0].displayName;
+      const participant = conversation.participantsInfo[0];
+      return participant.displayName || participant.username || 'Chat';
     }
     
     return 'Chat';

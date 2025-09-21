@@ -145,7 +145,7 @@ const ModeratorPanel: React.FC = () => {
           warnings: 0, // Mock warnings since it's not in profiles table
           ip_address: `192.168.${Math.floor(index / 255)}.${index % 255}`,
           vpn_detected: index % 5 === 0,
-          online_status: ['online', 'away', 'offline'][Math.floor(Math.random() * 3)]
+          online_status: user.online_status || ['online', 'away', 'offline'][Math.floor(Math.random() * 3)]
         })) || [];
         
         setUsers(enhancedUserData);
@@ -562,18 +562,18 @@ const ModeratorPanel: React.FC = () => {
                   <TableBody>
                     {filteredUsers.map((user) => (
                       <TableRow key={user.user_id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {user.username}
-                            {user.vpn_detected && (
-                              <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
-                                VPN
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{user.display_name || 'N/A'}</TableCell>
-                        <TableCell>{user.email}</TableCell>
+                         <TableCell className="font-medium">
+                           <div className="flex items-center gap-2">
+                             {user.username || 'No username'}
+                             {user.vpn_detected && (
+                               <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
+                                 VPN
+                               </Badge>
+                             )}
+                           </div>
+                         </TableCell>
+                         <TableCell>{user.display_name || user.username || 'N/A'}</TableCell>
+                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge variant={
                             user.online_status === 'banned' ? 'destructive' :

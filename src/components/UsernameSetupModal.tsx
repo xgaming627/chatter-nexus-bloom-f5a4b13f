@@ -164,7 +164,7 @@ const UsernameSetupModal: React.FC = () => {
   return (
     <>
       <Dialog 
-        open={open && !hasUsername} 
+        open={!hasUsername} 
         onOpenChange={(newOpen) => {
           if (preventClose()) {
             setOpen(newOpen);

@@ -82,7 +82,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     // Check if user is a moderator
     const checkModerator = async () => {
-      if (currentUser.email === 'vitorrossato812@gmail.com') {
+      if (currentUser.email === 'vitorrossato812@gmail.com' || currentUser.email === 'lukasbraga77@gmail.com') {
         setIsModerator(true);
       } else {
         setIsModerator(false);

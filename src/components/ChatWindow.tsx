@@ -392,11 +392,11 @@ const ChatWindow: React.FC = () => {
     if (message.deleted) {
       return null;
     } else if (message.read) {
-      return <span className="text-xs text-green-500 ml-1">read</span>;
+      return <span className="text-xs text-green-500 ml-1">✓✓</span>;
     } else if (message.delivered) {
-      return <span className="text-xs text-blue-500 ml-1">delivered</span>;
+      return <span className="text-xs text-blue-500 ml-1">✓</span>;
     } else {
-      return <span className="text-xs text-gray-500 ml-1">sent</span>;
+      return <span className="text-xs text-gray-500 ml-1">⏱</span>;
     }
   };
   

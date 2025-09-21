@@ -214,12 +214,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="mt-4">
                 <h4 className="text-sm font-medium mb-2">Credits</h4>
                 <div className="border rounded-md p-4">
-                  <p className="font-medium">Lead Scripter and Developer</p>
-                  <p className="text-muted-foreground">Vitor Rossato</p>
+                  <p className="font-medium">Lead Developer & Scripter</p>
+                  <p className="text-muted-foreground">Quibly Services</p>
                   
-                  <p className="font-medium mt-2">Moderators</p>
-                  <p className="text-muted-foreground">Vitor Rossato</p>
-                  <p className="text-muted-foreground">Lukas Braga</p>
+                  <p className="font-medium mt-2">Powered by</p>  
+                  <p className="text-muted-foreground">React, TypeScript, Supabase</p>
                 </div>
               </div>
             </div>
