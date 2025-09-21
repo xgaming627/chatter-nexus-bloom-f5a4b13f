@@ -131,22 +131,71 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase
         .from('conversations')
         .select(`
-          *,
-          profiles!conversations_created_by_fkey(username, display_name, photo_url)
+          *
         `)
         .contains('participants', [currentUser.uid])
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
-      const conversationsData = data.map(conv => new Conversation({
-        id: conv.id,
-        ...conv,
-        created_at: conv.created_at,
-        updated_at: conv.updated_at
-      }));
+      // Fetch participants info for each conversation
+      const conversationsWithParticipants = await Promise.all(
+        data.map(async (conv) => {
+          try {
+            // Get participant profiles (excluding current user for 1-1 chats)
+            const participantIds = conv.participants.filter((id: string) => id !== currentUser.uid);
+            
+            if (participantIds.length > 0) {
+              const { data: participantsData } = await supabase
+                .from('profiles')
+                .select('user_id, username, display_name, photo_url')
+                .in('user_id', participantIds);
+
+              // Get last message for the conversation
+              const { data: lastMessage } = await supabase
+                .from('messages')
+                .select('content, timestamp, sender_id')
+                .eq('conversation_id', conv.id)
+                .order('timestamp', { ascending: false })
+                .limit(1)
+                .single();
+
+              return new Conversation({
+                id: conv.id,
+                ...conv,
+                participantsInfo: participantsData?.map(p => ({
+                  uid: p.user_id,
+                  username: p.username || 'User',
+                  displayName: p.display_name || p.username || 'User',
+                  photoURL: p.photo_url
+                })) || [],
+                last_message: lastMessage ? {
+                  content: lastMessage.content,
+                  timestamp: lastMessage.timestamp,
+                  sender_id: lastMessage.sender_id
+                } : null
+              });
+            }
+            
+            return new Conversation({
+              id: conv.id,
+              ...conv,
+              participantsInfo: [],
+              last_message: null
+            });
+          } catch (error) {
+            console.error('Error fetching participants for conversation:', conv.id, error);
+            return new Conversation({
+              id: conv.id,
+              ...conv,
+              participantsInfo: [],
+              last_message: null
+            });
+          }
+        })
+      );
       
-      setConversations(conversationsData);
+      setConversations(conversationsWithParticipants);
     } catch (error) {
       console.error('Error fetching conversations:', error);
       toast({
@@ -244,11 +293,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Update conversation's updated_at timestamp
+      // Update conversation's updated_at timestamp and refresh conversations
       await supabase
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
+
+      // Refresh conversations to update the chat list immediately
+      setTimeout(() => refreshConversations(), 100);
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -285,6 +337,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) throw error;
+      
+      // Refresh conversations to show the new conversation immediately
+      setTimeout(() => refreshConversations(), 100);
       
       return data.id;
     } catch (error) {

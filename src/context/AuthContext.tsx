@@ -41,22 +41,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         
         if (session?.user) {
-          // Fetch profile data for the user
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
+          // Defer profile fetching to avoid blocking auth state
+          setTimeout(async () => {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .single();
 
-          const extendedUser: ExtendedUser = {
+              // Don't use email as fallback to prevent email leakage
+              const extendedUser: ExtendedUser = {
+                id: session.user.id,
+                uid: session.user.id,
+                email: session.user.email || null,
+                displayName: profile?.display_name || profile?.username || 'User',
+                username: profile?.username || undefined,
+                photoURL: profile?.photo_url || null,
+              };
+              setCurrentUser(extendedUser);
+            } catch (error) {
+              console.error('Error fetching profile:', error);
+              // Set minimal user data without profile info
+              const extendedUser: ExtendedUser = {
+                id: session.user.id,
+                uid: session.user.id,
+                email: session.user.email || null,
+                displayName: 'User',
+                username: undefined,
+                photoURL: null,
+              };
+              setCurrentUser(extendedUser);
+            }
+          }, 0);
+          
+          // Set user immediately with minimal data to prevent loading screen
+          const tempUser: ExtendedUser = {
             id: session.user.id,
             uid: session.user.id,
             email: session.user.email || null,
-            displayName: profile?.display_name || session.user.email?.split('@')[0] || null,
-            username: profile?.username || session.user.email?.split('@')[0] || undefined,
-            photoURL: profile?.photo_url || null,
+            displayName: 'User',
+            username: undefined,
+            photoURL: null,
           };
-          setCurrentUser(extendedUser);
+          setCurrentUser(tempUser);
         } else {
           setCurrentUser(null);
         }
