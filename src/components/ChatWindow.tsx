@@ -102,8 +102,15 @@ const ChatWindow: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const isModeratorUser = (user: { email?: string }) =>
-    user?.email === "vitorrossato812@gmail.com" || user?.email === "lukasbraga77@gmail.com";
+  const isModeratorUser = (user: { email?: string; uid?: string }) => {
+    // Check by UID since we restricted email access
+    const moderatorUIDs = [
+      // Add known moderator UIDs here - this would need to be configured per deployment
+    ];
+    
+    // Fallback to email check for now
+    return user?.email === "vitorrossato812@gmail.com" || user?.email === "lukasbraga77@gmail.com";
+  };
 
   useEffect(() => {
     if (currentUser?.email === 'vitorrossato812@gmail.com' || currentUser?.email === 'lukasbraga77@gmail.com') {

@@ -39,6 +39,7 @@ interface ChatContextType {
   leaveChat: (conversationId: string) => Promise<void>;
   addMemberToChat: (conversationId: string, userId: string) => Promise<void>;
   removeMemberFromChat: (conversationId: string, userId: string) => Promise<void>;
+  warnUser: (userId: string, reason: string, duration: string) => Promise<void>;
   isRateLimited: boolean;
 }
 
@@ -128,60 +129,61 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
 
     try {
+      // Limit initial fetch to 20 conversations for better performance
       const { data, error } = await supabase
         .from('conversations')
         .select(`
           *
         `)
         .contains('participants', [currentUser.uid])
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(20);
 
       if (error) throw error;
 
-      // Fetch participants info for each conversation
+      // Fetch participants info and last messages in batch
       const conversationsWithParticipants = await Promise.all(
         data.map(async (conv) => {
           try {
             // Get participant profiles (excluding current user for 1-1 chats)
             const participantIds = conv.participants.filter((id: string) => id !== currentUser.uid);
             
-            if (participantIds.length > 0) {
-              const { data: participantsData } = await supabase
+            let participantsData = [];
+            let lastMessage = null;
+
+            // Batch these requests
+            const [participantsResult, lastMessageResult] = await Promise.all([
+              participantIds.length > 0 ? supabase
                 .from('profiles')
                 .select('user_id, username, display_name, photo_url')
-                .in('user_id', participantIds);
-
-              // Get last message for the conversation
-              const { data: lastMessage } = await supabase
+                .in('user_id', participantIds)
+                .limit(10) : Promise.resolve({ data: [] }),
+              supabase
                 .from('messages')
                 .select('content, timestamp, sender_id')
                 .eq('conversation_id', conv.id)
                 .order('timestamp', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle()
+            ]);
 
-              return new Conversation({
-                id: conv.id,
-                ...conv,
-                participantsInfo: participantsData?.map(p => ({
-                  uid: p.user_id,
-                  username: p.username || 'User',
-                  displayName: p.display_name || p.username || 'User',
-                  photoURL: p.photo_url
-                })) || [],
-                last_message: lastMessage ? {
-                  content: lastMessage.content,
-                  timestamp: lastMessage.timestamp,
-                  sender_id: lastMessage.sender_id
-                } : null
-              });
-            }
-            
+            participantsData = participantsResult.data || [];
+            lastMessage = lastMessageResult.data;
+
             return new Conversation({
               id: conv.id,
               ...conv,
-              participantsInfo: [],
-              last_message: null
+              participantsInfo: participantsData.map(p => ({
+                uid: p.user_id,
+                username: p.username || 'User',
+                displayName: p.display_name || p.username || 'User',
+                photoURL: p.photo_url
+              })),
+              last_message: lastMessage ? {
+                content: lastMessage.content,
+                timestamp: lastMessage.timestamp,
+                sender_id: lastMessage.sender_id
+              } : null
             });
           } catch (error) {
             console.error('Error fetching participants for conversation:', conv.id, error);
@@ -212,6 +214,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchMessages = async (conversationId: string) => {
     try {
+      // Limit initial messages to 50 for better performance
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -219,11 +222,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profiles!sender_id(username, display_name, photo_url)
         `)
         .eq('conversation_id', conversationId)
-        .order('timestamp', { ascending: true });
+        .order('timestamp', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
-      const messagesData = data.map(msg => new Message({
+      // Reverse to show oldest first
+      const messagesData = data.reverse().map(msg => new Message({
         id: msg.id,
         ...msg
       }));
@@ -737,6 +742,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const warnUser = async (userId: string, reason: string, duration: string) => {
+    if (!currentUser) return;
+
+    try {
+      const issuedTime = new Date();
+      const warningText = `Warning: ${reason} (Duration: ${duration}) Issued: ${issuedTime.toISOString()}`;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          description: warningText
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "User warned",
+        description: `Warning issued to user for: ${reason}`,
+      });
+    } catch (error) {
+      console.error('Error warning user:', error);
+      toast({
+        title: "Error warning user",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
   const value = {
     conversations,
     currentConversation,
@@ -769,6 +804,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     leaveChat,
     addMemberToChat,
     removeMemberFromChat,
+    warnUser,
     isRateLimited,
   };
 

@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -26,10 +25,12 @@ import { Settings, LogOut, Sun, Moon, Languages, User, MessageSquare } from "luc
 import { useTheme } from "next-themes";
 import LiveSupportWindow from "./LiveSupportWindow";
 import { toast } from "@/hooks/use-toast";
+import { useProfile } from "@/hooks/useProfile";
 
 const ProfileDropdown = () => {
   const { currentUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { profile, updateProfile } = useProfile();
   const [username, setUsername] = useState("");
   const [photoURL, setPhotoURL] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
@@ -38,41 +39,18 @@ const ProfileDropdown = () => {
   const [language, setLanguage] = useState("en");
   
   useEffect(() => {
-    if (currentUser) {
-      setUsername(currentUser.displayName || "");
-      setPhotoURL(currentUser.photoURL || "");
-    }
-  }, [currentUser]);
+    setUsername(profile.displayName);
+    setPhotoURL(profile.photoURL);
+  }, [profile]);
   
   const handleSave = async () => {
-    if (!currentUser) return;
+    const success = await updateProfile({
+      displayName: username,
+      photoURL: photoURL
+    });
     
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          display_name: username || currentUser.displayName,
-          photo_url: photoURL || currentUser.photoURL
-        })
-        .eq('user_id', currentUser.uid);
-
-      if (error) throw error;
-      
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully."
-      });
-      
-      window.location.reload();
-      
+    if (success) {
       setOpenDialog(false);
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update profile.",
-        variant: "destructive"
-      });
     }
   };
   
@@ -115,9 +93,8 @@ const ProfileDropdown = () => {
   
   if (!currentUser) return null;
   
-  // Get the first letter of the username or display name for the avatar fallback
-  const firstLetter = currentUser.displayName?.[0] || 
-    currentUser.email?.[0] || "U";
+  // Get the first letter for avatar fallback
+  const firstLetter = profile.displayName?.[0] || profile.username?.[0] || "U";
     
   return (
     <>
@@ -125,7 +102,7 @@ const ProfileDropdown = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={currentUser.photoURL || ""} alt="Profile" />
+              <AvatarImage src={profile.photoURL} alt="Profile" />
               <AvatarFallback>{firstLetter.toUpperCase()}</AvatarFallback>
             </Avatar>
           </Button>
@@ -133,8 +110,8 @@ const ProfileDropdown = () => {
         <DropdownMenuContent className="w-56 dropdown-menu" align="end">
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium">{currentUser.displayName}</p>
-              <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+              <p className="text-sm font-medium">{profile.displayName}</p>
+              <p className="text-xs text-muted-foreground">@{profile.username}</p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -212,7 +189,7 @@ const ProfileDropdown = () => {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center mb-4">
               <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={photoURL || currentUser.photoURL || ""} />
+                <AvatarImage src={photoURL || profile.photoURL} />
                 <AvatarFallback>{firstLetter.toUpperCase()}</AvatarFallback>
               </Avatar>
             </div>

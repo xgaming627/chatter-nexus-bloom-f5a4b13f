@@ -14,6 +14,7 @@ import NewChatButton from "@/components/NewChatButton";
 import { ChatProvider } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
 import WarnUserNotification from "@/components/WarnUserNotification";
+import ModeratorNotifications from "@/components/ModeratorNotifications";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -99,6 +100,7 @@ const Index = () => {
       <ChatProvider>
         <UsernameSetupModal />
         <WarnUserNotification />
+        <ModeratorNotifications />
         
         <div className="flex flex-col h-screen bg-background">
           {/* Header */}

@@ -37,7 +37,7 @@ const WarnUserNotification: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     
-    // Check for warnings in profile description (simplified approach)
+    // Check for warnings in profile description and handle expiration
     const checkWarnings = async () => {
       try {
         const { data: profile, error } = await supabase
@@ -49,12 +49,52 @@ const WarnUserNotification: React.FC = () => {
         if (error) throw error;
         
         if (profile?.description && profile.description.includes('Warning:')) {
-          setWarningInfo({
-            reason: profile.description,
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-            count: 1
-          });
-          setShowWarning(true);
+          // Parse warning details
+          const warningText = profile.description;
+          const reasonMatch = warningText.match(/Warning: (.+?) \(Duration:/);
+          const durationMatch = warningText.match(/\(Duration: (.+?)\)/);
+          const timestampMatch = warningText.match(/Issued: (.+?)$/);
+          
+          if (reasonMatch && durationMatch) {
+            const reason = reasonMatch[1];
+            const duration = durationMatch[1];
+            const issuedTime = timestampMatch ? new Date(timestampMatch[1]) : new Date();
+            
+            // Calculate expiration time
+            let expirationTime = new Date(issuedTime);
+            const durationValue = parseInt(duration);
+            const durationUnit = duration.replace(/\d+/, '');
+            
+            switch (durationUnit) {
+              case 'h':
+                expirationTime.setHours(issuedTime.getHours() + durationValue);
+                break;
+              case 'd':
+                expirationTime.setDate(issuedTime.getDate() + durationValue);
+                break;
+              default:
+                expirationTime.setHours(issuedTime.getHours() + 24); // Default to 24 hours
+            }
+            
+            // Check if warning has expired
+            if (new Date() > expirationTime) {
+              // Warning has expired, clear it
+              await supabase
+                .from('profiles')
+                .update({ description: '' })
+                .eq('user_id', currentUser.uid);
+              return;
+            }
+            
+            // Warning is still active
+            setWarningInfo({
+              reason: reason,
+              expires: expirationTime,
+              count: 1,
+              issuedTime: issuedTime
+            });
+            setShowWarning(true);
+          }
         }
       } catch (error) {
         console.error("Error checking warnings:", error);
@@ -137,6 +177,11 @@ const WarnUserNotification: React.FC = () => {
                   <div className="mt-2">
                     <p className="font-medium">Warning Count:</p>
                     <p className="mt-1">{warningInfo.count} {warningInfo.count === 1 ? 'warning' : 'warnings'}</p>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <p className="font-medium">Issued On:</p>
+                    <p className="mt-1">{warningInfo.issuedTime ? format(warningInfo.issuedTime, 'PPpp') : 'Unknown'}</p>
                   </div>
                   
                   <div className="mt-2">
