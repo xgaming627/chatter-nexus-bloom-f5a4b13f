@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +13,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useChat } from "@/context/ChatContext";
 import { Shield } from "lucide-react";
@@ -22,6 +22,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import LoginHistory from "./LoginHistory";
 import TermsOfService from "./TermsOfService";
+import StatusSelector from "./StatusSelector";
+import { useProfile } from "@/hooks/useProfile";
+import { useToast } from "@/hooks/use-toast";
+import Credits from "./Credits";
 
 interface SettingsModalProps {
   open: boolean;
@@ -36,6 +40,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { currentUser, logout } = useAuth();
   const { updateDmSettings } = useChat();
+  const { profile, updateProfile } = useProfile();
+  const { toast } = useToast();
   const [useDarkMode, setUseDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark");
@@ -44,188 +50,187 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   });
   const [dmSetting, setDmSetting] = useState<"open" | "closed">("open");
   const [showTutorial, setShowTutorial] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [status, setStatus] = useState('offline');
+
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.displayName || '');
+      setStatus(profile.onlineStatus || 'offline');
+    }
+  }, [profile]);
   
   const handleLogout = async () => {
     try {
       await logout();
       onOpenChange(false);
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error("Logout error:", error);
     }
   };
 
   const toggleDarkMode = () => {
+    setUseDarkMode(!useDarkMode);
     if (typeof window !== "undefined") {
       document.documentElement.classList.toggle("dark");
-      setUseDarkMode(document.documentElement.classList.contains("dark"));
-      localStorage.setItem("theme", useDarkMode ? "light" : "dark");
     }
   };
 
-  const handleDmSettingChange = async (value: "open" | "closed") => {
-    setDmSetting(value);
-    if (currentUser) {
-      await updateDmSettings(value);
-    }
+  const isOwnerUser = (user: any) => {
+    return user?.email === 'quiblyservices@gmail.com';
   };
 
-  const handleShowTutorial = () => {
-    setShowTutorial(true);
-    onOpenChange(false);
-  };
+  if (!currentUser) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Manage your account settings and preferences.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Manage your account settings and preferences.
+            </DialogDescription>
+          </DialogHeader>
 
-        <Tabs defaultValue="general" className="mt-5">
-          <TabsList className="grid grid-cols-5">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="privacy">Privacy</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="about">About</TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue="account" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="account">Account</TabsTrigger>
+              <TabsTrigger value="privacy">Privacy</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="terms">Terms</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="general" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium">Account</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Manage your account settings
-                  </p>
+            <TabsContent value="account" className="space-y-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="display-name">Display Name</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="display-name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Enter display name"
+                    />
+                    <Button 
+                      onClick={async () => {
+                        const success = await updateProfile({ displayName: displayName });
+                        if (success) {
+                          toast({
+                            title: 'Success',
+                            description: 'Display name updated successfully',
+                          });
+                        }
+                      }}
+                      disabled={!displayName.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="outline" onClick={handleLogout}>
-                  Sign out
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium">Tutorial</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Show the welcome tutorial again
-                  </p>
-                </div>
-                <Button variant="outline" onClick={handleShowTutorial}>
-                  Show Tutorial
-                </Button>
-              </div>
 
-              {onShowModeratorPanel && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" />
-                    <div>
-                      <h4 className="text-sm font-medium">Moderator Panel</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Access the moderator control panel
-                      </p>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <StatusSelector 
+                    value={status} 
+                    onValueChange={async (newStatus) => {
+                      setStatus(newStatus);
+                      await updateProfile({ onlineStatus: newStatus });
+                    }} 
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="dark-mode"
+                    checked={useDarkMode}
+                    onCheckedChange={toggleDarkMode}
+                  />
+                  <Label htmlFor="dark-mode">Dark Mode</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>DM Settings</Label>
+                  <RadioGroup
+                    value={dmSetting}
+                    onValueChange={(value: "open" | "closed") => {
+                      setDmSetting(value);
+                      updateDmSettings(value);
+                    }}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="open" id="dm-open" />
+                      <Label htmlFor="dm-open">Open DMs (Anyone can message you)</Label>
                     </div>
-                  </div>
-                  <Button onClick={onShowModeratorPanel}>Open Panel</Button>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="closed" id="dm-closed" />
+                      <Label htmlFor="dm-closed">Closed DMs (Only you can start conversations)</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-              )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="privacy" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium mb-2">Direct Message Settings</h4>
-                <RadioGroup 
-                  defaultValue={dmSetting} 
-                  onValueChange={(value) => handleDmSettingChange(value as "open" | "closed")}
-                >
-                  <div className="flex items-center space-x-2 mb-2">
-                    <RadioGroupItem value="open" id="dm-open" />
-                    <Label htmlFor="dm-open">Open - Anyone can message you</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="closed" id="dm-closed" />
-                    <Label htmlFor="dm-closed">Closed - Only people you've messaged can contact you</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-              
-              <div className="flex items-center justify-between pt-2">
-                <div>
-                  <h4 className="text-sm font-medium">Read Receipts</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Show when you've read messages
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              
-              <div className="flex items-center justify-between pt-2">
-                <div>
-                  <h4 className="text-sm font-medium">Online Status</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Show when you're online
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </div>
-          </TabsContent>
+                {isOwnerUser(currentUser) && (
+                  <Button 
+                    onClick={() => {
+                      onOpenChange(false);
+                      onShowModeratorPanel?.();
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Moderator Panel
+                  </Button>
+                )}
 
-          <TabsContent value="appearance" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium">Dark Mode</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Turn dark mode {useDarkMode ? "off" : "on"}
-                  </p>
-                </div>
-                <Switch checked={useDarkMode} onCheckedChange={toggleDarkMode} />
+                <Button onClick={handleLogout} variant="destructive">
+                  Log Out
+                </Button>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="security" className="space-y-4 mt-4">
-            <LoginHistory />
-          </TabsContent>
-          
-          <TabsContent value="about" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-medium">About ChatNexus</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Version 1.13.5
+            <TabsContent value="privacy" className="space-y-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Privacy Settings</h3>
+                <p className="text-sm text-muted-foreground">
+                  Your privacy settings help control how other users can interact with you.
                 </p>
-              </div>
-              
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Terms of Service</h4>
-                <div className="border rounded-md p-4 h-40 overflow-y-auto">
-                  <TermsOfService />
+                
+                <div className="space-y-2">
+                  <Label>Message Settings</Label>
+                  <RadioGroup
+                    value={dmSetting}
+                    onValueChange={(value: "open" | "closed") => {
+                      setDmSetting(value);
+                      updateDmSettings(value);
+                    }}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="open" id="privacy-dm-open" />
+                      <Label htmlFor="privacy-dm-open">Open DMs</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="closed" id="privacy-dm-closed" />
+                      <Label htmlFor="privacy-dm-closed">Closed DMs</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
-              
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Credits</h4>
-                <div className="border rounded-md p-4">
-                  <p className="font-medium">Lead Developer & Scripter</p>
-                  <p className="text-muted-foreground">Quibly Services</p>
-                  
-                  <p className="font-medium mt-2">Powered by</p>  
-                  <p className="text-muted-foreground">React, TypeScript, Supabase</p>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+            </TabsContent>
+
+            <TabsContent value="history">
+              <LoginHistory />
+            </TabsContent>
+
+            <TabsContent value="terms">
+              <TermsOfService />
+            </TabsContent>
+          </Tabs>
+
+          <Credits />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

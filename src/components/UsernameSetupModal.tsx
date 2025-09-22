@@ -29,23 +29,27 @@ const UsernameSetupModal: React.FC = () => {
     const checkForUsername = async () => {
       if (!currentUser) return;
       
-      // Check if user has a proper username (not email-based)
+      // Check if user has a proper username (not email-based and not temporary)
       const hasProperUsername = currentUser.username && 
                                 currentUser.username !== currentUser.email?.split('@')[0] &&
-                                currentUser.username.trim().length > 0;
+                                currentUser.username.trim().length > 0 &&
+                                currentUser.username !== 'User';
       
       if (hasProperUsername) {
         setHasUsername(true);
         setOpen(false);
       } else {
         console.log("No proper username found, showing modal");
-        setHasUsername(false);
-        setOpen(true);
+        // Add a small delay to prevent flickering
+        setTimeout(() => {
+          setHasUsername(false);
+          setOpen(true);
+        }, 100);
       }
     };
     
     checkForUsername();
-  }, [currentUser]);
+  }, [currentUser?.username, currentUser?.email]); // More specific dependencies
   
   const checkUsernameAvailability = async () => {
     if (!username || username.trim().length === 0) {
