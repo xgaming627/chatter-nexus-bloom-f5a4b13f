@@ -22,7 +22,10 @@ import {
   UserPlus, 
   MessageSquare,
   LogOut,
-  Users 
+  Users,
+  Check,
+  CheckCheck,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +47,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import TypingIndicator from './TypingIndicator';
+import WarnUserDialogWrapper from './WarnUserDialogWrapper';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -392,11 +397,11 @@ const ChatWindow: React.FC = () => {
     if (message.deleted) {
       return null;
     } else if (message.read) {
-      return <span className="text-xs text-green-500 ml-1">✓✓</span>;
+      return <CheckCheck className="w-3 h-3 text-blue-500 ml-1" />;
     } else if (message.delivered) {
-      return <span className="text-xs text-blue-500 ml-1">✓</span>;
+      return <Check className="w-3 h-3 text-gray-400 ml-1" />;
     } else {
-      return <span className="text-xs text-gray-500 ml-1">⏱</span>;
+      return <Clock className="w-3 h-3 text-gray-300 ml-1" />;
     }
   };
   
@@ -816,6 +821,8 @@ const ChatWindow: React.FC = () => {
       )}
       
       <div className="p-4 border-t">
+        <TypingIndicator users={[]} />
+        
         {isRateLimited && (
           <div className="mb-2 py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-md flex items-center">
             <AlertTriangle className="h-4 w-4 mr-2" />

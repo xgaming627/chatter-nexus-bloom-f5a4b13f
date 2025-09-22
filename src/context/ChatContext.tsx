@@ -746,15 +746,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
 
     try {
-      const issuedTime = new Date();
-      const warningText = `Warning: ${reason} (Duration: ${duration}) Issued: ${issuedTime.toISOString()}`;
-      
       const { error } = await supabase
-        .from('profiles')
-        .update({
-          description: warningText
-        })
-        .eq('user_id', userId);
+        .from('user_warnings')
+        .insert({
+          user_id: userId,
+          issued_by: currentUser.uid,
+          reason: reason,
+          duration: duration
+        });
 
       if (error) throw error;
 

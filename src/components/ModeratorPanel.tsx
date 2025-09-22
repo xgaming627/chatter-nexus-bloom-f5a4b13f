@@ -139,13 +139,12 @@ const ModeratorPanel: React.FC = () => {
           return;
         }
 
-        const enhancedUserData = profiles?.map((user, index) => ({
+        const enhancedUserData = profiles?.map((user) => ({
           ...user,
-          email: `user${index}@example.com`, // Mock email since profiles table doesn't store email
-          warnings: 0, // Mock warnings since it's not in profiles table
-          ip_address: `192.168.${Math.floor(index / 255)}.${index % 255}`,
-          vpn_detected: index % 5 === 0,
-          online_status: user.online_status || ['online', 'away', 'offline'][Math.floor(Math.random() * 3)]
+          warnings: 0, // This could be fetched from user_warnings table if needed
+          ip_address: '***.***.***.**', // Hide IP for privacy
+          vpn_detected: false, // Could be implemented with real VPN detection
+          online_status: user.online_status || 'offline'
         })) || [];
         
         setUsers(enhancedUserData);
@@ -572,8 +571,8 @@ const ModeratorPanel: React.FC = () => {
                              )}
                            </div>
                          </TableCell>
-                         <TableCell>{user.display_name || user.username || 'N/A'}</TableCell>
-                         <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.display_name || user.username || 'No display name'}</TableCell>
+                          <TableCell>{'***@*****.***'}</TableCell>
                         <TableCell>
                           <Badge variant={
                             user.online_status === 'banned' ? 'destructive' :
