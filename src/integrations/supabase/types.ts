@@ -253,6 +253,42 @@ export type Database = {
           },
         ]
       }
+      user_warnings: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration: string
+          expires_at: string | null
+          id: string
+          issued_at: string
+          issued_by: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration?: string
+          expires_at?: string | null
+          id?: string
+          issued_at?: string
+          issued_by: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration?: string
+          expires_at?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -261,6 +297,17 @@ export type Database = {
       can_view_profile_for_search: {
         Args: { target_user_id: string }
         Returns: boolean
+      }
+      get_active_warnings: {
+        Args: { target_user_id: string }
+        Returns: {
+          duration: string
+          expires_at: string
+          id: string
+          issued_at: string
+          issued_by_name: string
+          reason: string
+        }[]
       }
       users_share_conversation: {
         Args: { user1_id: string; user2_id: string }
