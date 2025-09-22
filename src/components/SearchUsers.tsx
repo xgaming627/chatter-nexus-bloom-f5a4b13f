@@ -40,69 +40,24 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
         const { data: profiles, error } = await supabase
           .from('profiles')
           .select('user_id, username, display_name, photo_url')
-          .ilike('display_name', `%${searchQuery}%`)
+          .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
+          .not('username', 'is', null) // Only show users with usernames
           .limit(10);
 
         if (error) throw error;
 
         const users: SimpleUser[] = profiles?.map(profile => ({
           uid: profile.user_id,
-          displayName: profile.display_name || 'Unknown User',
+          displayName: profile.display_name || profile.username || 'User',
           username: profile.username || '',
-          email: `${profile.username}@example.com`, // Mock email
           photoURL: profile.photo_url || null
         })) || [];
         
         console.log("Supabase search results:", users);
-        
-        if (users.length === 0) {
-          // If no real users found, add mock users for testing
-          const mockUsers: SimpleUser[] = [
-            {
-              uid: "user_1",
-              displayName: "John Doe",
-              username: "johndoe",
-              photoURL: null,
-              email: "john@example.com",
-            },
-            {
-              uid: "user_2",
-              displayName: "Jane Smith",
-              username: "janesmith",
-              photoURL: null,
-              email: "jane@example.com",
-            },
-            {
-              uid: "user_3",
-              displayName: "Alice Johnson",
-              username: "alicej",
-              photoURL: null,
-              email: "alice@example.com",
-            }
-          ];
-          
-          const filteredMockUsers = mockUsers.filter(user => 
-            user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (user.username && user.username.toLowerCase().includes(searchQuery.toLowerCase()))
-          );
-          
-          setResults(filteredMockUsers);
-        } else {
-          setResults(users);
-        }
+        setResults(users);
       } catch (error) {
         console.error("Error searching users:", error);
-        // Add mock users as fallback
-        const mockUsers: SimpleUser[] = [
-          {
-            uid: "mock_1",
-            displayName: "Demo User",
-            username: "demo",
-            photoURL: null,
-            email: "demo@example.com",
-          }
-        ];
-        setResults(mockUsers);
+        setResults([]);
       } finally {
         setLoading(false);
       }
@@ -175,7 +130,7 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
                       <UserAvatar username={user.username || ''} photoURL={user.photoURL || undefined} size="sm" />
                       <div className="text-left">
                         <div className="font-medium">{user.displayName}</div>
-                        <div className="text-xs text-muted-foreground">@{user.username || user.displayName}</div>
+                        <div className="text-xs text-muted-foreground">@{user.username}</div>
                       </div>
                     </div>
                   </Button>

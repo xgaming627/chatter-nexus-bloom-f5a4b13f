@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User as ChatUser } from "@/context/ChatContext";
+import UsernameEditDialog from './UsernameEditDialog';
 import TermsOfService from './TermsOfService';
 
 interface ModerationItem {
@@ -101,14 +102,17 @@ const ModeratorPanel: React.FC = () => {
   const [warnDuration, setWarnDuration] = useState('24h');
   const [showAddModeratorDialog, setShowAddModeratorDialog] = useState(false);
   const [newModeratorEmail, setNewModeratorEmail] = useState('');
+  const [showEditUsernameDialog, setShowEditUsernameDialog] = useState(false);
+  const [userToEditUsername, setUserToEditUsername] = useState<User | null>(null);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const [deleteAccountReason, setDeleteAccountReason] = useState('');
 
-  const isModeratorUser = (user: { email?: string }) =>
-    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com";
+  const isModeratorUser = (user: { email?: string, display_name?: string }) =>
+    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com" ||
+    user.display_name === "vitorrossato812@gmail.com" || user.display_name === "lukasbraga77@gmail.com";
 
-  const isOwnerUser = (user: { email?: string }) =>
-    user.email === "vitorrossato812@gmail.com";
+  const isOwnerUser = (user: { email?: string, display_name?: string }) =>
+    user.email === "vitorrossato812@gmail.com" || user.display_name === "vitorrossato812@gmail.com";
 
   useEffect(() => {
     const checkModerator = async () => {
@@ -562,17 +566,22 @@ const ModeratorPanel: React.FC = () => {
                     {filteredUsers.map((user) => (
                       <TableRow key={user.user_id}>
                          <TableCell className="font-medium">
-                           <div className="flex items-center gap-2">
-                             {user.username || 'No username'}
-                             {user.vpn_detected && (
-                               <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
-                                 VPN
-                               </Badge>
-                             )}
-                           </div>
-                         </TableCell>
-                          <TableCell>{user.display_name || user.username || 'No display name'}</TableCell>
-                          <TableCell>{'***@*****.***'}</TableCell>
+                            <div className="flex items-center gap-2">
+                              {user.username || 'No username'}
+                              {user.vpn_detected && (
+                                <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
+                                  VPN
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                           <TableCell>{user.display_name || user.username || 'No display name'}</TableCell>
+                           <TableCell>
+                             {isModeratorUser(currentUser) 
+                               ? (user.display_name?.includes('@') ? user.display_name : 'Private')
+                               : '***@*****.***'
+                             }
+                           </TableCell>
                         <TableCell>
                           <Badge variant={
                             user.online_status === 'banned' ? 'destructive' :
@@ -591,33 +600,44 @@ const ModeratorPanel: React.FC = () => {
                             '0'
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => openWarnDialog(user)}
-                            >
-                              <AlertTriangle className="h-3 w-3" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => openBanDialog(user)}
-                            >
-                              <Ban className="h-3 w-3" />
-                            </Button>
-                            {isOwnerUser(currentUser) && (
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                onClick={() => openDeleteAccountDialog(user)}
-                              >
-                                Delete
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                         <TableCell>
+                           <div className="flex gap-2">
+                             <Button 
+                               size="sm" 
+                               variant="outline"
+                               onClick={() => {
+                                 setUserToEditUsername(user);
+                                 setShowEditUsernameDialog(true);
+                               }}
+                               title="Edit Username"
+                             >
+                               Edit
+                             </Button>
+                             <Button 
+                               size="sm" 
+                               variant="outline"
+                               onClick={() => openWarnDialog(user)}
+                             >
+                               <AlertTriangle className="h-3 w-3" />
+                             </Button>
+                             <Button 
+                               size="sm" 
+                               variant="destructive"
+                               onClick={() => openBanDialog(user)}
+                             >
+                               <Ban className="h-3 w-3" />
+                             </Button>
+                             {isOwnerUser(currentUser) && (
+                               <Button 
+                                 size="sm" 
+                                 variant="destructive"
+                                 onClick={() => openDeleteAccountDialog(user)}
+                               >
+                                 Delete
+                               </Button>
+                             )}
+                           </div>
+                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -805,6 +825,23 @@ const ModeratorPanel: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Username Edit Dialog */}
+      <UsernameEditDialog
+        user={userToEditUsername}
+        open={showEditUsernameDialog}
+        onOpenChange={setShowEditUsernameDialog}
+        onUserUpdated={(updatedUser) => {
+          setUsers(prevUsers => 
+            prevUsers.map(user => 
+              user.user_id === updatedUser.user_id 
+                ? { ...user, username: updatedUser.username }
+                : user
+            )
+          );
+          setUserToEditUsername(null);
+        }}
+      />
 
       {/* Delete Account Dialog */}
       <Dialog open={showDeleteAccountDialog} onOpenChange={setShowDeleteAccountDialog}>

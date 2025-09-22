@@ -113,6 +113,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (error) throw error;
+
+      // Track login session
+      try {
+        await supabase.functions.invoke('track-login', {
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          }
+        });
+      } catch (trackError) {
+        console.error('Failed to track login session:', trackError);
+        // Don't fail the login if tracking fails
+      }
     } catch (error: any) {
       toast({
         title: "Sign in failed",

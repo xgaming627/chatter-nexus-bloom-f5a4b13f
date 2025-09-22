@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,11 +28,10 @@ const UsernameSetupModal: React.FC = () => {
     const checkForUsername = async () => {
       if (!currentUser) return;
       
-      // Check if user has a proper username (not email-based and not temporary)
+      // Check if user has a proper username (not null and not email-based)
       const hasProperUsername = currentUser.username && 
-                                currentUser.username !== currentUser.email?.split('@')[0] &&
                                 currentUser.username.trim().length > 0 &&
-                                currentUser.username !== 'User';
+                                !currentUser.username.includes('@');
       
       if (hasProperUsername) {
         setHasUsername(true);
@@ -49,7 +47,7 @@ const UsernameSetupModal: React.FC = () => {
     };
     
     checkForUsername();
-  }, [currentUser?.username, currentUser?.email]); // More specific dependencies
+  }, [currentUser?.username, currentUser?.email]);
   
   const checkUsernameAvailability = async () => {
     if (!username || username.trim().length === 0) {
@@ -302,7 +300,7 @@ const UsernameSetupModal: React.FC = () => {
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
                 <h4 className="font-medium text-blue-800 dark:text-blue-300">Try it out!</h4>
                 <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                  Message the user "xgaming" to try out all features and complete the tutorial.
+                  Search for users by their username to start chatting!
                 </p>
               </div>
             </div>
