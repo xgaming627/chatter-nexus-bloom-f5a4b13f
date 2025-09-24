@@ -59,7 +59,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 username: profile?.username || undefined,
                 photoURL: profile?.photo_url || null,
               };
-              setCurrentUser(extendedUser);
+            console.log('User profile loaded:', {
+              username: extendedUser.username,
+              displayName: extendedUser.displayName,
+              hasUsername: !!extendedUser.username
+            });
+            
+            setCurrentUser(extendedUser);
             } catch (error) {
               console.error('Error fetching profile:', error);
               // Set minimal user data without profile info
@@ -75,16 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }, 0);
           
-          // Set user immediately with minimal data to prevent loading screen
-          const tempUser: ExtendedUser = {
-            id: session.user.id,
-            uid: session.user.id,
-            email: session.user.email || null,
-            displayName: 'User',
-            username: undefined,
-            photoURL: null,
-          };
-          setCurrentUser(tempUser);
+          // Don't set temporary user - wait for profile data to load completely
+          // This prevents the username modal from showing prematurely
         } else {
           setCurrentUser(null);
         }
@@ -212,7 +210,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setUsernameOnSignUp = async (username: string): Promise<boolean> => {
     try {
-      if (!currentUser) return false;
+      if (!currentUser) {
+        console.error('No current user when setting username');
+        return false;
+      }
+      
+      console.log('Setting username:', { username, userId: currentUser.uid });
       
       const { error } = await supabase
         .from('profiles')
@@ -222,17 +225,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
         .eq('user_id', currentUser.uid);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Database error setting username:', error);
+        throw error;
+      }
+      
+      console.log('Username set successfully in database');
       
       // Update local state
-      setCurrentUser(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          displayName: username,
-          username: username
-        };
-      });
+      const updatedUser = {
+        ...currentUser,
+        displayName: username,
+        username: username
+      };
+      
+      setCurrentUser(updatedUser);
       
       toast({
         title: "Username Set",
@@ -241,9 +248,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return true;
     } catch (error) {
+      console.error('Error in setUsernameOnSignUp:', error);
       toast({
         title: "Username Setup Failed",
-        description: "Could not set username",
+        description: error instanceof Error ? error.message : "Could not set username",
         variant: "destructive",
       });
       return false;

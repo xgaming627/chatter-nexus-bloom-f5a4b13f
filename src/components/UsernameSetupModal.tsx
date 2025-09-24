@@ -28,33 +28,34 @@ const UsernameSetupModal: React.FC = () => {
     const checkForUsername = async () => {
       if (!currentUser) return;
       
+      console.log('Username modal check:', {
+        username: currentUser.username,
+        displayName: currentUser.displayName,
+        uid: currentUser.uid,
+        email: currentUser.email
+      });
+      
       // More thorough check for proper username
       const hasProperUsername = currentUser.username && 
                                 currentUser.username.trim().length >= 3 &&
                                 !currentUser.username.includes('@') &&
                                 /^[a-zA-Z0-9_]+$/.test(currentUser.username);
       
-      console.log('Username check:', {
-        username: currentUser.username,
-        hasProperUsername,
-        displayName: currentUser.displayName
-      });
-      
       if (hasProperUsername) {
+        console.log('User has proper username, hiding modal');
         setHasUsername(true);
         setOpen(false);
       } else {
         console.log("No proper username found, showing modal");
-        // Add a small delay to prevent flickering
-        setTimeout(() => {
-          setHasUsername(false);
-          setOpen(true);
-        }, 200);
+        setHasUsername(false);
+        setOpen(true);
       }
     };
     
-    checkForUsername();
-  }, [currentUser?.username, currentUser?.displayName]);
+    // Add a delay to ensure profile data has loaded
+    const timer = setTimeout(checkForUsername, 1000);
+    return () => clearTimeout(timer);
+  }, [currentUser?.username, currentUser?.displayName, currentUser?.uid]);
   
   const checkUsernameAvailability = async () => {
     if (!username || username.trim().length === 0) {
