@@ -175,8 +175,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...conv,
               participantsInfo: participantsData.map(p => ({
                 uid: p.user_id,
-                username: p.username || 'User',
-                displayName: p.display_name || p.username || 'User',
+                username: p.username || `User${p.user_id?.slice(-4) || ''}`,
+                displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
                 photoURL: p.photo_url
               })),
               last_message: lastMessage ? {
@@ -321,6 +321,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error("Must be logged in to create conversations");
 
     try {
+      // Prevent self-conversation for 1-on-1 chats
+      if (!isGroup && participants.length === 1 && participants[0] === currentUser.uid) {
+        throw new Error("Cannot create conversation with yourself");
+      }
+
       if (!participants.includes(currentUser.uid)) {
         participants.push(currentUser.uid);
       }

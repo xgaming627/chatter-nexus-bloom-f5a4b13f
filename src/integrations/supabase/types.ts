@@ -342,6 +342,19 @@ export type Database = {
           reason: string
         }[]
       }
+      get_users_for_moderators: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          description: string
+          display_name: string
+          email: string
+          online_status: string
+          photo_url: string
+          user_id: string
+          username: string
+        }[]
+      }
       users_share_conversation: {
         Args: { user1_id: string; user2_id: string }
         Returns: boolean

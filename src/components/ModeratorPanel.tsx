@@ -133,17 +133,14 @@ const ModeratorPanel: React.FC = () => {
     
     const loadUsers = async () => {
       try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const { data: users, error } = await supabase.rpc('get_users_for_moderators');
 
         if (error) {
           console.error("Error loading users:", error);
           return;
         }
 
-        const enhancedUserData = profiles?.map((user) => ({
+        const enhancedUserData = users?.map((user) => ({
           ...user,
           warnings: 0, // This could be fetched from user_warnings table if needed
           ip_address: '***.***.***.**', // Hide IP for privacy
