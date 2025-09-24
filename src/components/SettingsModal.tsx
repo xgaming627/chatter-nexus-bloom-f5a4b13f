@@ -51,12 +51,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [dmSetting, setDmSetting] = useState<"open" | "closed">("open");
   const [showTutorial, setShowTutorial] = useState(false);
   const [displayName, setDisplayName] = useState('');
-  const [status, setStatus] = useState('offline');
+  const [status, setStatus] = useState<'online' | 'away' | 'offline'>('offline');
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.displayName || '');
-      setStatus(profile.onlineStatus || 'offline');
+      setStatus((profile.onlineStatus as 'online' | 'away' | 'offline') || 'offline');
     }
   }, [profile]);
   
@@ -132,10 +132,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <StatusSelector 
-                    value={status} 
-                    onValueChange={async (newStatus) => {
+                    currentStatus={status} 
+                    onStatusChange={(newStatus: 'online' | 'away' | 'offline') => {
                       setStatus(newStatus);
-                      await updateProfile({ onlineStatus: newStatus });
+                      updateProfile({ onlineStatus: newStatus });
                     }} 
                   />
                 </div>

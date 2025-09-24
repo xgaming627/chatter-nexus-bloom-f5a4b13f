@@ -665,7 +665,9 @@ const ChatWindow: React.FC = () => {
           {messages.length > 0 ? (
             messages.map((message) => {
               const isOwnMessage = message.senderId === currentUser?.uid;
-              const isModeratorMessage = isModerator && !isOwnMessage;
+              const senderProfile = (message as any).senderProfile || {};
+              const senderRoles = (message as any).senderRoles || [];
+              const isModeratorMessage = senderRoles.some((role: any) => role.role === 'moderator' || role.role === 'admin');
               const isSystemMessage = message.senderId === "system" || message.is_system_message;
               
               if (!isOwnMessage && !message.read && !isSystemMessage) {
@@ -688,44 +690,16 @@ const ChatWindow: React.FC = () => {
                   className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                 >
                   <div className="max-w-[80%] break-words">
-                    {!isOwnMessage && !isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
+                    {!isOwnMessage && (
                       <div className="flex items-center mb-1">
                         <UserAvatar 
-                          username={participantsInfo[0]?.username}
-                          photoURL={participantsInfo[0]?.photoURL}
+                          username={senderProfile?.username || "User"}
+                          photoURL={senderProfile?.photo_url}
                           size="sm"
                         />
                         <span className="text-xs font-medium ml-2 flex items-center">
-                          {participantsInfo[0]?.displayName || participantsInfo[0]?.username}
-                          {isModeratorUser(participantsInfo[0]?.uid || '') && (
-                            <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                              <Shield className="h-3 w-3" />
-                            </Badge>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {isGroup && !isOwnMessage && (
-                      <div className="flex items-center mb-1">
-                        <UserAvatar 
-                          username={
-                            currentConversation.participantsInfo?.find(
-                              user => user?.uid === message.senderId
-                            )?.username || "User"
-                          }
-                          photoURL={
-                            currentConversation.participantsInfo?.find(
-                              user => user?.uid === message.senderId
-                            )?.photoURL
-                          }
-                          size="sm"
-                        />
-                        <span className="text-xs font-medium ml-2 flex items-center">
-                          {currentConversation.participantsInfo?.find(
-                            user => user?.uid === message.senderId
-                          )?.displayName || "User"}
-                          {isModeratorUser(message.senderId) && (
+                          {senderProfile?.display_name || senderProfile?.username || "User"}
+                          {isModeratorMessage && (
                             <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                               <Shield className="h-3 w-3" />
                             </Badge>
@@ -784,10 +758,18 @@ const ChatWindow: React.FC = () => {
                           isOwnMessage 
                             ? "chat-bubble-sent" 
                             : isModeratorMessage 
-                              ? "chat-bubble-moderator bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
+                              ? "chat-bubble-moderator"
                               : "chat-bubble-received"
                         )}
                       >
+                        {/* Reply indicator */}
+                        {(message as any).reply_to_content && (
+                          <div className="reply-indicator mb-2 p-2 rounded bg-muted/50 border-l-2 border-primary/40">
+                            <div className="text-xs text-muted-foreground">Replying to:</div>
+                            <div className="text-sm text-muted-foreground italic">"{(message as any).reply_to_content}"</div>
+                          </div>
+                        )}
+                        
                         {message.deleted ? (
                           <em className="text-gray-500 dark:text-gray-400">
                             This message has been deleted by {message.deletedBy || "User"}

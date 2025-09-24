@@ -228,7 +228,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('messages')
         .select(`
           *,
-          profiles!sender_id(username, display_name, photo_url)
+          profiles!sender_id(username, display_name, photo_url, show_moderator_badge),
+          user_roles!sender_id(role)
         `)
         .eq('conversation_id', conversationId)
         .order('timestamp', { ascending: false })
@@ -236,11 +237,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Reverse to show oldest first
-      const messagesData = data.reverse().map(msg => new Message({
-        id: msg.id,
-        ...msg
-      }));
+      // Filter out messages hidden by current user
+      const hiddenMessages = JSON.parse(localStorage.getItem(`hiddenMessages_${currentUser?.uid}`) || '[]');
+
+      // Reverse to show oldest first and filter hidden messages
+      const messagesData = data
+        .reverse()
+        .filter(msg => !hiddenMessages.includes(msg.id))
+        .map(msg => new Message({
+          id: msg.id,
+          ...msg,
+          senderProfile: msg.profiles,
+          senderRoles: msg.user_roles || []
+        }));
       
       setMessages(messagesData);
     } catch (error) {
@@ -427,11 +436,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markAsRead = async (messageId: string) => {
+    if (!currentUser) return;
+
     try {
-      await supabase
+      const { error } = await supabase
         .from('messages')
         .update({ read: true })
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .neq('sender_id', currentUser.uid); // Don't mark own messages as read
+
+      if (error) throw error;
+
+      // Update local message state
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === messageId && msg.senderId !== currentUser.uid
+            ? new Message({ ...msg, read: true })
+            : msg
+        )
+      );
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
@@ -569,44 +592,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateOnlineStatus = async (status: 'online' | 'away' | 'offline') => {
     if (!currentUser) return;
 
-    const now = new Date();
-    
-    if (!onlineStatusLastUpdated || (now.getTime() - onlineStatusLastUpdated.getTime() > 10000)) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ online_status: status })
-          .eq('user_id', currentUser.uid);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ online_status: status })
+        .eq('user_id', currentUser.uid);
         
-        setOnlineStatusLastUpdated(now);
-        
-        if (onlineStatusTimeoutRef.current) {
-          clearTimeout(onlineStatusTimeoutRef.current);
-          onlineStatusTimeoutRef.current = null;
-        }
-      } catch (error) {
-        console.error('Error updating online status:', error);
-      }
-      return;
+      if (error) throw error;
+
+      console.log('Online status updated to:', status);
+    } catch (error) {
+      console.error('Error updating online status:', error);
     }
-    
-    if (onlineStatusTimeoutRef.current) {
-      return;
-    }
-    
-    onlineStatusTimeoutRef.current = setTimeout(async () => {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ online_status: status })
-          .eq('user_id', currentUser.uid);
-        
-        setOnlineStatusLastUpdated(new Date());
-        onlineStatusTimeoutRef.current = null;
-      } catch (error) {
-        console.error('Error updating online status:', error);
-      }
-    }, 10000);
   };
 
   const blockUser = async (userId: string, reason?: string) => {

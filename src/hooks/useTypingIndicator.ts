@@ -17,11 +17,17 @@ export const useTypingIndicator = (conversationId: string | null) => {
       .on('presence', { event: 'sync' }, () => {
         const presenceState = channel.presenceState();
         const users = Object.values(presenceState).flat().map((presence: any) => presence.username).filter(Boolean);
-        setTypingUsers(users.filter(user => user !== currentUser.username));
+        // Filter out current user's own typing
+        setTypingUsers(users.filter(user => user !== currentUser.username && user !== currentUser.displayName));
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
         const usernames = newPresences.map((presence: any) => presence.username).filter(Boolean);
-        setTypingUsers(prev => [...new Set([...prev, ...usernames.filter(user => user !== currentUser.username)])]);
+        // Filter out current user's own typing
+        setTypingUsers(prev => [...new Set([...prev, ...usernames.filter(user => 
+          user !== currentUser.username && 
+          user !== currentUser.displayName &&
+          user !== currentUser.uid
+        )])]);
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
         const usernames = leftPresences.map((presence: any) => presence.username).filter(Boolean);
