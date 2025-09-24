@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { Bell, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -8,14 +9,11 @@ import { toast } from '@/hooks/use-toast';
 const ModeratorNotifications: React.FC = () => {
   const { currentUser } = useAuth();
   const { supportSessions } = useLiveSupport();
+  const { isModerator } = useRole();
   const [lastNotificationTime, setLastNotificationTime] = useState<Date | null>(null);
-  
-  // Check if user is moderator
-  const isModerator = currentUser?.email === 'vitorrossato812@gmail.com' || 
-                     currentUser?.email === 'lukasbraga77@gmail.com';
 
   useEffect(() => {
-    if (!isModerator || !supportSessions) return;
+    if (!isModerator() || !supportSessions) return;
 
     // Find new active sessions that haven't been handled
     const newSessions = supportSessions.filter(session => 
@@ -36,7 +34,7 @@ const ModeratorNotifications: React.FC = () => {
     }
   }, [supportSessions, isModerator, lastNotificationTime]);
 
-  if (!isModerator) return null;
+  if (!isModerator()) return null;
 
   const unreadCount = supportSessions?.filter(session => 
     session.status === 'active' && !session.last_read_by_moderator

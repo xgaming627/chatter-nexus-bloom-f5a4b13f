@@ -48,7 +48,7 @@ serve(async (req) => {
 
     try {
       if (realIP !== 'Unknown' && !realIP.startsWith('127.') && !realIP.startsWith('192.168.')) {
-        const geoResponse = await fetch(`http://ip-api.com/json/${realIP}`);
+        const geoResponse = await fetch(`https://ip-api.com/json/${realIP}`);
         if (geoResponse.ok) {
           const geoData = await geoResponse.json();
           if (geoData.status === 'success') {

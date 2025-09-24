@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { Settings, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
@@ -28,16 +29,13 @@ import { format } from "date-fns";
 
 const Index = () => {
   const { currentUser } = useAuth();
+  const { isModerator } = useRole();
   const [showSettings, setShowSettings] = useState(false);
   const [showModeratorPanel, setShowModeratorPanel] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
-  
-  // Check if the user is the moderator
-  const isModerator = currentUser?.email === 'vitorrossato812@gmail.com' || 
-                        currentUser?.email === 'lukasbraga77@gmail.com';
 
   // Set dark mode preference
   useEffect(() => {

@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ import { useProfile } from "@/hooks/useProfile";
 
 const ProfileDropdown = () => {
   const { currentUser, logout } = useAuth();
+  const { isModerator } = useRole();
   const { theme, setTheme } = useTheme();
   const { profile, updateProfile } = useProfile();
   const [username, setUsername] = useState("");
@@ -77,8 +79,8 @@ const ProfileDropdown = () => {
   };
   
   const handleOpenModeratorPanel = () => {
-    // Check if user is a moderator
-    if (currentUser?.email === 'vitorrossato812@gmail.com') {
+    // Check if user is a moderator using role-based system
+    if (isModerator()) {
       setOpenModeratorPanel(true);
       // Redirect to mod panel
       window.location.href = '/?mod=true';
@@ -163,7 +165,7 @@ const ProfileDropdown = () => {
                 </button>
               </div>
             </DropdownMenuItem>
-            {currentUser?.email === 'vitorrossato812@gmail.com' && (
+            {isModerator() && (
               <DropdownMenuItem onClick={handleOpenModeratorPanel}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Moderator Panel</span>

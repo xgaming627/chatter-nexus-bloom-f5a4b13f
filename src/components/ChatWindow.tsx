@@ -108,21 +108,12 @@ const ChatWindow: React.FC = () => {
   }, [messages]);
 
   const isModeratorUser = (user: { email?: string; uid?: string }) => {
-    // Check by UID since we restricted email access
-    const moderatorUIDs = [
-      // Add known moderator UIDs here - this would need to be configured per deployment
-    ];
-    
-    // Fallback to email check for now
-    return user?.email === "vitorrossato812@gmail.com" || user?.email === "lukasbraga77@gmail.com";
+  // Use role-based system instead of hardcoded emails
+  return false; // Implement proper role checking if needed in this component
   };
 
   useEffect(() => {
-    if (currentUser?.email === 'vitorrossato812@gmail.com' || currentUser?.email === 'lukasbraga77@gmail.com') {
-      setIsModerator(true);
-    } else {
-      setIsModerator(false);
-    }
+    // Role checking moved to useRole hook - this will be handled by parent component
     
     if (document.visibilityState === 'visible') {
       updateOnlineStatus('online');

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,26 +108,23 @@ const ModeratorPanel: React.FC = () => {
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const [deleteAccountReason, setDeleteAccountReason] = useState('');
 
-  const isModeratorUser = (user: { email?: string, display_name?: string }) =>
-    user.email === "vitorrossato812@gmail.com" || user.email === "lukasbraga77@gmail.com" ||
-    user.display_name === "vitorrossato812@gmail.com" || user.display_name === "lukasbraga77@gmail.com";
-
-  const isOwnerUser = (user: { email?: string, display_name?: string }) =>
-    user.email === "vitorrossato812@gmail.com" || user.display_name === "vitorrossato812@gmail.com";
+  // Check if user is moderator or admin
+  const isModeratorCurrentUser = isModerator();
+  const isOwnerCurrentUser = isAdmin();
 
   useEffect(() => {
     const checkModerator = async () => {
       if (!currentUser) return;
       
-      if (isModeratorUser(currentUser)) {
-        setIsModerator(true);
-      } else {
-        setIsModerator(false);
+      setIsModerator(isModeratorCurrentUser);
+      
+      if (isModeratorCurrentUser) {
+        // Skip loading data for now - will be handled by individual tab components
       }
     };
-    
+
     checkModerator();
-  }, [currentUser]);
+  }, [currentUser, isModeratorCurrentUser]);
   
   useEffect(() => {
     if (!isModerator) return;
@@ -513,7 +511,7 @@ const ModeratorPanel: React.FC = () => {
           <h1 className="text-2xl font-bold">Moderator Panel</h1>
         </div>
         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          {isOwnerUser(currentUser) ? 'Owner' : 'Moderator'}
+          {isOwnerCurrentUser ? 'Owner' : 'Moderator'}
         </Badge>
       </div>
 
@@ -537,7 +535,7 @@ const ModeratorPanel: React.FC = () => {
                   value={searchUsername}
                   onChange={(e) => setSearchUsername(e.target.value)}
                 />
-                {isOwnerUser(currentUser) && (
+                {isOwnerCurrentUser && (
                   <Button 
                     variant="outline"
                     onClick={() => setShowAddModeratorDialog(true)}
@@ -574,10 +572,10 @@ const ModeratorPanel: React.FC = () => {
                           </TableCell>
                            <TableCell>{user.display_name || user.username || 'No display name'}</TableCell>
                            <TableCell>
-                             {isModeratorUser(currentUser) 
-                               ? (user.display_name?.includes('@') ? user.display_name : 'Private')
-                               : '***@*****.***'
-                             }
+                              {isModeratorCurrentUser 
+                                ? (user.display_name?.includes('@') ? user.display_name : 'Private')
+                                : '***@*****.***'
+                              }
                            </TableCell>
                         <TableCell>
                           <Badge variant={
@@ -624,7 +622,7 @@ const ModeratorPanel: React.FC = () => {
                              >
                                <Ban className="h-3 w-3" />
                              </Button>
-                             {isOwnerUser(currentUser) && (
+                             {isOwnerCurrentUser && (
                                <Button 
                                  size="sm" 
                                  variant="destructive"
