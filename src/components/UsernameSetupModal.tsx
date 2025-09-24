@@ -26,9 +26,12 @@ const UsernameSetupModal: React.FC = () => {
   
   useEffect(() => {
     const checkForUsername = async () => {
-      if (!currentUser) return;
+      if (!currentUser) {
+        console.log('No currentUser yet, waiting...');
+        return;
+      }
       
-      console.log('Username modal check:', {
+      console.log('Username modal - checking user:', {
         username: currentUser.username,
         displayName: currentUser.displayName,
         uid: currentUser.uid,
@@ -41,6 +44,13 @@ const UsernameSetupModal: React.FC = () => {
                                 !currentUser.username.includes('@') &&
                                 /^[a-zA-Z0-9_]+$/.test(currentUser.username);
       
+      console.log('Username validation result:', {
+        hasProperUsername,
+        actualUsername: currentUser.username,
+        usernameLength: currentUser.username?.length,
+        passesRegex: currentUser.username ? /^[a-zA-Z0-9_]+$/.test(currentUser.username) : false
+      });
+      
       if (hasProperUsername) {
         console.log('User has proper username, hiding modal');
         setHasUsername(true);
@@ -52,10 +62,10 @@ const UsernameSetupModal: React.FC = () => {
       }
     };
     
-    // Add a delay to ensure profile data has loaded
-    const timer = setTimeout(checkForUsername, 1000);
+    // Wait for profile data to load, then check
+    const timer = setTimeout(checkForUsername, 2000);
     return () => clearTimeout(timer);
-  }, [currentUser?.username, currentUser?.displayName, currentUser?.uid]);
+  }, [currentUser]);
   
   const checkUsernameAvailability = async () => {
     if (!username || username.trim().length === 0) {

@@ -44,11 +44,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Defer profile fetching to avoid blocking auth state
           setTimeout(async () => {
             try {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .single();
+            console.log('Starting profile fetch for user:', session.user.id);
+            
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+
+            console.log('Profile fetch result:', { 
+              profile, 
+              error,
+              hasProfile: !!profile,
+              username: profile?.username 
+            });
 
               // Don't use email as fallback to prevent email leakage
               const extendedUser: ExtendedUser = {
@@ -59,13 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 username: profile?.username || undefined,
                 photoURL: profile?.photo_url || null,
               };
-            console.log('User profile loaded:', {
-              username: extendedUser.username,
-              displayName: extendedUser.displayName,
-              hasUsername: !!extendedUser.username
-            });
-            
-            setCurrentUser(extendedUser);
+              console.log('Final extended user object:', {
+                username: extendedUser.username,
+                displayName: extendedUser.displayName,
+                hasUsername: !!extendedUser.username,
+                userId: extendedUser.uid
+              });
+              
+              setCurrentUser(extendedUser);
             } catch (error) {
               console.error('Error fetching profile:', error);
               // Set minimal user data without profile info
@@ -83,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Don't set temporary user - wait for profile data to load completely
           // This prevents the username modal from showing prematurely
+          console.log('Skipping temporary user creation to avoid modal issues');
         } else {
           setCurrentUser(null);
         }
