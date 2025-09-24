@@ -128,7 +128,7 @@ const ModeratorPanel: React.FC = () => {
   }, [currentUser, isModeratorCurrentUser]);
   
   useEffect(() => {
-    if (!isModerator) return;
+    if (!isModerator || !isModeratorCurrentUser) return;
     
     const loadUsers = async () => {
       try {
@@ -155,7 +155,7 @@ const ModeratorPanel: React.FC = () => {
     };
     
     loadUsers();
-  }, [isModerator]);
+  }, [isModerator, isModeratorCurrentUser]);
   
   useEffect(() => {
     if (searchUsername.trim() === '') {

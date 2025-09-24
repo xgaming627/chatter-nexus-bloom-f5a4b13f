@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SupportMessage {
@@ -69,6 +70,7 @@ export const useLiveSupport = () => {
 
 export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  const { isModerator: checkIsModerator } = useRole();
   const { toast } = useToast();
   const [supportSessions, setSupportSessions] = useState<SupportSession[]>([]);
   const [currentSupportSession, setCurrentSupportSession] = useState<SupportSession | null>(null);
@@ -80,18 +82,8 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     if (!currentUser) return;
     
-    // Check if user is a moderator
-    const checkModerator = async () => {
-      try {
-        // Try to call moderator function - if it succeeds, user is a moderator
-        const { error } = await supabase.rpc('get_users_for_moderators');
-        setIsModerator(!error);
-      } catch (error) {
-        setIsModerator(false);
-      }
-    };
-    
-    checkModerator();
+    // Set moderator status from useRole hook
+    setIsModerator(checkIsModerator);
     
     // Set up real-time subscriptions
     const sessionsChannel = supabase

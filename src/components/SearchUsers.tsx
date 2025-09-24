@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
+import { useAuth } from '@/context/AuthContext';
 import UserAvatar from './UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,6 +23,7 @@ interface SearchUsersProps {
 
 const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
   const { createConversation, setCurrentConversationId } = useChat();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SimpleUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,7 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
           .from('profiles')
           .select('user_id, username, display_name, photo_url')
           .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
-          .not('username', 'is', null) // Only show users with usernames
+          .not('user_id', 'eq', currentUser?.uid) // Exclude current user from results
           .limit(10);
 
         if (error) throw error;
