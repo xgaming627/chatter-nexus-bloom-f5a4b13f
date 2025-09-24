@@ -113,7 +113,7 @@ const ProfileDropdown = () => {
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium">{profile.displayName}</p>
-              <p className="text-xs text-muted-foreground">@{profile.username}</p>
+              <p className="text-xs text-muted-foreground">{currentUser?.email}</p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
