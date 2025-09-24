@@ -182,14 +182,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return new Conversation({
               id: conv.id,
               ...conv,
-              participantsInfo: participantsData.map(p => ({
-                uid: p.user_id,
-                username: p.username || `User${p.user_id?.slice(-4) || ''}`,
-                displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
-                photoURL: p.photo_url,
-                description: p.description,
-                onlineStatus: p.online_status || 'offline'
-              })),
+              participantsInfo: participantsData
+                .filter(p => p.user_id !== currentUser.uid) // Filter out current user for proper display
+                .map(p => ({
+                  uid: p.user_id,
+                  username: p.username || `User${p.user_id?.slice(-4) || ''}`,
+                  displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
+                  photoURL: p.photo_url,
+                  description: p.description,
+                  onlineStatus: p.online_status || 'offline'
+                })),
               last_message: lastMessage ? {
                 content: lastMessage.content,
                 timestamp: lastMessage.timestamp,
