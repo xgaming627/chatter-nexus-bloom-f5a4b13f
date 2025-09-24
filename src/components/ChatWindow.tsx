@@ -47,6 +47,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import TypingIndicator from './TypingIndicator';
 import WarnUserDialogWrapper from './WarnUserDialogWrapper';
 
@@ -97,6 +98,10 @@ const ChatWindow: React.FC = () => {
   const [newGroupName, setNewGroupName] = useState('');
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
   const [deleteMode, setDeleteMode] = useState<'me' | 'all'>('all');
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  
+  // Typing indicator hook
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentConversation?.id || null);
   
   const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
   const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
@@ -763,9 +768,14 @@ const ChatWindow: React.FC = () => {
                             </DropdownMenuItem>
                           )}
                           {!isOwnMessage && (
-                            <DropdownMenuItem onClick={() => handleReportMessage(message)}>
-                              <Shield className="h-4 w-4 mr-2" /> Report message
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem onClick={() => handleReportMessage(message)}>
+                                <Shield className="h-4 w-4 mr-2" /> Report message
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setReplyToMessage(message)}>
+                                <MessageSquare className="h-4 w-4 mr-2" /> Reply
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>

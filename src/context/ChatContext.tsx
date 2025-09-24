@@ -11,7 +11,7 @@ interface ChatContextType {
   conversations: Conversation[];
   currentConversation: Conversation | null;
   messages: Message[];
-  sendMessage: (content: string, conversationId: string) => Promise<void>;
+  sendMessage: (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
   createConversation: (participants: string[], isGroup?: boolean, groupName?: string) => Promise<string>;
   createGroupChat: (groupName: string, participants: string[]) => Promise<string>;
@@ -19,6 +19,8 @@ interface ChatContextType {
   uploadFile: (file: File, conversationId: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
   reportMessage: (messageId: string, reason: string) => Promise<void>;
+  getReportedMessages: () => Promise<any[]>;
+  markReportAsReviewed: (reportId: string) => Promise<void>;
   startVideoCall: (conversationId: string) => void;
   startVoiceCall: (conversationId: string) => void;
   endCall: () => void;
@@ -273,7 +275,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const sendMessage = async (content: string, conversationId: string) => {
+  const sendMessage = async (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string) => {
     if (!currentUser || !content.trim()) return;
     
     if (isRateLimited) {
@@ -295,30 +297,35 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      const messageData: any = {
+        conversation_id: conversationId,
+        sender_id: currentUser.uid,
+        content: content.trim(),
+      };
+
+      // Add reply data if this is a reply
+      if (replyToMessageId && replyToContent) {
+        messageData.reply_to_message_id = replyToMessageId;
+        messageData.reply_to_content = replyToContent.substring(0, 100); // Limit reply preview
+      }
+
       const { error } = await supabase
         .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: currentUser.uid,
-          content: content.trim(),
-        });
+        .insert(messageData);
 
       if (error) throw error;
 
-      // Update conversation's updated_at timestamp and refresh conversations
+      // Update conversation timestamp
       await supabase
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
-      // Refresh conversations to update the chat list immediately
-      setTimeout(() => refreshConversations(), 100);
-      
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
-        title: "Error sending message",
-        description: "Please try again later",
+        title: "Failed to send message",
+        description: "Please try again",
         variant: "destructive"
       });
     }
@@ -431,18 +438,80 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const reportMessage = async (messageId: string, reason: string) => {
+    if (!currentUser) return;
+
     try {
-      await supabase
-        .from('messages')
-        .update({ 
-          reported: true,
-          flagged_for_moderation: true 
-        })
-        .eq('id', messageId);
+      const { error } = await supabase
+        .from('reported_messages')
+        .insert({
+          message_id: messageId,
+          reported_by: currentUser.uid,
+          reason: reason
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Message reported",
+        description: "Thank you for reporting this message. Moderators will review it.",
+      });
     } catch (error) {
       console.error('Error reporting message:', error);
       toast({
         title: "Error reporting message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getReportedMessages = async () => {
+    if (!currentUser) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('reported_messages')
+        .select(`
+          *,
+          messages!inner(
+            id, content, timestamp, sender_id,
+            profiles!sender_id(username, display_name)
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching reported messages:', error);
+      return [];
+    }
+  };
+
+  const markReportAsReviewed = async (reportId: string) => {
+    if (!currentUser) return;
+
+    try {
+      const { error } = await supabase
+        .from('reported_messages')
+        .update({
+          status: 'reviewed',
+          reviewed_by: currentUser.uid,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Report reviewed",
+        description: "The report has been marked as reviewed",
+      });
+    } catch (error) {
+      console.error('Error marking report as reviewed:', error);
+      toast({
+        title: "Error updating report",
         description: "Please try again later",
         variant: "destructive"
       });
@@ -891,6 +960,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     uploadFile,
     markAsRead,
     reportMessage,
+    getReportedMessages,
+    markReportAsReviewed,
     startVideoCall,
     startVoiceCall,
     endCall,

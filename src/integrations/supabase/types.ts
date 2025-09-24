@@ -18,30 +18,36 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          created_by_role: string | null
           group_name: string | null
           group_photo_url: string | null
           id: string
           is_group_chat: boolean
+          max_participants: number | null
           participants: string[]
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
+          created_by_role?: string | null
           group_name?: string | null
           group_photo_url?: string | null
           id?: string
           is_group_chat?: boolean
+          max_participants?: number | null
           participants: string[]
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
+          created_by_role?: string | null
           group_name?: string | null
           group_photo_url?: string | null
           id?: string
           is_group_chat?: boolean
+          max_participants?: number | null
           participants?: string[]
           updated_at?: string
         }
@@ -102,6 +108,8 @@ export type Database = {
           id: string
           is_system_message: boolean
           read: boolean
+          reply_to_content: string | null
+          reply_to_message_id: string | null
           reported: boolean
           sender_id: string
           timestamp: string
@@ -119,6 +127,8 @@ export type Database = {
           id?: string
           is_system_message?: boolean
           read?: boolean
+          reply_to_content?: string | null
+          reply_to_message_id?: string | null
           reported?: boolean
           sender_id: string
           timestamp?: string
@@ -136,6 +146,8 @@ export type Database = {
           id?: string
           is_system_message?: boolean
           read?: boolean
+          reply_to_content?: string | null
+          reply_to_message_id?: string | null
           reported?: boolean
           sender_id?: string
           timestamp?: string
@@ -172,6 +184,7 @@ export type Database = {
           id: string
           online_status: string | null
           photo_url: string | null
+          show_moderator_badge: boolean | null
           updated_at: string
           user_id: string
           username: string | null
@@ -183,6 +196,7 @@ export type Database = {
           id?: string
           online_status?: string | null
           photo_url?: string | null
+          show_moderator_badge?: boolean | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -194,9 +208,43 @@ export type Database = {
           id?: string
           online_status?: string | null
           photo_url?: string | null
+          show_moderator_badge?: boolean | null
           updated_at?: string
           user_id?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      reported_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          reason: string
+          reported_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          reason: string
+          reported_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          reason?: string
+          reported_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -285,6 +333,27 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      typing_indicators: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
