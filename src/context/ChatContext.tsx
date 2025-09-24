@@ -31,6 +31,7 @@ interface ChatContextType {
   hasNewMessages: boolean;
   getBlockedUsers: () => Promise<any[]>;
   deleteMessage: (messageId: string, deletedBy: string) => Promise<void>;
+  markMessageAsDeletedForUser: (messageId: string, userId: string) => Promise<void>;
   storeChat: (conversationId: string) => Promise<void>;
   unstoreChat: (conversationId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<ExtendedUser[]>;
@@ -601,6 +602,32 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve([]);
   };
 
+  const markMessageAsDeletedForUser = async (messageId: string, userId: string) => {
+    // For now, we'll use localStorage to track user-specific deletions
+    try {
+      const hiddenMessages = JSON.parse(localStorage.getItem(`hiddenMessages_${userId}`) || '[]');
+      hiddenMessages.push(messageId);
+      localStorage.setItem(`hiddenMessages_${userId}`, JSON.stringify(hiddenMessages));
+      
+      // Update local state by filtering out the message for this user
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== messageId)
+      );
+
+      toast({
+        title: "Message hidden",
+        description: "Message hidden for you only",
+      });
+    } catch (error) {
+      console.error('Error hiding message:', error);
+      toast({
+        title: "Error hiding message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
   const deleteMessage = async (messageId: string, deletedBy: string) => {
     try {
       // Use hard delete for proper removal
@@ -876,6 +903,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     hasNewMessages,
     getBlockedUsers,
     deleteMessage,
+    markMessageAsDeletedForUser,
     storeChat,
     unstoreChat,
     searchUsers,

@@ -75,7 +75,8 @@ const ChatWindow: React.FC = () => {
     leaveChat,
     addMemberToChat,
     removeMemberFromChat,
-    isRateLimited
+    isRateLimited,
+    markMessageAsDeletedForUser,
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
@@ -95,6 +96,7 @@ const ChatWindow: React.FC = () => {
   const [showGroupSettingsDialog, setShowGroupSettingsDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'me' | 'all'>('all');
   
   const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
   const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
@@ -308,10 +310,31 @@ const ChatWindow: React.FC = () => {
     setConfirmDeleteMessage(message);
   };
 
+  const handleDeleteMessageForMe = (message: Message) => {
+    setDeleteMode('me');
+    setConfirmDeleteMessage(message);
+  };
+
+  const handleDeleteMessageForAll = (message: Message) => {
+    setDeleteMode('all');
+    setConfirmDeleteMessage(message);
+  };
+
   const confirmDelete = async () => {
     if (confirmDeleteMessage && currentUser) {
-      await deleteMessage(confirmDeleteMessage.id, currentUser.uid);
+      if (deleteMode === 'me') {
+        // Soft delete - just hide for current user
+        await markMessageAsDeletedForUser(confirmDeleteMessage.id, currentUser.uid);
+        toast({
+          title: "Message hidden",
+          description: "Message hidden for you only",
+        });
+      } else {
+        // Hard delete - remove for everyone
+        await deleteMessage(confirmDeleteMessage.id, currentUser.uid);
+      }
       setConfirmDeleteMessage(null);
+      setDeleteMode('all');
     }
   };
 
@@ -725,8 +748,18 @@ const ChatWindow: React.FC = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align={isOwnMessage ? "end" : "start"} className="dropdown-menu">
                           {isOwnMessage && (
-                            <DropdownMenuItem onClick={() => handleDeleteMessage(message)}>
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete message
+                            <>
+                              <DropdownMenuItem onClick={() => handleDeleteMessageForMe(message)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete for me
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete for everyone
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {!isOwnMessage && isModerator && (
+                            <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
+                              <Shield className="h-4 w-4 mr-2" /> Delete (Moderator)
                             </DropdownMenuItem>
                           )}
                           {!isOwnMessage && (
@@ -1127,21 +1160,26 @@ const ChatWindow: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!confirmDeleteMessage} onOpenChange={(open) => !open && setConfirmDeleteMessage(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Message</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this message? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <Dialog open={!!confirmDeleteMessage} onOpenChange={(open) => !open && setConfirmDeleteMessage(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Message</DialogTitle>
+              <DialogDescription>
+                {deleteMode === 'me' 
+                  ? "Are you sure you want to hide this message for yourself only? Other users will still see it."
+                  : "Are you sure you want to delete this message for everyone? This action cannot be undone."
+                }
+              </DialogDescription>
+            </DialogHeader>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDeleteMessage(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                {deleteMode === 'me' ? 'Hide for me' : 'Delete for everyone'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       
       <Dialog open={showDeleteChatDialog} onOpenChange={setShowDeleteChatDialog}>
         <DialogContent>
