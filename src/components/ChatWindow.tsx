@@ -50,9 +50,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import TypingIndicator from './TypingIndicator';
 import WarnUserDialogWrapper from './WarnUserDialogWrapper';
+import { useRole } from '@/hooks/useRole';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isModerator } = useRole();
   const { 
     currentConversation, 
     messages, 
@@ -89,7 +91,6 @@ const ChatWindow: React.FC = () => {
   const [profileDescription, setProfileDescription] = useState('');
   const [onlineStatus, setOnlineStatus] = useState<'online' | 'away' | 'offline'>('online');
   const [showBlockDialog, setShowBlockDialog] = useState(false);
-  const [isModerator, setIsModerator] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showUserInfoDialog, setShowUserInfoDialog] = useState(false);
   const [profileTab, setProfileTab] = useState("info");
@@ -114,9 +115,10 @@ const ChatWindow: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const isModeratorUser = (user: { email?: string; uid?: string }) => {
-  // Use role-based system instead of hardcoded emails
-  return false; // Implement proper role checking if needed in this component
+  const isModeratorUser = (userId: string) => {
+    // This would be replaced with proper role checking from database
+    // For now, return false since we're using the useRole hook instead
+    return false;
   };
 
   useEffect(() => {
@@ -232,8 +234,15 @@ const ChatWindow: React.FC = () => {
     
     if (newMessage.trim() && currentConversation) {
       console.log("Sending message to conversation:", currentConversation.id);
-      sendMessage(newMessage, currentConversation.id);
+      // Include reply information if replying
+      sendMessage(
+        newMessage, 
+        currentConversation.id, 
+        replyToMessage?.id, 
+        replyToMessage?.content
+      );
       setNewMessage('');
+      setReplyToMessage(null); // Clear reply after sending
     }
   };
   
@@ -241,7 +250,12 @@ const ChatWindow: React.FC = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage(e);
+    } else if (e.key === 'Escape' && replyToMessage) {
+      setReplyToMessage(null);
     }
+    
+    // Start typing indicator
+    startTyping();
   };
   
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,7 +518,7 @@ const ChatWindow: React.FC = () => {
     : (participantsInfo.length > 0 && participantsInfo[0] ? participantsInfo[0]?.displayName : 'Chat');
   
   const otherUserIsModerator = !isGroup && 
-    participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]);
+    participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || '');
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -534,11 +548,11 @@ const ChatWindow: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     @{participantsInfo[0]?.username || "User"}
                   </p>
-                  {otherUserIsModerator && (
-                    <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                      <Shield className="h-3 w-3 mr-1" /> Moderator
-                    </Badge>
-                  )}
+                   {isModeratorUser(participantsInfo[0]?.uid || '') && (
+                     <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                       <Shield className="h-3 w-3 mr-1" /> Moderator
+                     </Badge>
+                   )}
                   <span className={`h-2 w-2 rounded-full ${
                     participantsInfo[0]?.onlineStatus === 'online'
                       ? 'bg-green-500'
@@ -677,28 +691,16 @@ const ChatWindow: React.FC = () => {
                     {!isOwnMessage && !isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
                       <div className="flex items-center mb-1">
                         <UserAvatar 
-                          username={
-                            isModeratorUser(participantsInfo[0]) 
-                              ? "Moderator"
-                              : participantsInfo[0]?.username
-                          }
-                          photoURL={
-                            isModeratorUser(participantsInfo[0]) 
-                              ? undefined
-                              : participantsInfo[0]?.photoURL
-                          }
+                          username={participantsInfo[0]?.username}
+                          photoURL={participantsInfo[0]?.photoURL}
                           size="sm"
                         />
                         <span className="text-xs font-medium ml-2 flex items-center">
-                          {isModeratorUser(participantsInfo[0]) ? (
-                            <>
-                              <span>Moderator</span>
-                              <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                                <Shield className="h-3 w-3" />
-                              </Badge>
-                            </>
-                          ) : (
-                            participantsInfo[0]?.displayName
+                          {participantsInfo[0]?.displayName || participantsInfo[0]?.username}
+                          {isModeratorUser(participantsInfo[0]?.uid || '') && (
+                            <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                              <Shield className="h-3 w-3" />
+                            </Badge>
                           )}
                         </span>
                       </div>
@@ -719,26 +721,19 @@ const ChatWindow: React.FC = () => {
                           }
                           size="sm"
                         />
-                        <span className="text-xs font-medium ml-2">
-                          {currentConversation.participantsInfo && isModeratorUser({email: 
-                            currentConversation.participantsInfo.find(
-                              user => user?.uid === message.senderId
-                            )?.email || ""
-                          }) ? (
-                            <div className="flex items-center">
-                              <span>Moderator</span>
-                              <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                                <Shield className="h-3 w-3" />
-                              </Badge>
-                            </div>
-                          ) : (
-                            currentConversation.participantsInfo?.find(
-                              user => user?.uid === message.senderId
-                            )?.displayName || "User"
+                        <span className="text-xs font-medium ml-2 flex items-center">
+                          {currentConversation.participantsInfo?.find(
+                            user => user?.uid === message.senderId
+                          )?.displayName || "User"}
+                          {isModeratorUser(message.senderId) && (
+                            <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                              <Shield className="h-3 w-3" />
+                            </Badge>
                           )}
                         </span>
                       </div>
                     )}
+                    
                     
                     <div className="flex items-end gap-2">
                       <DropdownMenu>
@@ -752,31 +747,34 @@ const ChatWindow: React.FC = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align={isOwnMessage ? "end" : "start"} className="dropdown-menu">
-                          {isOwnMessage && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleDeleteMessageForMe(message)}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete for me
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete for everyone
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {!isOwnMessage && isModerator && (
-                            <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
-                              <Shield className="h-4 w-4 mr-2" /> Delete (Moderator)
+                        {isOwnMessage && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleDeleteMessageForMe(message)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete for me
                             </DropdownMenuItem>
-                          )}
-                          {!isOwnMessage && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleReportMessage(message)}>
-                                <Shield className="h-4 w-4 mr-2" /> Report message
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setReplyToMessage(message)}>
-                                <MessageSquare className="h-4 w-4 mr-2" /> Reply
-                              </DropdownMenuItem>
-                            </>
-                          )}
+                            <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete for everyone
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setReplyToMessage(message)}>
+                              <MessageSquare className="h-4 w-4 mr-2" /> Reply to this
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {!isOwnMessage && isModerator() && (
+                          <DropdownMenuItem onClick={() => handleDeleteMessageForAll(message)}>
+                            <Shield className="h-4 w-4 mr-2" /> Delete (Moderator)
+                          </DropdownMenuItem>
+                        )}
+                        {!isOwnMessage && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleReportMessage(message)}>
+                              <Shield className="h-4 w-4 mr-2" /> Report message
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setReplyToMessage(message)}>
+                              <MessageSquare className="h-4 w-4 mr-2" /> Reply
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                       
@@ -851,12 +849,36 @@ const ChatWindow: React.FC = () => {
       )}
       
       <div className="p-4 border-t">
-        <TypingIndicator users={[]} />
+        <TypingIndicator users={typingUsers} />
         
         {isRateLimited && (
           <div className="mb-2 py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-md flex items-center">
             <AlertTriangle className="h-4 w-4 mr-2" />
             You're sending messages too quickly. Please wait 2 seconds between messages.
+          </div>
+        )}
+        
+        {replyToMessage && (
+          <div className="mb-2 p-3 bg-muted rounded-md border-l-4 border-primary">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Replying to message
+                </p>
+                <p className="text-sm truncate">
+                  {replyToMessage.content}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setReplyToMessage(null)}
+                className="h-6 w-6"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
         
@@ -886,8 +908,12 @@ const ChatWindow: React.FC = () => {
               "Type a message..."
             }
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              startTyping();
+            }}
             onKeyDown={handleKeyDown}
+            onBlur={stopTyping}
             className="flex-1 min-h-0 search-input bg-background text-foreground"
             rows={1}
             disabled={isBlocked || isRateLimited}
