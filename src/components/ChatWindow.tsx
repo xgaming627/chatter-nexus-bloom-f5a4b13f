@@ -309,13 +309,9 @@ const ChatWindow: React.FC = () => {
   };
 
   const confirmDelete = async () => {
-    if (confirmDeleteMessage) {
-      await deleteMessage(confirmDeleteMessage.id, currentUser?.displayName || currentUser?.username || "User");
+    if (confirmDeleteMessage && currentUser) {
+      await deleteMessage(confirmDeleteMessage.id, currentUser.uid);
       setConfirmDeleteMessage(null);
-      toast({
-        title: "Message deleted",
-        description: "Your message has been deleted",
-      });
     }
   };
 

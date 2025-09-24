@@ -540,19 +540,61 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const blockUser = async (userId: string, reason?: string) => {
-    toast({
-      title: "User blocked",
-      description: "User blocking feature is not fully implemented",
-    });
-    return Promise.resolve();
+    if (!currentUser) return;
+    
+    try {
+      // Insert a blocking record (you would need a user_blocks table)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          description: `${reason ? `Blocked: ${reason}` : 'Blocked by user'}` 
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "User blocked",
+        description: "User has been blocked successfully",
+      });
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      toast({
+        title: "Error blocking user",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
   const unblockUser = async (userId: string) => {
-    toast({
-      title: "User unblocked",
-      description: "User unblocking feature is not fully implemented",
-    });
-    return Promise.resolve();
+    if (!currentUser) return;
+    
+    try {
+      // Remove blocking record
+      const { error } = await supabase
+        .from('profiles')
+        .update({ description: null })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "User unblocked",
+        description: "User has been unblocked successfully",
+      });
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      toast({
+        title: "Error unblocking user", 
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
   const getBlockedUsers = async () => {
@@ -561,13 +603,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteMessage = async (messageId: string, deletedBy: string) => {
     try {
-      await supabase
+      // Use hard delete for proper removal
+      const { error } = await supabase
         .from('messages')
-        .update({ 
-          deleted: true,
-          deleted_by: deletedBy 
-        })
+        .delete()
         .eq('id', messageId);
+
+      if (error) throw error;
+
+      // Update local state to remove message immediately
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== messageId)
+      );
+
+      toast({
+        title: "Message deleted",
+        description: "The message has been deleted",
+      });
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -627,10 +679,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteChat = async (conversationId: string) => {
     try {
+      // Delete all messages in the conversation first
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      // Then delete the conversation
       await supabase
         .from('conversations')
         .delete()
         .eq('id', conversationId);
+
+      // Update local state
+      setConversations(prevConversations => 
+        prevConversations.filter(conv => conv.id !== conversationId)
+      );
+
+      // Clear current conversation if it's the one being deleted
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(null);
+        setMessages([]);
+      }
 
       toast({
         title: "Chat deleted",
