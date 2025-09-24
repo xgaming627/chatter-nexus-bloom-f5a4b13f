@@ -82,6 +82,7 @@ interface SupportSession {
 
 const ModeratorPanel: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isModerator: checkIsModerator, isAdmin: checkIsAdmin } = useRole();
   const { setCurrentConversationId } = useChat();
   const [isModerator, setIsModerator] = useState(false);
   const [moderationItems, setModerationItems] = useState<ModerationItem[]>([]);
@@ -109,8 +110,8 @@ const ModeratorPanel: React.FC = () => {
   const [deleteAccountReason, setDeleteAccountReason] = useState('');
 
   // Check if user is moderator or admin
-  const isModeratorCurrentUser = isModerator();
-  const isOwnerCurrentUser = isAdmin();
+  const isModeratorCurrentUser = checkIsModerator();
+  const isOwnerCurrentUser = checkIsAdmin();
 
   useEffect(() => {
     const checkModerator = async () => {
