@@ -363,6 +363,55 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
+      // Process @ mentions
+      const mentionRegex = /@(\w+)/g;
+      const mentions = Array.from(content.matchAll(mentionRegex));
+      
+      if (mentions.length > 0) {
+        // Get conversation participants to check if mentioned users are in the chat
+        const { data: conversation } = await supabase
+          .from('conversations')
+          .select('participants')
+          .eq('id', conversationId)
+          .single();
+        
+        if (conversation) {
+          // Get profiles of participants to match usernames
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, username, display_name')
+            .in('user_id', conversation.participants);
+          
+          if (profiles) {
+            for (const mention of mentions) {
+              const mentionedUsername = mention[1];
+              const mentionedUser = profiles.find(p => 
+                p.username?.toLowerCase() === mentionedUsername.toLowerCase()
+              );
+              
+              if (mentionedUser && mentionedUser.user_id !== currentUser.uid) {
+                // Get current user profile for sender name
+                const { data: senderProfile } = await supabase
+                  .from('profiles')
+                  .select('display_name, username')
+                  .eq('user_id', currentUser.uid)
+                  .single();
+                
+                const senderName = senderProfile?.display_name || senderProfile?.username || 'Someone';
+                
+                // Send mention notification
+                await supabase.rpc('send_mention_notification', {
+                  target_user_id: mentionedUser.user_id,
+                  sender_name: senderName,
+                  message_content: content.trim(),
+                  conversation_id: conversationId
+                });
+              }
+            }
+          }
+        }
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
