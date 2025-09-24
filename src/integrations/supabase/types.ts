@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      banners: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          message: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          message: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          message?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
@@ -176,11 +209,51 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          is_sound_enabled: boolean
+          message: string
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          is_sound_enabled?: boolean
+          message: string
+          metadata?: Json | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          is_sound_enabled?: boolean
+          message?: string
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           description: string | null
           display_name: string | null
+          do_not_disturb: boolean | null
           id: string
           online_status: string | null
           photo_url: string | null
@@ -193,6 +266,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_name?: string | null
+          do_not_disturb?: boolean | null
           id?: string
           online_status?: string | null
           photo_url?: string | null
@@ -205,6 +279,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_name?: string | null
+          do_not_disturb?: boolean | null
           id?: string
           online_status?: string | null
           photo_url?: string | null
@@ -458,6 +533,15 @@ export type Database = {
       is_moderator: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      send_mention_notification: {
+        Args: {
+          conversation_id: string
+          message_content: string
+          sender_name: string
+          target_user_id: string
+        }
+        Returns: undefined
       }
       users_share_conversation: {
         Args: { user1_id: string; user2_id: string }

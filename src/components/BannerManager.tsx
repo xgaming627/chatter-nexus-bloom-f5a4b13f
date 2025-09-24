@@ -41,12 +41,12 @@ const BannerManager: React.FC = () => {
   const fetchBanners = async () => {
     try {
       const { data, error } = await supabase
-        .from('banners')
+        .from('banners' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setBanners(data || []);
+      setBanners(data as unknown as Banner[] || []);
     } catch (error) {
       console.error('Error fetching banners:', error);
       toast({
@@ -65,7 +65,7 @@ const BannerManager: React.FC = () => {
       };
 
       const { error } = await supabase
-        .from('banners')
+        .from('banners' as any)
         .insert([bannerData]);
 
       if (error) throw error;
@@ -97,7 +97,7 @@ const BannerManager: React.FC = () => {
   const toggleBanner = async (id: string, isActive: boolean) => {
     try {
       const { error } = await supabase
-        .from('banners')
+        .from('banners' as any)
         .update({ is_active: !isActive })
         .eq('id', id);
 
@@ -122,7 +122,7 @@ const BannerManager: React.FC = () => {
   const deleteBanner = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('banners')
+        .from('banners' as any)
         .delete()
         .eq('id', id);
 
