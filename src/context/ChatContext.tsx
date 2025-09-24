@@ -141,9 +141,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
+      // Remove duplicate conversations based on participant combinations
+      const uniqueConversations = data.filter((conv, index, arr) => {
+        const participantKey = [...conv.participants].sort().join(',');
+        return arr.findIndex(c => [...c.participants].sort().join(',') === participantKey) === index;
+      });
+
       // Fetch participants info and last messages in batch
       const conversationsWithParticipants = await Promise.all(
-        data.map(async (conv) => {
+        uniqueConversations.map(async (conv) => {
           try {
             // Get participant profiles (excluding current user for 1-1 chats)
             const participantIds = conv.participants.filter((id: string) => id !== currentUser.uid);

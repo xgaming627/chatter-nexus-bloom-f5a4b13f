@@ -59,20 +59,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               username: profile?.username 
             });
 
+            // Handle Google OAuth profile picture
+            let photoURL = profile?.photo_url;
+            if (!photoURL && session.user.user_metadata?.avatar_url) {
+              photoURL = session.user.user_metadata.avatar_url;
+              // Update profile with Google photo
+              await supabase
+                .from('profiles')
+                .update({ photo_url: photoURL })
+                .eq('user_id', session.user.id);
+            }
+
+            // Handle Google OAuth display name
+            let displayName = profile?.display_name || profile?.username;
+            if (!displayName && session.user.user_metadata?.full_name) {
+              displayName = session.user.user_metadata.full_name;
+              // Update profile with Google name if no display name exists
+              if (!profile?.display_name) {
+                await supabase
+                  .from('profiles')
+                  .update({ display_name: displayName })
+                  .eq('user_id', session.user.id);
+              }
+            }
+
               // Don't use email as fallback to prevent email leakage
               const extendedUser: ExtendedUser = {
                 id: session.user.id,
                 uid: session.user.id,
                 email: session.user.email || null,
-                displayName: profile?.display_name || profile?.username || 'User',
+                displayName: displayName || 'User',
                 username: profile?.username || undefined,
-                photoURL: profile?.photo_url || null,
+                photoURL: photoURL || null,
               };
               console.log('Final extended user object:', {
                 username: extendedUser.username,
                 displayName: extendedUser.displayName,
                 hasUsername: !!extendedUser.username,
-                userId: extendedUser.uid
+                userId: extendedUser.uid,
+                photoURL: extendedUser.photoURL
               });
               
               setCurrentUser(extendedUser);
@@ -83,9 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 id: session.user.id,
                 uid: session.user.id,
                 email: session.user.email || null,
-                displayName: 'User',
+                displayName: session.user.user_metadata?.full_name || 'User',
                 username: undefined,
-                photoURL: null,
+                photoURL: session.user.user_metadata?.avatar_url || null,
               };
               setCurrentUser(extendedUser);
             }
@@ -186,6 +211,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          redirectTo: `${window.location.origin}/`
+        }
       });
       
       if (error) throw error;
