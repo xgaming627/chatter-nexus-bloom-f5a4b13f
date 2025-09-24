@@ -156,6 +156,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             // Get participant profiles (excluding current user for 1-1 chats)
             const participantIds = conv.participants.filter((id: string) => id !== currentUser.uid);
+            console.log('Debug - Conv ID:', conv.id, 'All participants:', conv.participants, 'Filtered IDs:', participantIds);
             
             let participantsData = [];
             let lastMessage = null;
@@ -178,18 +179,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             participantsData = participantsResult.data || [];
             lastMessage = lastMessageResult.data;
+            console.log('Debug - Participants data:', participantsData);
 
             return new Conversation({
               id: conv.id,
               ...conv,
-              participantsInfo: participantsData.map(p => ({
-                uid: p.user_id,
-                username: p.username || `User${p.user_id?.slice(-4) || ''}`,
-                displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
-                photoURL: p.photo_url,
-                description: p.description,
-                onlineStatus: p.online_status || 'offline'
-              })),
+              participantsInfo: participantsData.map(p => {
+                const participantInfo = {
+                  uid: p.user_id,
+                  username: p.username || `User${p.user_id?.slice(-4) || ''}`,
+                  displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
+                  photoURL: p.photo_url,
+                  description: p.description,
+                  onlineStatus: p.online_status || 'offline'
+                };
+                console.log('Debug - Mapped participant info:', participantInfo);
+                return participantInfo;
+              }),
               last_message: lastMessage ? {
                 content: lastMessage.content,
                 timestamp: lastMessage.timestamp,
