@@ -223,35 +223,66 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchMessages = async (conversationId: string) => {
     try {
-      // Limit initial messages to 50 for better performance
-      const { data, error } = await supabase
+      // First fetch messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
-          *,
-          profiles!sender_id(username, display_name, photo_url, show_moderator_badge),
-          user_roles!sender_id(role)
-        `)
+        .select('*')
         .eq('conversation_id', conversationId)
         .order('timestamp', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (messagesError) throw messagesError;
+
+      if (!messagesData || messagesData.length === 0) {
+        setMessages([]);
+        return;
+      }
+
+      // Get unique sender IDs
+      const senderIds = [...new Set(messagesData.map(msg => msg.sender_id))];
+
+      // Fetch profiles and roles in parallel
+      const [profilesResult, rolesResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_id, username, display_name, photo_url, show_moderator_badge')
+          .in('user_id', senderIds),
+        supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', senderIds)
+      ]);
+
+      const profiles = profilesResult.data || [];
+      const roles = rolesResult.data || [];
+
+      // Create profile and role maps for efficient lookup
+      const profileMap = new Map(profiles.map(p => [p.user_id, p]));
+      const roleMap = new Map();
+      
+      // Group roles by user_id
+      roles.forEach(r => {
+        if (!roleMap.has(r.user_id)) {
+          roleMap.set(r.user_id, []);
+        }
+        roleMap.get(r.user_id).push(r);
+      });
 
       // Filter out messages hidden by current user
       const hiddenMessages = JSON.parse(localStorage.getItem(`hiddenMessages_${currentUser?.uid}`) || '[]');
 
       // Reverse to show oldest first and filter hidden messages
-      const messagesData = data
+      const messagesWithProfiles = messagesData
         .reverse()
         .filter(msg => !hiddenMessages.includes(msg.id))
         .map(msg => new Message({
           id: msg.id,
           ...msg,
-          senderProfile: msg.profiles,
-          senderRoles: msg.user_roles || []
+          senderProfile: profileMap.get(msg.sender_id) || null,
+          senderRoles: roleMap.get(msg.sender_id) || []
         }));
       
-      setMessages(messagesData);
+      setMessages(messagesWithProfiles);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
