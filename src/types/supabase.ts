@@ -24,6 +24,10 @@ export class Message {
   file_name?: string;
   file_type?: string;
   is_system_message?: boolean;
+  senderProfile?: any;
+  senderRoles?: any[];
+  reply_to_message_id?: string;
+  reply_to_content?: string;
   
   constructor(data: any) {
     this.id = data.id;
@@ -41,6 +45,10 @@ export class Message {
     this.file_name = data.file_name;
     this.file_type = data.file_type;
     this.is_system_message = !!data.is_system_message;
+    this.senderProfile = data.senderProfile;
+    this.senderRoles = data.senderRoles || [];
+    this.reply_to_message_id = data.reply_to_message_id;
+    this.reply_to_content = data.reply_to_content;
   }
 
   get senderId(): string {

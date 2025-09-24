@@ -545,13 +545,14 @@ const ChatWindow: React.FC = () => {
             {!isGroup && participantsInfo.length > 0 && participantsInfo[0] && (
               <>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    @{participantsInfo[0]?.username || "User"}
-                  </p>
-                   {isModeratorUser(participantsInfo[0]?.uid || '') && (
-                     <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                       <Shield className="h-3 w-3 mr-1" /> Moderator
-                     </Badge>
+                   <p className="text-xs text-muted-foreground">
+                     @{participantsInfo[0]?.username || "User"}
+                   </p>
+                   {/* Check if participant has moderator role from their profile */}
+                   {participantsInfo.length > 0 && participantsInfo[0] && (
+                     <div className="flex items-center">
+                       {/* This would need to be enhanced to check actual moderator status from database */}
+                     </div>
                    )}
                   <span className={`h-2 w-2 rounded-full ${
                     participantsInfo[0]?.onlineStatus === 'online'
@@ -665,8 +666,8 @@ const ChatWindow: React.FC = () => {
           {messages.length > 0 ? (
             messages.map((message) => {
               const isOwnMessage = message.senderId === currentUser?.uid;
-              const senderProfile = (message as any).senderProfile || {};
-              const senderRoles = (message as any).senderRoles || [];
+              const senderProfile = message.senderProfile || {};
+              const senderRoles = message.senderRoles || [];
               const isModeratorMessage = senderRoles.some((role: any) => role.role === 'moderator' || role.role === 'admin');
               const isSystemMessage = message.senderId === "system" || message.is_system_message;
               
@@ -763,10 +764,10 @@ const ChatWindow: React.FC = () => {
                         )}
                       >
                         {/* Reply indicator */}
-                        {(message as any).reply_to_content && (
+                        {message.reply_to_content && (
                           <div className="reply-indicator mb-2 p-2 rounded bg-muted/50 border-l-2 border-primary/40">
                             <div className="text-xs text-muted-foreground">Replying to:</div>
-                            <div className="text-sm text-muted-foreground italic">"{(message as any).reply_to_content}"</div>
+                            <div className="text-sm text-muted-foreground italic">"{message.reply_to_content}"</div>
                           </div>
                         )}
                         

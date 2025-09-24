@@ -164,7 +164,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const [participantsResult, lastMessageResult] = await Promise.all([
               participantIds.length > 0 ? supabase
                 .from('profiles')
-                .select('user_id, username, display_name, photo_url')
+                .select('user_id, username, display_name, photo_url, description, online_status')
                 .in('user_id', participantIds)
                 .limit(10) : Promise.resolve({ data: [] }),
               supabase
@@ -186,7 +186,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 uid: p.user_id,
                 username: p.username || `User${p.user_id?.slice(-4) || ''}`,
                 displayName: p.display_name || p.username || `User${p.user_id?.slice(-4) || ''}`,
-                photoURL: p.photo_url
+                photoURL: p.photo_url,
+                description: p.description,
+                onlineStatus: p.online_status || 'offline'
               })),
               last_message: lastMessage ? {
                 content: lastMessage.content,
