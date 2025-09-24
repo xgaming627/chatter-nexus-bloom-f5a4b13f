@@ -32,7 +32,7 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
 
   useEffect(() => {
     const handleSearch = async () => {
-      if (searchQuery.length < 2) {
+      if (searchQuery.length < 1) {
         setResults([]);
         return;
       }
@@ -43,7 +43,8 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
           .from('profiles')
           .select('user_id, username, display_name, photo_url')
           .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
-          .not('user_id', 'eq', currentUser?.uid) // Exclude current user from results
+          .neq('user_id', currentUser?.uid) // Exclude current user from results
+          .not('username', 'is', null) // Only show users with usernames
           .limit(10);
 
         if (error) throw error;
@@ -139,13 +140,13 @@ const SearchUsers: React.FC<SearchUsersProps> = ({ onUserSelected }) => {
                 </li>
               ))}
             </ul>
-          ) : searchQuery.length >= 2 ? (
+          ) : searchQuery.length >= 1 ? (
             <div className="p-3 text-center text-muted-foreground">
               No users found
             </div>
           ) : (
             <div className="p-3 text-center text-muted-foreground">
-              Type at least 2 characters to search
+              Start typing to search for users
             </div>
           )}
         </div>
