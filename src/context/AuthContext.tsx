@@ -255,12 +255,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
-        .eq('username', username)
-        .single();
+        .eq('username', username);
       
-      // If no error and no data, username is available
-      // If error and error.code is 'PGRST116' (no rows), username is available
-      return !data || (error && error.code === 'PGRST116');
+      // Username is available if no rows returned or only rows with null username
+      const isAvailable = !data || data.length === 0 || data.every(row => !row.username);
+      
+      console.log('Username availability check:', { username, data, error, isAvailable });
+      
+      return isAvailable;
     } catch (error) {
       console.error("Error checking username availability:", error);
       return false;

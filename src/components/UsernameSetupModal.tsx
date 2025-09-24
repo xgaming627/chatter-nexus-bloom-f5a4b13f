@@ -28,10 +28,17 @@ const UsernameSetupModal: React.FC = () => {
     const checkForUsername = async () => {
       if (!currentUser) return;
       
-      // Check if user has a proper username (not null and not email-based)
+      // More thorough check for proper username
       const hasProperUsername = currentUser.username && 
-                                currentUser.username.trim().length > 0 &&
-                                !currentUser.username.includes('@');
+                                currentUser.username.trim().length >= 3 &&
+                                !currentUser.username.includes('@') &&
+                                /^[a-zA-Z0-9_]+$/.test(currentUser.username);
+      
+      console.log('Username check:', {
+        username: currentUser.username,
+        hasProperUsername,
+        displayName: currentUser.displayName
+      });
       
       if (hasProperUsername) {
         setHasUsername(true);
@@ -42,12 +49,12 @@ const UsernameSetupModal: React.FC = () => {
         setTimeout(() => {
           setHasUsername(false);
           setOpen(true);
-        }, 100);
+        }, 200);
       }
     };
     
     checkForUsername();
-  }, [currentUser?.username, currentUser?.email]);
+  }, [currentUser?.username, currentUser?.displayName]);
   
   const checkUsernameAvailability = async () => {
     if (!username || username.trim().length === 0) {
@@ -103,10 +110,6 @@ const UsernameSetupModal: React.FC = () => {
   
   const handleSubmit = async () => {
     if (!currentUser) return;
-    if (!isUsernameValid) {
-      await checkUsernameAvailability();
-      if (!isUsernameValid) return;
-    }
     
     if (!agreedToTerms) {
       toast({
@@ -117,16 +120,33 @@ const UsernameSetupModal: React.FC = () => {
       return;
     }
     
+    // Always check username availability before submitting
     setIsSubmitting(true);
     
     try {
+      // First, validate and check availability
+      await checkUsernameAvailability();
+      
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!isUsernameValid || error) {
+        setIsSubmitting(false);
+        return;
+      }
+      
       const success = await setUsernameOnSignUp(username);
       
       if (success === true) {
         setHasUsername(true);
         setShowTutorial(true);
         setOpen(false);
-      } else if (success === false) {
+        
+        // Force re-check of username status
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
         toast({
           title: 'Username Setup Failed',
           description: 'Unable to set username. Please try again.',
@@ -236,7 +256,7 @@ const UsernameSetupModal: React.FC = () => {
           <DialogFooter>
             <Button 
               onClick={handleSubmit} 
-              disabled={isSubmitting || !username || Boolean(error) || isChecking || !isUsernameValid || !agreedToTerms}
+              disabled={isSubmitting || !username.trim() || isChecking || !agreedToTerms}
             >
               {isSubmitting ? "Setting Username..." : "Set Username"}
             </Button>
