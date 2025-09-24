@@ -517,9 +517,6 @@ const ChatWindow: React.FC = () => {
     ? currentConversation.groupName 
     : (participantsInfo.length > 0 && participantsInfo[0] ? participantsInfo[0]?.displayName : 'Chat');
   
-  // Debug logging
-  console.log('Debug - ChatWindow participantsInfo:', participantsInfo, 'conversationName:', conversationName);
-  
   const otherUserIsModerator = !isGroup && 
     participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || '');
   
