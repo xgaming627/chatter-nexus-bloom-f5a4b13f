@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { LiveSupportProvider } from "./context/LiveSupportContext";
+import AppInitializer from "./components/AppInitializer";
 import Index from "./pages/Index";
 import SupportChat from "./pages/SupportChat";
 import NotFound from "./pages/NotFound";
@@ -24,6 +25,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <AppInitializer />
       <LiveSupportProvider>
         <TooltipProvider>
           <QuotaWarningBanner />

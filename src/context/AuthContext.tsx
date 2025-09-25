@@ -4,8 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ExtendedUser } from '@/types/supabase';
 import { useToast } from "@/components/ui/use-toast";
 import { User, Session } from '@supabase/supabase-js';
-import { useActivityTracker } from '@/hooks/useActivityTracker';
-import { useNotifications } from '@/hooks/useNotifications';
 import NotificationPermissionDialog from '@/components/NotificationPermissionDialog';
 
 interface AuthContextType {
@@ -37,10 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitializing, setIsInitializing] = useState(true);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const { toast } = useToast();
-
-  // Initialize activity tracker and notifications
-  useActivityTracker();
-  useNotifications();
 
   useEffect(() => {
     // Set up auth state listener FIRST
