@@ -301,13 +301,14 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      // Check for any existing active sessions first
+      // First check for any truly active sessions (not ended)
       const { data: existingSessions } = await supabase
         .from('support_sessions')
         .select('*')
         .eq('user_id', currentUser.uid)
-        .in('status', ['active', 'requested-end']);
+        .eq('status', 'active');
 
+      // If there's an active session, use it
       if (existingSessions && existingSessions.length > 0) {
         const activeSession = existingSessions[0];
         await setCurrentSupportSessionId(activeSession.id);
@@ -531,13 +532,14 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "This session has been closed"
       });
       
-      setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+      // Clear session completely after force ending
+      setCurrentSupportSession(null);
       setIsActiveSupportSession(false);
       
-      // Clear current session after a delay to allow feedback
+      // Refresh sessions to ensure clean state
       setTimeout(() => {
-        setCurrentSupportSession(null);
-      }, 1000);
+        fetchSupportSessions();
+      }, 500);
     } catch (error) {
       console.error("Error ending support session:", error);
       toast({
@@ -576,14 +578,14 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "Thank you for using our support service"
       });
       
-      setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+      // Clear session completely after user confirms end
+      setCurrentSupportSession(null);
       setIsActiveSupportSession(false);
       
-      // Clear current session after a delay to allow feedback
+      // Refresh sessions to ensure clean state
       setTimeout(() => {
-        setCurrentSupportSession(null);
-      }, 1000);
-      setIsActiveSupportSession(false);
+        fetchSupportSessions();
+      }, 500);
     } catch (error) {
       console.error("Error confirming end of support session:", error);
       toast({
@@ -613,10 +615,14 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "Thank you for your feedback"
       });
       
-      // Update local state
-      setCurrentSupportSession(prev => 
-        prev ? { ...prev, rating, feedback: feedback || undefined } : null
-      );
+      // Clear the session after feedback is submitted
+      setCurrentSupportSession(null);
+      setIsActiveSupportSession(false);
+      
+      // Refresh to ensure clean state
+      setTimeout(() => {
+        fetchSupportSessions();
+      }, 500);
     } catch (error) {
       console.error("Error submitting feedback:", error);
       toast({

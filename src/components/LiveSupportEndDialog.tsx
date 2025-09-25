@@ -15,6 +15,9 @@ const LiveSupportEndDialog: React.FC<LiveSupportEndDialogProps> = ({ open, onOpe
     try {
       await confirmEndSupport();
       onOpenChange(false);
+      
+      // Also close the main support window by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('closeSupportWindow'));
     } catch (error) {
       console.error('Error ending support session:', error);
     }

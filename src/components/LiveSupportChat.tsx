@@ -83,15 +83,17 @@ const LiveSupportChat: React.FC = () => {
     }
   }, [currentSupportSession?.status, isModerator]);
 
-  // Show feedback dialog only once when session ends for users
-  useEffect(() => {
-    if (currentSupportSession?.status === 'ended' && !isModerator && currentSupportSession?.rating === null) {
-      const timer = setTimeout(() => {
-        setShowFeedbackDialog(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [currentSupportSession?.status, currentSupportSession?.rating, isModerator]);
+      // Show feedback dialog only once when session ends for users and hasn't been rated
+      useEffect(() => {
+        if (currentSupportSession?.status === 'ended' && 
+            !isModerator && 
+            currentSupportSession?.rating === null) {
+          const timer = setTimeout(() => {
+            setShowFeedbackDialog(true);
+          }, 500);
+          return () => clearTimeout(timer);
+        }
+      }, [currentSupportSession?.status, currentSupportSession?.rating, isModerator]);
   
   if (!currentUser || !currentSupportSession) {
     return (

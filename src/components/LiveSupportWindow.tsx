@@ -50,11 +50,32 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   }, [supportMessages]);
   
   useEffect(() => {
-    if (open && !currentSupportSession) {
+    if (open) {
       // Always create a fresh session when opening support window
+      // Don't reuse ended or completed sessions
       handleCreateSession();
     }
   }, [open]);
+
+  // Listen for custom event to close support window
+  useEffect(() => {
+    const handleClose = () => {
+      onOpenChange(false);
+    };
+    
+    window.addEventListener('closeSupportWindow', handleClose);
+    return () => window.removeEventListener('closeSupportWindow', handleClose);
+  }, [onOpenChange]);
+  
+  // Close window when session ends
+  useEffect(() => {
+    if (currentSupportSession?.status === 'ended') {
+      // Close the support window after a short delay
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 2000);
+    }
+  }, [currentSupportSession?.status, onOpenChange]);
   
   useEffect(() => {
     // Add automated welcome message
@@ -217,23 +238,25 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
             <div ref={messagesEndRef} />
           </div>
           
-          {/* Message input */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Type a message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="flex-1 min-h-0"
-                rows={2}
-              />
-              
-              <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+          {/* Message input - only show for active sessions */}
+          {currentSupportSession?.status === 'active' && (
+            <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="flex-1 min-h-0"
+                  rows={2}
+                />
+                
+                <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
       

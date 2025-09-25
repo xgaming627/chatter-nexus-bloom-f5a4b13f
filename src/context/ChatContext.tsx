@@ -75,7 +75,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) return;
 
-    const channel = supabase
+    // Real-time subscriptions for conversations
+    const conversationsChannel = supabase
       .channel('conversations-changes')
       .on(
         'postgres_changes',
@@ -92,10 +93,64 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       )
       .subscribe();
 
+    // Real-time subscriptions for notifications/warnings
+    const notificationsChannel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUser.uid}`
+        },
+        (payload) => {
+          console.log('New notification:', payload);
+          // Trigger a refresh or show toast based on notification type
+          if (payload.new.type === 'warning') {
+            toast({
+              title: payload.new.title,
+              description: payload.new.message,
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: payload.new.title,
+              description: payload.new.message
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Real-time subscriptions for user warnings
+    const warningsChannel = supabase
+      .channel('warnings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_warnings',
+          filter: `user_id=eq.${currentUser.uid}`
+        },
+        (payload) => {
+          console.log('New warning received:', payload);
+          toast({
+            title: "Warning Received",
+            description: `You have received a warning: ${payload.new.reason}`,
+            variant: "destructive"
+          });
+        }
+      )
+      .subscribe();
+
     fetchConversations();
     
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(conversationsChannel);
+      supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(warningsChannel);
     };
   }, [currentUser]);
 
@@ -105,7 +160,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const channel = supabase
+    const messagesChannel = supabase
       .channel('messages-changes')
       .on(
         'postgres_changes',
@@ -118,6 +173,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (payload) => {
           console.log('Message change:', payload);
           fetchMessages(currentConversation.id);
+          
+          // Set new messages flag if this is not from current user
+          if (payload.eventType === 'INSERT' && payload.new.sender_id !== currentUser?.uid) {
+            setHasNewMessages(true);
+          }
         }
       )
       .subscribe();
@@ -125,9 +185,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchMessages(currentConversation.id);
     
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
     };
-  }, [currentConversation]);
+  }, [currentConversation, currentUser]);
 
   const fetchConversations = async () => {
     if (!currentUser) return;
