@@ -20,10 +20,14 @@ const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ open, onOpenChange }) =
 
   const handleSubmit = async () => {
     if (rating > 0) {
-      await submitFeedback(rating, feedback);
-      onOpenChange(false);
-      setRating(0);
-      setFeedback('');
+      try {
+        await submitFeedback(rating, feedback);
+        onOpenChange(false);
+        setRating(0);
+        setFeedback('');
+      } catch (error) {
+        console.error('Error submitting feedback:', error);
+      }
     }
   };
 

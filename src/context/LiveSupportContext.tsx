@@ -343,12 +343,15 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
           // Call VPN detection function
           try {
-            await supabase.functions.invoke('detect-vpn', {
+            const { error: vpnError } = await supabase.functions.invoke('detect-vpn', {
               body: {
                 sessionId: sessionData.id,
                 ipAddress: ipData.ip
               }
             });
+            if (vpnError) {
+              console.log('VPN detection error:', vpnError);
+            }
           } catch (vpnError) {
             console.log('VPN detection failed:', vpnError);
           }
@@ -488,7 +491,10 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const { error } = await supabase
         .from('support_sessions')
-        .update({ status: 'ended' })
+        .update({ 
+          status: 'ended',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', currentSupportSession.id);
 
       if (error) throw error;
@@ -499,7 +505,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           session_id: currentSupportSession.id,
           sender_id: null,
           sender_role: 'system',
-          content: 'This support session has been ended.',
+          content: 'This support session has been ended by a moderator.',
         });
 
       // Send notification to user when session is ended
@@ -509,7 +515,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           user_id: currentSupportSession.user_id,
           type: 'support',
           title: 'Support Session Ended',
-          message: 'Your support session has been closed. Please rate your experience.',
+          message: 'Your support session has been closed by a moderator. Please rate your experience.',
           is_sound_enabled: true,
           metadata: {
             session_id: currentSupportSession.id,
@@ -539,7 +545,10 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const { error } = await supabase
         .from('support_sessions')
-        .update({ status: 'ended' })
+        .update({ 
+          status: 'ended',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', currentSupportSession.id);
 
       if (error) throw error;
@@ -559,6 +568,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       
       setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+      setIsActiveSupportSession(false);
     } catch (error) {
       console.error("Error confirming end of support session:", error);
       toast({
