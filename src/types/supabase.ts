@@ -80,10 +80,12 @@ export class Conversation {
   group_photo_url?: string;
   created_by: string;
   created_at: Date;
+  unread_count: number;
   last_message?: {
     content: string;
     timestamp: Date;
     sender_id: string;
+    sender_name?: string;
   };
   isStored?: boolean;
   participantsInfo?: {
@@ -104,12 +106,14 @@ export class Conversation {
     this.group_photo_url = data.group_photo_url;
     this.created_by = data.created_by;
     this.created_at = data.created_at ? new Date(data.created_at.toDate?.() || data.created_at) : new Date();
+    this.unread_count = data.unread_count || 0;
     
     if (data.last_message) {
       this.last_message = {
         content: data.last_message.content,
         timestamp: data.last_message.timestamp ? new Date(data.last_message.timestamp.toDate?.() || data.last_message.timestamp) : new Date(),
-        sender_id: data.last_message.sender_id
+        sender_id: data.last_message.sender_id,
+        sender_name: data.last_message.sender_name
       };
     }
     

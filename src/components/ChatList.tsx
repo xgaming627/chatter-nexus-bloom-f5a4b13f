@@ -1,21 +1,38 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useChat } from '@/context/ChatContext';
 import { Conversation } from '@/types/supabase';
 import UserAvatar from './UserAvatar';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ChatList: React.FC = () => {
   const { conversations, currentConversation, setCurrentConversationId, refreshConversations } = useChat();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Refresh conversations when component mounts
-    refreshConversations();
+    const loadConversations = async () => {
+      setIsLoading(true);
+      try {
+        await refreshConversations();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadConversations();
     console.log("Conversations:", conversations);
   }, []);
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      setIsLoading(false);
+    }
+  }, [conversations]);
 
   const getConversationName = (conversation: Conversation) => {
     if (conversation.is_group_chat && conversation.group_name) {
@@ -28,6 +45,19 @@ const ChatList: React.FC = () => {
     }
     
     return 'Chat';
+  };
+
+  const getLastMessagePreview = (conversation: Conversation) => {
+    if (!conversation.last_message) return 'No messages yet';
+    
+    const senderName = conversation.last_message.sender_name || 'Someone';
+    const content = conversation.last_message.content;
+    
+    if (content.length > 30) {
+      return `${senderName}: ${content.substring(0, 30)}...`;
+    }
+    
+    return `${senderName}: ${content}`;
   };
 
   const getLastMessageTime = (conversation: Conversation) => {
@@ -69,6 +99,28 @@ const ChatList: React.FC = () => {
     console.log("Setting current conversation:", conversationId);
     setCurrentConversationId(conversationId);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="p-4 border-b">
+          <h2 className="font-semibold text-lg">Chats</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-2 p-2">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-3 p-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-3 w-8" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (conversations.length === 0) {
     return (
@@ -118,12 +170,17 @@ const ChatList: React.FC = () => {
                         <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                           {getLastMessageTime(conversation)}
                         </div>
-                      </div>
-                      {conversation.last_message && (
-                        <div className="text-sm text-muted-foreground truncate">
-                          {conversation.last_message.content}
+                          {conversation.unread_count > 0 && (
+                            <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                              {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
+                            </Badge>
+                          )}
                         </div>
-                      )}
+                        {conversation.last_message && (
+                          <div className="text-sm text-muted-foreground truncate">
+                            {getLastMessagePreview(conversation)}
+                          </div>
+                        )}
                     </div>
                   </div>
                 </Button>

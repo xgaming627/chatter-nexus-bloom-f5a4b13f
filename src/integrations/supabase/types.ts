@@ -49,6 +49,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          auto_delete_after: string | null
           created_at: string
           created_by: string
           created_by_role: string | null
@@ -58,9 +59,11 @@ export type Database = {
           is_group_chat: boolean
           max_participants: number | null
           participants: string[]
+          unread_count: number | null
           updated_at: string
         }
         Insert: {
+          auto_delete_after?: string | null
           created_at?: string
           created_by: string
           created_by_role?: string | null
@@ -70,9 +73,11 @@ export type Database = {
           is_group_chat?: boolean
           max_participants?: number | null
           participants: string[]
+          unread_count?: number | null
           updated_at?: string
         }
         Update: {
+          auto_delete_after?: string | null
           created_at?: string
           created_by?: string
           created_by_role?: string | null
@@ -82,6 +87,7 @@ export type Database = {
           is_group_chat?: boolean
           max_participants?: number | null
           participants?: string[]
+          unread_count?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -495,6 +501,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_delete_old_conversations: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       can_view_profile_for_search: {
         Args: { target_user_id: string }
         Returns: boolean
@@ -533,6 +543,10 @@ export type Database = {
       is_moderator: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      reset_unread_count: {
+        Args: { conversation_id: string; user_id: string }
+        Returns: undefined
       }
       send_mention_notification: {
         Args: {

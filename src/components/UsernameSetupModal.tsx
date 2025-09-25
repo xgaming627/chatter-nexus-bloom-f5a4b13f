@@ -91,6 +91,22 @@ const UsernameSetupModal: React.FC = () => {
       setIsUsernameValid(false);
       return;
     }
+
+    // Check for inappropriate content
+    const bannedWords = [
+      'admin', 'moderator', 'support', 'system', 'root', 'user', 'test',
+      'fuck', 'shit', 'bitch', 'asshole', 'damn', 'crap', 'piss', 'dick',
+      'pussy', 'cock', 'penis', 'vagina', 'tits', 'boobs', 'ass', 'butt',
+      'nigger', 'nigga', 'faggot', 'retard', 'gay', 'homo', 'lesbian',
+      'nazi', 'hitler', 'kill', 'die', 'death', 'murder', 'suicide'
+    ];
+    
+    const lowerUsername = username.toLowerCase();
+    if (bannedWords.some(word => lowerUsername.includes(word))) {
+      setError('Username contains inappropriate content');
+      setIsUsernameValid(false);
+      return;
+    }
     
     setIsChecking(true);
     setError('');

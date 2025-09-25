@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from "r
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { resetUnreadCount } from '@/utils/chatCleanup';
 import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
 
 // Re-export the types for consumers to use
@@ -169,7 +170,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .limit(10) : Promise.resolve({ data: [] }),
               supabase
                 .from('messages')
-                .select('content, timestamp, sender_id')
+                .select(`
+                  content, 
+                  timestamp, 
+                  sender_id,
+                  sender_profile:profiles!sender_id(display_name, username)
+                `)
                 .eq('conversation_id', conv.id)
                 .order('timestamp', { ascending: false })
                 .limit(1)
@@ -193,8 +199,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               last_message: lastMessage ? {
                 content: lastMessage.content,
                 timestamp: lastMessage.timestamp,
-                sender_id: lastMessage.sender_id
-              } : null
+                sender_id: lastMessage.sender_id,
+                sender_name: lastMessage.sender_profile?.display_name || lastMessage.sender_profile?.username || 'User'
+              } : null,
+              unread_count: conv.unread_count || 0
             });
           } catch (error) {
             console.error('Error fetching participants for conversation:', conv.id, error);
@@ -483,6 +491,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setCurrentConversationId = async (id: string | null) => {
     if (!id) {
       setCurrentConversation(null);
+      setMessages([]);
       return;
     }
 
@@ -492,6 +501,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (existingConversation) {
       setCurrentConversation(existingConversation);
+      await fetchMessages(id);
+      
+      // Reset unread count for this conversation
+      if (currentUser?.uid) {
+        try {
+          await resetUnreadCount(id, currentUser.uid);
+        } catch (error) {
+          console.error('Failed to reset unread count:', error);
+        }
+      }
       return;
     }
 
@@ -505,10 +524,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      setCurrentConversation(new Conversation({
+      const conversation = new Conversation({
         id: data.id,
         ...data
-      }));
+      });
+
+      setCurrentConversation(conversation);
+      await fetchMessages(id);
+      
+      // Reset unread count for this conversation
+      if (currentUser?.uid) {
+        try {
+          await resetUnreadCount(id, currentUser.uid);
+        } catch (error) {
+          console.error('Failed to reset unread count:', error);
+        }
+      }
     } catch (error) {
       console.error('Error fetching conversation:', error);
       toast({
@@ -975,6 +1006,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeMemberFromChat = async (conversationId: string, userId: string) => {
     try {
+      // Get user info for system message
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('username, display_name')
+        .eq('user_id', userId)
+        .single();
+
       // Get current conversation
       const { data: conversation, error } = await supabase
         .from('conversations')
@@ -984,7 +1022,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Remove user from participants
+      // Check if user is in the conversation
+      if (!conversation.participants.includes(userId)) {
+        toast({
+          title: 'User not in chat',
+          description: 'This user is not a member of this conversation.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Remove user from participants array
       const updatedParticipants = conversation.participants.filter(
         (participant: string) => participant !== userId
       );
@@ -994,16 +1042,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({ participants: updatedParticipants })
         .eq('id', conversationId);
 
+      // Add system message
+      const systemMessage = {
+        conversation_id: conversationId,
+        sender_id: currentUser?.uid || '',
+        content: `${userProfile?.display_name || userProfile?.username || 'User'} has been removed from the group`,
+        is_system_message: true,
+      };
+
+      await supabase.from('messages').insert(systemMessage);
+
       toast({
-        title: "Member removed",
-        description: "User has been removed from the chat",
+        title: 'Member removed',
+        description: `${userProfile?.display_name || userProfile?.username || 'User'} has been removed from the conversation.`,
       });
+
+      // Refresh conversations to show updated participant list
+      fetchConversations();
     } catch (error) {
-      console.error('Error removing member:', error);
+      console.error('Error removing member from chat:', error);
       toast({
-        title: "Error removing member",
-        description: "Please try again later",
-        variant: "destructive"
+        title: 'Error removing member',
+        description: 'Failed to remove member from the conversation.',
+        variant: 'destructive',
       });
     }
   };

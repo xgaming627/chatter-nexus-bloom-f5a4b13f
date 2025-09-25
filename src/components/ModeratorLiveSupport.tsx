@@ -71,16 +71,26 @@ const ModeratorLiveSupport: React.FC = () => {
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
-      setSelectedSession(session);
-      await setCurrentSupportSessionId(session.id);
+      // Open support session in a new window
+      const newWindow = window.open(
+        `/support-chat/${session.id}`, 
+        `support-session-${session.id}`,
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
       
-      if (session.user_id) {
-        const stats = await getUserSupportStats(session.user_id);
-        setUserStats(stats);
+      if (!newWindow) {
+        // Fallback if popup is blocked - show in current view
+        setSelectedSession(session);
+        await setCurrentSupportSessionId(session.id);
+        
+        if (session.user_id) {
+          const stats = await getUserSupportStats(session.user_id);
+          setUserStats(stats);
+        }
+        
+        setShowSupportChat(true);
+        setHasNewSessions(false);
       }
-      
-      setShowSupportChat(true);
-      setHasNewSessions(false);
     } catch (error) {
       console.error("Error selecting support session:", error);
     }
