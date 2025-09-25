@@ -4,6 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { ExtendedUser } from '@/types/supabase';
 import { useToast } from "@/components/ui/use-toast";
 import { User, Session } from '@supabase/supabase-js';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { useNotifications } from '@/hooks/useNotifications';
+import NotificationPermissionDialog from '@/components/NotificationPermissionDialog';
 
 interface AuthContextType {
   currentUser: ExtendedUser | null;
@@ -32,7 +35,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const { toast } = useToast();
+
+  // Initialize activity tracker and notifications
+  useActivityTracker();
+  useNotifications();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -119,6 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Don't set temporary user - wait for profile data to load completely
           // This prevents the username modal from showing prematurely
           console.log('Skipping temporary user creation to avoid modal issues');
+          
+          // Check if we should show notification permission dialog
+          if (!localStorage.getItem('notificationPermissionRequested') && 
+              Notification.permission === 'default') {
+            setTimeout(() => setShowNotificationDialog(true), 2000);
+          }
         } else {
           setCurrentUser(null);
         }
@@ -348,6 +362,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <NotificationPermissionDialog 
+        open={showNotificationDialog}
+        onOpenChange={setShowNotificationDialog}
+      />
     </AuthContext.Provider>
   );
 };

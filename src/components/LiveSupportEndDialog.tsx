@@ -9,10 +9,10 @@ interface LiveSupportEndDialogProps {
 }
 
 const LiveSupportEndDialog: React.FC<LiveSupportEndDialogProps> = ({ open, onOpenChange }) => {
-  const { forceEndSupport } = useLiveSupport();
+  const { confirmEndSupport } = useLiveSupport();
 
   const handleEndSession = () => {
-    forceEndSupport();
+    confirmEndSupport();
     onOpenChange(false);
   };
 

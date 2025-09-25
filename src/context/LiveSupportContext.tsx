@@ -54,6 +54,7 @@ interface LiveSupportContextType {
   setCurrentSupportSessionId: (id: string | null) => void;
   requestEndSupport: () => Promise<void>;
   forceEndSupport: () => Promise<void>;
+  confirmEndSupport: () => Promise<void>;
   submitFeedback: (rating: number, feedback?: string) => Promise<void>;
   isActiveSupportSession: boolean;
   isModerator: boolean;
@@ -447,6 +448,21 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           sender_role: 'system',
           content: "Support representative has requested to end this support session. Do you want to end this session?",
         });
+
+      // Send notification to user when moderator requests to end session
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: currentSupportSession.user_id,
+          type: 'support',
+          title: 'Support Session End Requested',
+          message: 'The support representative wants to end this session. Please confirm if you want to close it.',
+          is_sound_enabled: true,
+          metadata: {
+            session_id: currentSupportSession.id,
+            action: 'end_requested'
+          }
+        });
       
       toast({
         title: "End request sent",
@@ -483,7 +499,22 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           session_id: currentSupportSession.id,
           sender_id: null,
           sender_role: 'system',
-          content: 'This support session has been ended by support staff.',
+          content: 'This support session has been ended.',
+        });
+
+      // Send notification to user when session is ended
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: currentSupportSession.user_id,
+          type: 'support',
+          title: 'Support Session Ended',
+          message: 'Your support session has been closed. Please rate your experience.',
+          is_sound_enabled: true,
+          metadata: {
+            session_id: currentSupportSession.id,
+            action: 'session_ended'
+          }
         });
       
       toast({
@@ -494,6 +525,42 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
     } catch (error) {
       console.error("Error ending support session:", error);
+      toast({
+        title: "Failed to end session",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const confirmEndSupport = async () => {
+    if (!currentSupportSession || isModerator) return;
+    
+    try {
+      const { error } = await supabase
+        .from('support_sessions')
+        .update({ status: 'ended' })
+        .eq('id', currentSupportSession.id);
+
+      if (error) throw error;
+      
+      await supabase
+        .from('support_messages')
+        .insert({
+          session_id: currentSupportSession.id,
+          sender_id: null,
+          sender_role: 'system',
+          content: 'Support session has been ended by the user.',
+        });
+      
+      toast({
+        title: "Support session ended",
+        description: "Thank you for using our support service"
+      });
+      
+      setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+    } catch (error) {
+      console.error("Error confirming end of support session:", error);
       toast({
         title: "Failed to end session",
         description: "Please try again later",
@@ -585,6 +652,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setCurrentSupportSessionId,
     requestEndSupport,
     forceEndSupport,
+    confirmEndSupport,
     submitFeedback,
     isActiveSupportSession,
     isModerator,

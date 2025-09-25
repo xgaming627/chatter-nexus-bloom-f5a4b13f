@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserAvatar from './UserAvatar';
 import LiveSupportEndDialog from './LiveSupportEndDialog';
+import FeedbackDialog from './FeedbackDialog';
 import { toast } from '@/hooks/use-toast';
 
 const LiveSupportChat: React.FC = () => {
@@ -25,6 +26,7 @@ const LiveSupportChat: React.FC = () => {
   
   const [newMessage, setNewMessage] = useState('');
   const [showEndDialog, setShowEndDialog] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -76,6 +78,8 @@ const LiveSupportChat: React.FC = () => {
   useEffect(() => {
     if (currentSupportSession?.status === 'requested-end' && !isModerator) {
       setShowEndDialog(true);
+    } else if (currentSupportSession?.status === 'ended' && !isModerator) {
+      setShowFeedbackDialog(true);
     }
   }, [currentSupportSession?.status, isModerator]);
   
@@ -200,6 +204,11 @@ const LiveSupportChat: React.FC = () => {
       <LiveSupportEndDialog 
         open={showEndDialog} 
         onOpenChange={setShowEndDialog} 
+      />
+      
+      <FeedbackDialog 
+        open={showFeedbackDialog} 
+        onOpenChange={setShowFeedbackDialog} 
       />
     </div>
   );

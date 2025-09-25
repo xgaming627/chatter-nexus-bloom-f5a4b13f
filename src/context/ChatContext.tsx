@@ -371,6 +371,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
+      // Don't mark has new messages for sender
+      setHasNewMessages(false);
+
       // Process @ mentions
       const mentionRegex = /@(\w+)/g;
       const mentions = Array.from(content.matchAll(mentionRegex));
@@ -1083,6 +1086,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
       if (error) throw error;
+
+      // Send notification to the warned user
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          type: 'warning',
+          title: 'Account Warning',
+          message: `You have received a warning for: ${reason}. Duration: ${duration}`,
+          is_sound_enabled: true,
+          metadata: {
+            warning_reason: reason,
+            warning_duration: duration,
+            issued_by: currentUser.uid
+          }
+        });
 
       toast({
         title: "User warned",
