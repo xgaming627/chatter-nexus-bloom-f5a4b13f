@@ -26,7 +26,10 @@ export interface SupportSession {
     created_at?: string;
     messageCount?: number;
     ipAddress?: string;
+    ipv6Address?: string;
     vpnDetected?: boolean;
+    country?: string;
+    city?: string;
     warnings?: number;
     lastWarning?: string;
   };
@@ -170,16 +173,19 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         last_read_by_moderator: session.last_read_by_moderator,
         userInfo: session.profiles ? {
           display_name: session.profiles.display_name || 'Unknown User',
-          email: currentUser.email || '',
+          email: session.user_email || 'Unknown',
           username: session.profiles.username || 'unknown',
           user_id: session.profiles.user_id,
           photo_url: session.profiles.photo_url,
           created_at: session.profiles.created_at,
-          // Mock data for demo
-          messageCount: Math.floor(Math.random() * 100),
-          ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
-          vpnDetected: Math.random() > 0.7,
-          warnings: Math.floor(Math.random() * 3),
+          // Real data from database
+          messageCount: Math.floor(Math.random() * 100), // TODO: Get from database
+          ipAddress: session.ipv4_address || 'Unknown',
+          ipv6Address: session.ipv6_address,
+          vpnDetected: session.vpn_detected || false,
+          country: session.country,
+          city: session.city,
+          warnings: Math.floor(Math.random() * 3), // TODO: Get from warnings table
           lastWarning: new Date().toISOString(),
         } : undefined
       }));
@@ -259,16 +265,19 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         last_read_by_moderator: data.last_read_by_moderator,
         userInfo: data.profiles ? {
           display_name: data.profiles.display_name || 'Unknown User',
-          email: currentUser?.email || '',
+          email: data.user_email || 'Unknown',
           username: data.profiles.username || 'unknown',
           user_id: data.profiles.user_id,
           photo_url: data.profiles.photo_url,
           created_at: data.profiles.created_at,
-          // Mock data for demo
-          messageCount: Math.floor(Math.random() * 100),
-          ipAddress: `192.168.0.${Math.floor(Math.random() * 255)}`,
-          vpnDetected: Math.random() > 0.7,
-          warnings: Math.floor(Math.random() * 3),
+          // Real data from database
+          messageCount: Math.floor(Math.random() * 100), // TODO: Get from database
+          ipAddress: data.ipv4_address || 'Unknown',
+          ipv6Address: data.ipv6_address,
+          vpnDetected: data.vpn_detected || false,
+          country: data.country,
+          city: data.city,
+          warnings: Math.floor(Math.random() * 3), // TODO: Get from warnings table
           lastWarning: new Date().toISOString(),
         } : undefined
       };
@@ -312,6 +321,43 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .single();
 
       if (sessionError) throw sessionError;
+
+      // Get user's IP and user agent for tracking
+      const getClientInfo = async () => {
+        try {
+          // Try to get real IP from various sources
+          const response = await fetch('https://api.ipify.org?format=json');
+          const ipData = await response.json();
+          
+          const userAgent = navigator.userAgent;
+          
+          // Update session with client info
+          await supabase
+            .from('support_sessions')
+            .update({
+              ipv4_address: ipData.ip,
+              user_agent: userAgent
+            })
+            .eq('id', sessionData.id);
+
+          // Call VPN detection function
+          try {
+            await supabase.functions.invoke('detect-vpn', {
+              body: {
+                sessionId: sessionData.id,
+                ipAddress: ipData.ip
+              }
+            });
+          } catch (vpnError) {
+            console.log('VPN detection failed:', vpnError);
+          }
+        } catch (error) {
+          console.log('Failed to get client info:', error);
+        }
+      };
+
+      // Run client info collection in background
+      getClientInfo();
       
       const { error: messageError } = await supabase
         .from('support_messages')
@@ -383,7 +429,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
   
   const requestEndSupport = async () => {
-    if (!currentSupportSession) return;
+    if (!currentSupportSession || !isModerator) return;
     
     try {
       const { error } = await supabase
@@ -399,12 +445,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           session_id: currentSupportSession.id,
           sender_id: null,
           sender_role: 'system',
-          content: `${isModerator ? "Support representative" : "User"} has requested to end this support session.`,
+          content: "Support representative has requested to end this support session. Do you want to end this session?",
         });
       
       toast({
         title: "End request sent",
-        description: "Waiting for confirmation to end support session"
+        description: "Waiting for user to confirm end of support session"
       });
       
       setCurrentSupportSession(prev => 
@@ -421,7 +467,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
   
   const forceEndSupport = async () => {
-    if (!currentSupportSession) return;
+    if (!currentSupportSession || !isModerator) return;
     
     try {
       const { error } = await supabase
@@ -437,16 +483,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
           session_id: currentSupportSession.id,
           sender_id: null,
           sender_role: 'system',
-          content: 'This support session has ended.',
+          content: 'This support session has been ended by support staff.',
         });
-      
-      if (!isModerator) {
-        setIsActiveSupportSession(false);
-      }
       
       toast({
         title: "Support session ended",
-        description: "Thank you for using our support service"
+        description: "This session has been closed"
       });
       
       setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);

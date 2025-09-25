@@ -57,13 +57,16 @@ const TermsOfService = () => {
           <p>By using Nexus Chat, you consent to the collection, storage, and use of information by the Nexus Team for service functionality, moderation, analytics, and security purposes.</p>
           <p>This may include but is not limited to:</p>
           <ul className="list-disc pl-6">
-            <li>IP addresses</li>
-            <li>Email addresses</li>
+            <li>IP addresses (both IPv4 and IPv6) for analytics, security, and VPN detection</li>
+            <li>Geographic location data derived from IP addresses</li>
+            <li>Email addresses and authentication information</li>
             <li>Direct messages and public conversations</li>
             <li>Group chat content</li>
             <li>Account activity history (e.g., login times, interactions, support chats)</li>
+            <li>Technical information including user agent, browser type, and device information</li>
+            <li>Connection security analysis including VPN and proxy detection for security purposes</li>
           </ul>
-          <p>We take reasonable steps to protect your data, but we may store and review it as needed for moderation, user safety, and platform improvement. Full details can be found in our Privacy Policy.</p>
+          <p>We take reasonable steps to protect your data, but we may store and review it as needed for moderation, user safety, security monitoring, fraud prevention, and platform improvement. Full details can be found in our Privacy Policy.</p>
           
           <h3 className="text-lg font-semibold mt-6">6. User-Generated Content</h3>
           <ul className="list-disc pl-6">

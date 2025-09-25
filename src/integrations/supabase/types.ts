@@ -376,34 +376,55 @@ export type Database = {
       }
       support_sessions: {
         Row: {
+          city: string | null
+          country: string | null
           created_at: string
           feedback: string | null
           id: string
+          ipv4_address: string | null
+          ipv6_address: string | null
           last_read_by_moderator: boolean
           rating: number | null
           status: string
           updated_at: string
+          user_agent: string | null
+          user_email: string | null
           user_id: string
+          vpn_detected: boolean | null
         }
         Insert: {
+          city?: string | null
+          country?: string | null
           created_at?: string
           feedback?: string | null
           id?: string
+          ipv4_address?: string | null
+          ipv6_address?: string | null
           last_read_by_moderator?: boolean
           rating?: number | null
           status?: string
           updated_at?: string
+          user_agent?: string | null
+          user_email?: string | null
           user_id: string
+          vpn_detected?: boolean | null
         }
         Update: {
+          city?: string | null
+          country?: string | null
           created_at?: string
           feedback?: string | null
           id?: string
+          ipv4_address?: string | null
+          ipv6_address?: string | null
           last_read_by_moderator?: boolean
           rating?: number | null
           status?: string
           updated_at?: string
+          user_agent?: string | null
+          user_email?: string | null
           user_id?: string
+          vpn_detected?: boolean | null
         }
         Relationships: [
           {
@@ -519,6 +540,10 @@ export type Database = {
           issued_by_name: string
           reason: string
         }[]
+      }
+      get_user_email_by_id: {
+        Args: { user_uuid: string }
+        Returns: string
       }
       get_users_for_moderators: {
         Args: Record<PropertyKey, never>

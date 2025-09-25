@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLiveSupport } from "@/context/LiveSupportContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import TermsOfService from "./TermsOfService";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HelpCircle } from "lucide-react";
 
 export function AuthForms() {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +21,8 @@ export function AuthForms() {
   const [showReset, setShowReset] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, currentUser } = useAuth();
+  const { createSupportSession } = useLiveSupport();
   const { toast } = useToast();
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -110,6 +113,27 @@ export function AuthForms() {
     }
   };
 
+  const handleSupportRequest = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in first to access support",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await createSupportSession();
+    } catch (error) {
+      toast({
+        title: "Support request failed",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="w-full max-w-md mx-auto">
       {showReset ? (
@@ -145,6 +169,16 @@ export function AuthForms() {
               onClick={() => setShowReset(false)}
             >
               Back to sign in
+            </Button>
+          </CardFooter>
+          <CardFooter className="pt-0">
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={handleSupportRequest}
+            >
+              <HelpCircle className="h-4 w-4 mr-2" />
+              Need Help? Contact Support
             </Button>
           </CardFooter>
         </Card>
@@ -365,6 +399,16 @@ export function AuthForms() {
                     <path d="M1 1h22v22H1z" fill="none" />
                   </svg>
                   Sign up with Google
+                </Button>
+              </CardFooter>
+              <CardFooter className="pt-0">
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={handleSupportRequest}
+                >
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Need Help? Contact Support
                 </Button>
               </CardFooter>
             </Card>

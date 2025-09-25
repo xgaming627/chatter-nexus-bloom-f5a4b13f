@@ -208,9 +208,23 @@ const ModeratorLiveSupport: React.FC = () => {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">IP Address</p>
+                  <p className="text-sm font-medium">IPv4 Address</p>
                   <p className="text-sm text-muted-foreground">
                     {selectedSession.userInfo?.ipAddress || "Unknown"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">IPv6 Address</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.userInfo?.ipv6Address || "Not available"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Location</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSession.userInfo?.city && selectedSession.userInfo?.country 
+                      ? `${selectedSession.userInfo.city}, ${selectedSession.userInfo.country}`
+                      : "Unknown"}
                   </p>
                 </div>
                 <div className="space-y-1">

@@ -2,15 +2,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { format } from 'date-fns';
 import { X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import UserAvatar from './UserAvatar';
+import LiveSupportEndDialog from './LiveSupportEndDialog';
 import { toast } from '@/hooks/use-toast';
 
 const LiveSupportChat: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isModerator } = useRole();
   const { 
     currentSupportSession,
     supportMessages,
@@ -20,6 +24,7 @@ const LiveSupportChat: React.FC = () => {
   } = useLiveSupport();
   
   const [newMessage, setNewMessage] = useState('');
+  const [showEndDialog, setShowEndDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -56,20 +61,23 @@ const LiveSupportChat: React.FC = () => {
   };
   
   const handleRequestEndSupport = () => {
-    requestEndSupport();
-    toast({
-      title: "End request sent",
-      description: "Waiting for user to confirm end of support session"
-    });
+    if (isModerator) {
+      requestEndSupport();
+    }
   };
   
   const handleForceEndSupport = () => {
-    forceEndSupport();
-    toast({
-      title: "Support session ended",
-      description: "This support session has been closed"
-    });
+    if (isModerator) {
+      forceEndSupport();
+    }
   };
+
+  // Show end dialog when session is requested to end and user is not a moderator
+  useEffect(() => {
+    if (currentSupportSession?.status === 'requested-end' && !isModerator) {
+      setShowEndDialog(true);
+    }
+  }, [currentSupportSession?.status, isModerator]);
   
   if (!currentUser || !currentSupportSession) {
     return (
@@ -89,26 +97,33 @@ const LiveSupportChat: React.FC = () => {
           </span>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleRequestEndSupport}
-          >
-            Request End
-          </Button>
-          <Button 
-            variant="destructive" 
-            size="sm"
-            onClick={handleForceEndSupport}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Force End
-          </Button>
+          {isModerator && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRequestEndSupport}
+                disabled={currentSupportSession?.status === 'ended'}
+              >
+                Request End
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={handleForceEndSupport}
+                disabled={currentSupportSession?.status === 'ended'}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Force End
+              </Button>
+            </>
+          )}
         </div>
       </div>
       
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-4">
         {supportMessages.length > 0 ? (
           supportMessages.map((message) => {
             const isOwnMessage = message.sender_id === currentUser?.uid;
@@ -159,25 +174,33 @@ const LiveSupportChat: React.FC = () => {
           </div>
         )}
         <div ref={messagesEndRef} />
-      </div>
+        </div>
+      </ScrollArea>
       
       {/* Message input */}
-      <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
-        <div className="flex gap-2">
-          <Textarea
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 min-h-0"
-            rows={2}
-          />
-          
-          <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
+      {currentSupportSession?.status !== 'ended' && (
+        <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 min-h-0"
+              rows={2}
+            />
+            
+            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </form>
+      )}
+
+      <LiveSupportEndDialog 
+        open={showEndDialog} 
+        onOpenChange={setShowEndDialog} 
+      />
     </div>
   );
 };
