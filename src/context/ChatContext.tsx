@@ -1074,44 +1074,42 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const warnUser = async (userId: string, reason: string, duration: string) => {
     if (!currentUser) return;
-
+    
     try {
+      // Insert warning into user_warnings table
       const { error } = await supabase
         .from('user_warnings')
         .insert({
           user_id: userId,
-          issued_by: currentUser.uid,
           reason: reason,
-          duration: duration
+          duration: duration,
+          issued_by: currentUser.uid,
+          active: true
         });
 
       if (error) throw error;
 
-      // Send notification to the warned user
+      // Send notification to the user about the warning
       await supabase
         .from('notifications')
         .insert({
           user_id: userId,
           type: 'warning',
-          title: 'Account Warning',
-          message: `You have received a warning for: ${reason}. Duration: ${duration}`,
+          title: 'Account Warning Issued',
+          message: `You have received a warning: ${reason}. Duration: ${duration}`,
           is_sound_enabled: true,
-          metadata: {
-            warning_reason: reason,
-            warning_duration: duration,
-            issued_by: currentUser.uid
-          }
+          metadata: { warning_duration: duration, warning_reason: reason }
         });
 
       toast({
-        title: "User warned",
-        description: `Warning issued to user for: ${reason}`,
+        title: "Warning issued",
+        description: "User has been warned successfully",
       });
     } catch (error) {
       console.error('Error warning user:', error);
       toast({
-        title: "Error warning user",
-        description: "Please try again later",
+        title: "Error",
+        description: "Failed to warn user",
         variant: "destructive"
       });
     }

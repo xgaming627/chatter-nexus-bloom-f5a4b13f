@@ -11,6 +11,8 @@ import Index from "./pages/Index";
 import SupportChat from "./pages/SupportChat";
 import NotFound from "./pages/NotFound";
 import QuotaWarningBanner from "./components/QuotaWarningBanner";
+import WarnUserNotification from "./components/WarnUserNotification";
+import WarningNotificationModal from "./components/WarningNotificationModal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +31,8 @@ const App = () => (
       <LiveSupportProvider>
         <TooltipProvider>
           <QuotaWarningBanner />
+          <WarnUserNotification />
+          <WarningNotificationModal />
           <Toaster />
           <Sonner />
           <BrowserRouter>

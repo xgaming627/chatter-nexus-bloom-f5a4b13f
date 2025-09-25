@@ -9,6 +9,7 @@ interface ProfileData {
   photoURL: string;
   description: string;
   onlineStatus: string;
+  doNotDisturb?: boolean;
 }
 
 export const useProfile = () => {
@@ -19,7 +20,8 @@ export const useProfile = () => {
     displayName: '',
     photoURL: '',
     description: '',
-    onlineStatus: 'offline'
+    onlineStatus: 'offline',
+    doNotDisturb: false
   });
   const [loading, setLoading] = useState(true);
 
@@ -38,7 +40,7 @@ export const useProfile = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, display_name, photo_url, description, online_status')
+        .select('username, display_name, photo_url, description, online_status, do_not_disturb')
         .eq('user_id', currentUser.uid)
         .single();
 
@@ -49,7 +51,8 @@ export const useProfile = () => {
         displayName: data.display_name || currentUser.displayName || data.username || 'User',
         photoURL: data.photo_url || currentUser.photoURL || '',
         description: data.description || '',
-        onlineStatus: data.online_status || 'offline'
+        onlineStatus: data.online_status || 'offline',
+        doNotDisturb: data.do_not_disturb || false
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -59,7 +62,8 @@ export const useProfile = () => {
         displayName: currentUser.displayName || currentUser.username || 'User',
         photoURL: currentUser.photoURL || '',
         description: '',
-        onlineStatus: 'offline'
+        onlineStatus: 'offline',
+        doNotDisturb: false
       });
     } finally {
       setLoading(false);
@@ -77,6 +81,7 @@ export const useProfile = () => {
       if (updates.photoURL !== undefined) dbUpdates.photo_url = updates.photoURL;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.onlineStatus !== undefined) dbUpdates.online_status = updates.onlineStatus;
+      if (updates.doNotDisturb !== undefined) dbUpdates.do_not_disturb = updates.doNotDisturb;
 
       const { error } = await supabase
         .from('profiles')

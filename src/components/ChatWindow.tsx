@@ -51,6 +51,8 @@ import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import TypingIndicator from './TypingIndicator';
 import WarnUserDialogWrapper from './WarnUserDialogWrapper';
 import { useRole } from '@/hooks/useRole';
+import AddMemberDialog from './AddMemberDialog';
+import RemoveMemberDialog from './RemoveMemberDialog';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -107,9 +109,7 @@ const ChatWindow: React.FC = () => {
   const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
   const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
-  const [newMemberUsername, setNewMemberUsername] = useState('');
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   
   useEffect(() => {
     scrollToBottom();
@@ -474,30 +474,12 @@ const ChatWindow: React.FC = () => {
     }
   };
   
-  const handleAddMember = async () => {
-    if (!currentConversation || !newMemberUsername.trim()) return;
-    
-    try {
-      const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
-      
-      await addMemberToChat(currentConversation.id, userId);
-      setShowAddMemberDialog(false);
-      setNewMemberUsername('');
-    } catch (error) {
-      console.error("Error adding member:", error);
-    }
+  const handleAddMember = () => {
+    setShowAddMemberDialog(true);
   };
   
-  const handleRemoveMember = async () => {
-    if (!currentConversation || !memberToRemove) return;
-    
-    try {
-      await removeMemberFromChat(currentConversation.id, memberToRemove);
-      setShowRemoveMemberDialog(false);
-      setMemberToRemove(null);
-    } catch (error) {
-      console.error("Error removing member:", error);
-    }
+  const handleRemoveMember = () => {
+    setShowRemoveMemberDialog(true);
   };
   
   if (!currentConversation) {

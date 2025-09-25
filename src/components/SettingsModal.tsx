@@ -193,27 +193,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Privacy Settings</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your privacy settings help control how other users can interact with you.
+                  Control your privacy and notification preferences.
                 </p>
                 
-                <div className="space-y-2">
-                  <Label>Message Settings</Label>
-                  <RadioGroup
-                    value={dmSetting}
-                    onValueChange={(value: "open" | "closed") => {
-                      setDmSetting(value);
-                      updateDmSettings(value);
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="do-not-disturb"
+                    checked={profile?.doNotDisturb || false}
+                    onCheckedChange={(checked) => {
+                      updateProfile({ doNotDisturb: checked });
+                      toast({
+                        title: checked ? 'Do Not Disturb Enabled' : 'Do Not Disturb Disabled',
+                        description: checked ? 'You will not receive sound notifications' : 'Sound notifications re-enabled'
+                      });
                     }}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="open" id="privacy-dm-open" />
-                      <Label htmlFor="privacy-dm-open">Open DMs</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="closed" id="privacy-dm-closed" />
-                      <Label htmlFor="privacy-dm-closed">Closed DMs</Label>
-                    </div>
-                  </RadioGroup>
+                  />
+                  <Label htmlFor="do-not-disturb">Do Not Disturb (Disable sound notifications)</Label>
                 </div>
               </div>
             </TabsContent>

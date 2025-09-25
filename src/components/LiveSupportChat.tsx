@@ -78,8 +78,14 @@ const LiveSupportChat: React.FC = () => {
   useEffect(() => {
     if (currentSupportSession?.status === 'requested-end' && !isModerator) {
       setShowEndDialog(true);
-    } else if (currentSupportSession?.status === 'ended' && !isModerator) {
-      setShowFeedbackDialog(true);
+    } else {
+      setShowEndDialog(false);
+    }
+    
+    if (currentSupportSession?.status === 'ended' && !isModerator) {
+      setTimeout(() => {
+        setShowFeedbackDialog(true);
+      }, 500);
     }
   }, [currentSupportSession?.status, isModerator]);
   
@@ -182,7 +188,7 @@ const LiveSupportChat: React.FC = () => {
       </ScrollArea>
       
       {/* Message input */}
-      {currentSupportSession?.status !== 'ended' && (
+      {(currentSupportSession?.status === 'active' || currentSupportSession?.status === 'requested-end') && (
         <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
           <div className="flex gap-2">
             <Textarea
@@ -194,7 +200,11 @@ const LiveSupportChat: React.FC = () => {
               rows={2}
             />
             
-            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={!newMessage.trim()}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

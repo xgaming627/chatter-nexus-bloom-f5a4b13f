@@ -35,6 +35,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { User as ChatUser } from "@/context/ChatContext";
 import UsernameEditDialog from './UsernameEditDialog';
 import TermsOfService from './TermsOfService';
+import MuteButton from './MuteButton';
 
 interface ModerationItem {
   id: string;
@@ -319,47 +320,30 @@ const ModeratorPanel: React.FC = () => {
     if (!userToAction) return;
     
     try {
-      const { data: profile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('description') // Remove warnings from select since it doesn't exist
-        .eq('user_id', userToAction.user_id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const currentWarnings = 0; // Since warnings column doesn't exist, start with 0
-      
-      let warningExpiry;
-      switch (warnDuration) {
-        case '24h':
-          warningExpiry = new Date();
-          warningExpiry.setHours(warningExpiry.getHours() + 24);
-          break;
-        case '7d':
-          warningExpiry = new Date();
-          warningExpiry.setDate(warningExpiry.getDate() + 7);
-          break;
-        case '30d':
-          warningExpiry = new Date();
-          warningExpiry.setDate(warningExpiry.getDate() + 30);
-          break;
-        case 'permanent':
-          warningExpiry = new Date();
-          warningExpiry.setFullYear(warningExpiry.getFullYear() + 100);
-          break;
-        default:
-          warningExpiry = new Date();
-          warningExpiry.setHours(warningExpiry.getHours() + 24);
-      }
-      
+      // Use proper warning system - insert into user_warnings table
       const { error } = await supabase
-        .from('profiles')
-        .update({
-          description: `Warning: ${warnReason || 'Policy violation'}. Expires: ${warningExpiry.toISOString()}`
-        })
-        .eq('user_id', userToAction.user_id);
+        .from('user_warnings')
+        .insert({
+          user_id: userToAction.user_id,
+          reason: warnReason || 'Policy violation',
+          duration: warnDuration,
+          issued_by: currentUser?.uid,
+          active: true
+        });
 
       if (error) throw error;
+
+      // Send notification to the user
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: userToAction.user_id,
+          type: 'warning',
+          title: 'Account Warning Issued',
+          message: `You have received a warning: ${warnReason || 'Policy violation'}. Duration: ${warnDuration}`,
+          is_sound_enabled: true,
+          metadata: { warning_duration: warnDuration, warning_reason: warnReason }
+        });
       
       toast({
         title: "User warned",
