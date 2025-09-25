@@ -371,7 +371,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
-      // Don't mark has new messages for sender
+      // Don't mark has new messages for sender - reset the flag when sending
       setHasNewMessages(false);
 
       // Process @ mentions

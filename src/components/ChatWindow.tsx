@@ -1138,11 +1138,7 @@ const ChatWindow: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => {
-                            setMemberToRemove(participant.uid);
-                            setShowRemoveMemberDialog(true);
-                            setShowGroupSettingsDialog(false);
-                          }}
+                          onClick={handleRemoveMember}
                         >
                           <UserMinus className="h-4 w-4" />
                         </Button>
@@ -1217,61 +1213,46 @@ const ChatWindow: React.FC = () => {
       <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Member</DialogTitle>
+            <DialogTitle>Group Management</DialogTitle>
             <DialogDescription>
-              Enter the username of the person you want to add to this group.
+              Use the buttons below to add or remove members from this group.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="member-username">Username</Label>
-              <Input
-                id="member-username"
-                value={newMemberUsername}
-                onChange={(e) => setNewMemberUsername(e.target.value)}
-                placeholder="Enter username"
-              />
+          <div className="py-4 space-y-4">
+            <div className="text-center">
+              <Button onClick={handleAddMember} className="w-full">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Members
+              </Button>
+            </div>
+            
+            <div className="text-center">
+              <Button onClick={handleRemoveMember} variant="outline" className="w-full">
+                <UserMinus className="mr-2 h-4 w-4" />
+                Remove Members
+              </Button>
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddMember}>Add Member</Button>
+            <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddMemberDialog 
+        open={showAddMemberDialog} 
+        onOpenChange={setShowAddMemberDialog}
+        conversationId={currentConversation?.id || ''}
+      />
       
-      <Dialog open={showRemoveMemberDialog} onOpenChange={setShowRemoveMemberDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Remove Member</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to remove this member from the group?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {currentConversation?.participantsInfo?.find(p => p.uid === memberToRemove) && (
-              <div className="flex items-center gap-2">
-                <UserAvatar 
-                  username={currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.username || "User"}
-                  photoURL={currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.photoURL}
-                />
-                <span>
-                  {currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.displayName || 
-                   currentConversation.participantsInfo.find(p => p.uid === memberToRemove)?.username}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRemoveMemberDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleRemoveMember}>Remove</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RemoveMemberDialog 
+        open={showRemoveMemberDialog} 
+        onOpenChange={setShowRemoveMemberDialog}
+        conversationId={currentConversation?.id || ''}
+        participants={currentConversation?.participantsInfo || []}
+      />
     </div>
   );
 };
