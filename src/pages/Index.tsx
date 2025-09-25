@@ -79,23 +79,20 @@ const Index = () => {
     setUnreadNotifications(0);
   };
   
-  // If user is not logged in, show auth forms
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-teams-purple mb-2 dark:text-white">ChatNexus</h1>
-            <p className="text-gray-600 dark:text-gray-300">Connect with your team, anywhere, anytime</p>
-          </div>
-          <AuthForms />
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <LiveSupportProvider>
+      {/* If user is not logged in, show auth forms */}
+      {!currentUser ? (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-teams-purple mb-2 dark:text-white">ChatNexus</h1>
+              <p className="text-gray-600 dark:text-gray-300">Connect with your team, anywhere, anytime</p>
+            </div>
+            <AuthForms />
+          </div>
+        </div>
+      ) : (
       <ChatProvider>
         <UsernameSetupModal />
         <WarnUserNotification />
@@ -299,6 +296,7 @@ const Index = () => {
           </DialogContent>
         </Dialog>
       </ChatProvider>
+      )}
     </LiveSupportProvider>
   );
 };

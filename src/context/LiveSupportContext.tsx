@@ -157,7 +157,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (isModerator) {
         query = query.in('status', ['active', 'requested-end']);
       } else {
-        query = query.eq('user_id', currentUser.uid);
+        query = query.eq('user_id', currentUser.uid).in('status', ['active', 'requested-end']);
       }
 
       const { data, error } = await query.order('updated_at', { ascending: false });
@@ -301,14 +301,17 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentUser) throw new Error("You must be logged in");
     
     try {
-      if (isActiveSupportSession) {
-        const existingSession = supportSessions.find(s => 
-          s.status === 'active' || s.status === 'requested-end'
-        );
-        if (existingSession) {
-          await setCurrentSupportSessionId(existingSession.id);
-          return existingSession.id;
-        }
+      // Check for any existing active sessions first
+      const { data: existingSessions } = await supabase
+        .from('support_sessions')
+        .select('*')
+        .eq('user_id', currentUser.uid)
+        .in('status', ['active', 'requested-end']);
+
+      if (existingSessions && existingSessions.length > 0) {
+        const activeSession = existingSessions[0];
+        await setCurrentSupportSessionId(activeSession.id);
+        return activeSession.id;
       }
       
       const { data: sessionData, error: sessionError } = await supabase
@@ -529,6 +532,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       
       setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+      setIsActiveSupportSession(false);
+      
+      // Clear current session after a delay to allow feedback
+      setTimeout(() => {
+        setCurrentSupportSession(null);
+      }, 1000);
     } catch (error) {
       console.error("Error ending support session:", error);
       toast({
@@ -568,6 +577,12 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       
       setCurrentSupportSession(prev => prev ? { ...prev, status: 'ended' } : null);
+      setIsActiveSupportSession(false);
+      
+      // Clear current session after a delay to allow feedback
+      setTimeout(() => {
+        setCurrentSupportSession(null);
+      }, 1000);
       setIsActiveSupportSession(false);
     } catch (error) {
       console.error("Error confirming end of support session:", error);

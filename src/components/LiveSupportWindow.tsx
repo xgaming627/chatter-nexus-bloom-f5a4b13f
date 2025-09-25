@@ -50,10 +50,11 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   }, [supportMessages]);
   
   useEffect(() => {
-    if (open && !currentSupportSession && !isActiveSupportSession) {
+    if (open && !currentSupportSession) {
+      // Always create a fresh session when opening support window
       handleCreateSession();
     }
-  }, [open, currentSupportSession, isActiveSupportSession]);
+  }, [open]);
   
   useEffect(() => {
     // Add automated welcome message

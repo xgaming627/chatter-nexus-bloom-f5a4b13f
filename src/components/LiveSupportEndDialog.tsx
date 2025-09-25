@@ -11,9 +11,13 @@ interface LiveSupportEndDialogProps {
 const LiveSupportEndDialog: React.FC<LiveSupportEndDialogProps> = ({ open, onOpenChange }) => {
   const { confirmEndSupport } = useLiveSupport();
 
-  const handleEndSession = () => {
-    confirmEndSupport();
-    onOpenChange(false);
+  const handleEndSession = async () => {
+    try {
+      await confirmEndSupport();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error ending support session:', error);
+    }
   };
 
   return (

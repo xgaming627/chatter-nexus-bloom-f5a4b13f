@@ -191,8 +191,8 @@ const LiveSupportChat: React.FC = () => {
         </div>
       </ScrollArea>
       
-      {/* Message input */}
-      {(currentSupportSession?.status === 'active' || currentSupportSession?.status === 'requested-end') && (
+      {/* Message input - only show for active sessions */}
+      {currentSupportSession?.status === 'active' && (
         <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
           <div className="flex gap-2">
             <Textarea
