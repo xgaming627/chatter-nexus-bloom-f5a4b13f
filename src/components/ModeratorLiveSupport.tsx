@@ -284,7 +284,7 @@ const ModeratorLiveSupport: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="comments" className="p-4">
-            <ScrollArea className="h-80">
+            <ScrollArea className="h-[400px]">
               <div className="space-y-2">
                 {supportSessions
                   .filter(session => session.feedback)
