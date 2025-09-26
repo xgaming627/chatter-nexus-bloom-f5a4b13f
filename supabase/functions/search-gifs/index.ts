@@ -36,12 +36,12 @@ serve(async (req) => {
     
     const response = await fetch(tenorUrl);
     
-    console.log('Tenor API response status:', response.status);
+    console.log('Tenor API response status:', response.status, response.statusText);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Tenor API error details:', errorText);
-      throw new Error(`Tenor API error: ${response.status} - ${errorText}`);
+      throw new Error(`Tenor API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();

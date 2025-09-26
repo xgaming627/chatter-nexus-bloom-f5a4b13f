@@ -41,6 +41,14 @@ export const useWebRTC = (): WebRTCHook => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentRoomIdRef = useRef<string | null>(null);
   const callTypeRef = useRef<'voice' | 'video'>('voice');
+  
+  console.log('WebRTC Hook State:', { 
+    isCallActive, 
+    callStatus, 
+    callType, 
+    incomingCall: !!incomingCall,
+    roomId: currentRoomIdRef.current 
+  });
 
   // Listen for incoming calls
   useEffect(() => {
@@ -381,7 +389,16 @@ export const useWebRTC = (): WebRTCHook => {
   }, []);
 
   const endCall = useCallback(() => {
-    console.log('Ending call');
+    console.log('Ending call - current state:', { 
+      isCallActive, 
+      callStatus, 
+      roomId: currentRoomIdRef.current,
+      hasLocalStream: !!localStreamRef.current,
+      hasPeerConnection: !!peerConnectionRef.current
+    });
+    
+    // Clear incoming call state immediately
+    setIncomingCall(null);
     
     // Clear video elements first to prevent UI issues
     if (localVideoRef.current) {
@@ -394,14 +411,16 @@ export const useWebRTC = (): WebRTCHook => {
     // Stop local stream tracks properly with immediate effect
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
+        console.log('Stopping track:', track.kind, 'state:', track.readyState);
         track.stop();
-        console.log('Stopped track:', track.kind);
+        track.enabled = false;
       });
       localStreamRef.current = null;
     }
     
     // Close peer connection
     if (peerConnectionRef.current) {
+      console.log('Closing peer connection, state:', peerConnectionRef.current.connectionState);
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
@@ -427,21 +446,36 @@ export const useWebRTC = (): WebRTCHook => {
     setCallType(null);
     setIsMuted(false);
     setIsVideoEnabled(true);
-    setIncomingCall(null);
     currentRoomIdRef.current = null;
-  }, [currentUser]);
+    
+    console.log('Call ended - state reset complete');
+  }, [currentUser, isCallActive, callStatus]);
 
   const toggleMute = useCallback(() => {
+    console.log('Toggle mute called - current state:', { 
+      isMuted, 
+      hasLocalStream: !!localStreamRef.current,
+      audioTracks: localStreamRef.current?.getAudioTracks().length || 0
+    });
+    
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         const newMutedState = !audioTrack.enabled;
         audioTrack.enabled = !newMutedState;
         setIsMuted(newMutedState);
-        console.log('Audio track muted:', newMutedState);
+        console.log('Audio track toggled:', { 
+          enabled: audioTrack.enabled, 
+          muted: newMutedState,
+          trackState: audioTrack.readyState 
+        });
+      } else {
+        console.warn('No audio track found');
       }
+    } else {
+      console.warn('No local stream available for mute toggle');
     }
-  }, []);
+  }, [isMuted]);
 
   const toggleVideo = useCallback(() => {
     if (localStreamRef.current && callTypeRef.current === 'video') {
