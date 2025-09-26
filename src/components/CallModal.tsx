@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, User } from 'lucide-react';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { useCustomCall } from '@/hooks/useCustomCall';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
 
 const CallModal: React.FC = () => {
-  const webRTC = useWebRTC();
+  const customCall = useCustomCall();
   const { currentUser } = useAuth();
-  const { currentConversation, conversations } = useChat();
+  const { currentConversation } = useChat();
   const [callTime, setCallTime] = useState(0);
   const [otherUserName, setOtherUserName] = useState('Unknown User');
 
   // Only show modal when call is not idle
-  if (webRTC.callStatus === 'idle') return null;
+  if (customCall.callStatus === 'idle') return null;
 
   // Get other user info for display
   useEffect(() => {
@@ -33,7 +33,7 @@ const CallModal: React.FC = () => {
 
   // Timer effect for connected calls
   useEffect(() => {
-    if (webRTC.callStatus === 'connected') {
+    if (customCall.callStatus === 'connected') {
       const timer = setInterval(() => {
         setCallTime(prev => prev + 1);
       }, 1000);
@@ -42,7 +42,7 @@ const CallModal: React.FC = () => {
     } else {
       setCallTime(0);
     }
-  }, [webRTC.callStatus]);
+  }, [customCall.callStatus]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -51,7 +51,7 @@ const CallModal: React.FC = () => {
   };
 
   const getStatusText = () => {
-    switch (webRTC.callStatus) {
+    switch (customCall.callStatus) {
       case 'initiating':
         return 'Starting call...';
       case 'ringing':
@@ -68,7 +68,7 @@ const CallModal: React.FC = () => {
   };
 
   const getStatusColor = () => {
-    switch (webRTC.callStatus) {
+    switch (customCall.callStatus) {
       case 'connected':
         return 'text-green-500';
       case 'ended':
@@ -87,12 +87,12 @@ const CallModal: React.FC = () => {
         <div className="flex flex-col items-center space-y-6 p-6">
           {/* Call Header */}
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            {webRTC.callType === 'video' ? (
+            {customCall.callType === 'video' ? (
               <Video className="h-4 w-4" />
             ) : (
               <Phone className="h-4 w-4" />
             )}
-            <span className="capitalize">{webRTC.callType} call</span>
+            <span className="capitalize">{customCall.callType} call</span>
           </div>
 
           {/* Status and Timer */}
@@ -101,7 +101,7 @@ const CallModal: React.FC = () => {
               {getStatusText()}
             </div>
             <div className="text-sm text-muted-foreground capitalize">
-              Status: {webRTC.callStatus}
+              Status: {customCall.callStatus}
             </div>
           </div>
 
@@ -114,7 +114,7 @@ const CallModal: React.FC = () => {
                 size="lg"
               />
               {/* Animated ring for ringing state */}
-              {webRTC.callStatus === 'ringing' && (
+              {customCall.callStatus === 'ringing' && (
                 <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-75" />
               )}
             </div>
@@ -125,26 +125,15 @@ const CallModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Video Display */}
-          {webRTC.callType === 'video' && webRTC.callStatus === 'connected' && (
-            <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden">
-              {/* Remote Video */}
-              <video
-                ref={webRTC.remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Local Video (Picture-in-Picture) */}
-              <div className="absolute top-4 right-4 w-24 h-18 bg-muted rounded overflow-hidden border-2 border-white">
-                <video
-                  ref={webRTC.localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
+          {/* Video Display Placeholder */}
+          {customCall.callType === 'video' && customCall.callStatus === 'connected' && (
+            <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+              <div className="text-center">
+                <Video className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Video call active</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {customCall.isVideoEnabled ? 'Camera on' : 'Camera off'}
+                </p>
               </div>
             </div>
           )}
@@ -156,10 +145,10 @@ const CallModal: React.FC = () => {
               variant="outline"
               size="lg"
               className="h-14 w-14 rounded-full"
-              onClick={webRTC.toggleMute}
-              disabled={webRTC.callStatus !== 'connected'}
+              onClick={customCall.toggleMute}
+              disabled={customCall.callStatus !== 'connected'}
             >
-              {webRTC.isMuted ? (
+              {customCall.isMuted ? (
                 <MicOff className="h-6 w-6 text-red-500" />
               ) : (
                 <Mic className="h-6 w-6" />
@@ -167,15 +156,15 @@ const CallModal: React.FC = () => {
             </Button>
 
             {/* Video Toggle (only for video calls) */}
-            {webRTC.callType === 'video' && (
+            {customCall.callType === 'video' && (
               <Button
                 variant="outline"
                 size="lg"
                 className="h-14 w-14 rounded-full"
-                onClick={webRTC.toggleVideo}
-                disabled={webRTC.callStatus !== 'connected'}
+                onClick={customCall.toggleVideo}
+                disabled={customCall.callStatus !== 'connected'}
               >
-                {webRTC.isVideoEnabled ? (
+                {customCall.isVideoEnabled ? (
                   <Video className="h-6 w-6" />
                 ) : (
                   <VideoOff className="h-6 w-6 text-red-500" />
@@ -188,16 +177,16 @@ const CallModal: React.FC = () => {
               variant="destructive"
               size="lg"
               className="h-14 w-14 rounded-full"
-              onClick={webRTC.endCall}
+              onClick={customCall.endCall}
             >
               <PhoneOff className="h-6 w-6" />
             </Button>
           </div>
 
           {/* Connection Info */}
-          {webRTC.callStatus === 'connecting' && (
+          {customCall.callStatus === 'connecting' && (
             <div className="text-xs text-muted-foreground text-center">
-              <p>Establishing secure connection...</p>
+              <p>Establishing connection...</p>
             </div>
           )}
         </div>

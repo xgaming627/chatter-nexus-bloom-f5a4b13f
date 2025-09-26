@@ -39,7 +39,7 @@ export const useNotifications = () => {
         
         // Handle call notification clicks
         if (data.type === 'call' && data.metadata?.roomId) {
-          // The useWebRTC hook will handle the incoming call UI
+          // The useCustomCall hook will handle the incoming call UI
         }
       };
     }

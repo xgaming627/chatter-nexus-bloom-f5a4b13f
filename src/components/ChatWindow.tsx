@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import { useCustomCall } from '@/hooks/useCustomCall';
 import { format } from 'date-fns';
 import { 
   AlertTriangle, 
@@ -60,7 +60,7 @@ import RemoveMemberDialog from './RemoveMemberDialog';
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
-  const webRTC = useWebRTC();
+  const customCall = useCustomCall();
   const { 
     currentConversation, 
     messages, 
@@ -674,7 +674,7 @@ const ChatWindow: React.FC = () => {
                   console.log('🚀 Starting voice call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📞 Started a voice call', currentConversation.id);
-                  webRTC.startCall(targetUserId, 'voice');
+                  customCall.startCall(targetUserId, 'voice');
                 }
               }
             }}
@@ -693,7 +693,7 @@ const ChatWindow: React.FC = () => {
                   console.log('🚀 Starting video call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📹 Started a video call', currentConversation.id);
-                  webRTC.startCall(targetUserId, 'video');
+                  customCall.startCall(targetUserId, 'video');
                 }
               }
             }}

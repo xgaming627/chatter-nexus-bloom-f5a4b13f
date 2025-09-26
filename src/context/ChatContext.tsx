@@ -728,8 +728,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startVideoCall = (conversationId: string) => {
-    // This function is deprecated - call functionality moved to useWebRTC hook
-    // The actual call should be initiated through the useWebRTC hook's startCall function
+    // This function is deprecated - call functionality moved to useCustomCall hook
+    // The actual call should be initiated through the useCustomCall hook's startCall function
     toast({
       title: "Use call buttons",
       description: "Please use the call buttons in the chat interface.",
@@ -737,8 +737,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startVoiceCall = (conversationId: string) => {
-    // This function is deprecated - call functionality moved to useWebRTC hook
-    // The actual call should be initiated through the useWebRTC hook's startCall function
+    // This function is deprecated - call functionality moved to useCustomCall hook
+    // The actual call should be initiated through the useCustomCall hook's startCall function
     toast({
       title: "Use call buttons", 
       description: "Please use the call buttons in the chat interface.",
@@ -746,7 +746,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const endCall = () => {
-    // This function is deprecated - call functionality moved to useWebRTC hook
+    // This function is deprecated - call functionality moved to useCustomCall hook
     toast({
       title: "Use call controls",
       description: "Please use the call controls in the call interface.",

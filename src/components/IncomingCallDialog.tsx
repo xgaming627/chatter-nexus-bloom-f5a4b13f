@@ -2,15 +2,15 @@ import React from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Phone, PhoneOff, Video } from 'lucide-react';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import { useCustomCall } from '@/hooks/useCustomCall';
 import UserAvatar from './UserAvatar';
 
 const IncomingCallDialog: React.FC = () => {
-  const webRTC = useWebRTC();
+  const customCall = useCustomCall();
 
-  if (!webRTC.incomingCall) return null;
+  if (!customCall.incomingCall) return null;
 
-  const { callerName, callType } = webRTC.incomingCall;
+  const { callerName, callType } = customCall.incomingCall;
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
@@ -57,7 +57,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="destructive"
               size="lg"
               className="flex-1 h-14 rounded-full"
-              onClick={webRTC.declineCall}
+              onClick={customCall.declineCall}
             >
               <PhoneOff className="h-6 w-6 mr-2" />
               Decline
@@ -68,7 +68,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="default"
               size="lg"
               className="flex-1 h-14 rounded-full bg-green-600 hover:bg-green-700 text-white"
-              onClick={webRTC.answerCall}
+              onClick={customCall.answerCall}
             >
               <Phone className="h-6 w-6 mr-2" />
               Accept

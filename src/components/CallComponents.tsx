@@ -1,15 +1,15 @@
 import React from 'react';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import { useCustomCall } from '@/hooks/useCustomCall';
 import CallModal from './CallModal';
 import IncomingCallDialog from './IncomingCallDialog';
 
 const CallComponents: React.FC = () => {
-  const webRTC = useWebRTC();
+  const customCall = useCustomCall();
   
   return (
     <>
       {/* Show call modal when call is active (not idle) */}
-      {webRTC.callStatus !== 'idle' && <CallModal />}
+      {customCall.callStatus !== 'idle' && <CallModal />}
       
       {/* Show incoming call dialog when there's an incoming call */}
       <IncomingCallDialog />
