@@ -32,18 +32,23 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
     }
 
     setLoading(true);
+    console.log('Searching for GIFs:', query);
     try {
       const { data, error } = await supabase.functions.invoke('search-gifs', {
         body: { searchTerm: query, limit: 20 }
       });
+
+      console.log('GIF search response:', { data, error });
 
       if (error) {
         throw error;
       }
 
       if (data?.gifs) {
+        console.log('Found GIFs:', data.gifs.length);
         setGifs(data.gifs);
       } else {
+        console.log('No GIFs found in response');
         setGifs([]);
       }
     } catch (error) {

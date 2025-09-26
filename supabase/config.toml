@@ -1,1 +1,4 @@
 project_id = "ikcwdybgzlnlbzaigvfp"
+
+[functions.search-gifs]
+verify_jwt = false
