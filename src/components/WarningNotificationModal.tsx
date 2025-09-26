@@ -58,6 +58,21 @@ const WarningNotificationModal: React.FC = () => {
         
         if (unseenWarnings.length > 0) {
           setShowModal(true);
+          
+          // Show browser notification
+          if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+              Notification.requestPermission();
+            }
+            
+            if (Notification.permission === 'granted') {
+              new Notification('Account Warning Received', {
+                body: `You have ${unseenWarnings.length} new warning${unseenWarnings.length > 1 ? 's' : ''}`,
+                icon: '/favicon.ico',
+                badge: '/favicon.ico'
+              });
+            }
+          }
         }
       }
     } catch (error) {
@@ -77,8 +92,12 @@ const WarningNotificationModal: React.FC = () => {
   if (!showModal || warnings.length === 0) return null;
 
   return (
-    <Dialog open={showModal} onOpenChange={setShowModal}>
-      <DialogContent className="sm:max-w-[600px]">
+    <>
+      {/* Background overlay */}
+      {showModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />}
+      
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-[600px] z-50">
         <DialogHeader>
           <DialogTitle className="flex items-center text-amber-600">
             <AlertTriangle className="h-6 w-6 mr-2" />
@@ -140,8 +159,9 @@ const WarningNotificationModal: React.FC = () => {
             I Understand
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

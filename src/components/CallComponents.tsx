@@ -1,14 +1,14 @@
 import React from 'react';
-import { useChat } from '@/context/ChatContext';
+import { useWebRTC } from '@/hooks/useWebRTC';
 import CallModal from './CallModal';
 import IncomingCallDialog from './IncomingCallDialog';
 
 const CallComponents: React.FC = () => {
-  const { isCallActive } = useChat();
+  const webRTC = useWebRTC();
   
   return (
     <>
-      {isCallActive && <CallModal />}
+      {webRTC.isCallActive && <CallModal />}
       <IncomingCallDialog />
     </>
   );

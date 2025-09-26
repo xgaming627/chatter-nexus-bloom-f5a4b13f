@@ -10,37 +10,71 @@ const emojiCategories = {
   smileys: {
     name: 'Smileys & People',
     emojis: {
-      's': '😊', 'smile': '😊', 'happy': '😊',
-      'laugh': '😂', 'lol': '😂', 'cry-laugh': '😂',
-      'heart': '❤️', 'love': '❤️',
-      'wink': '😉', 'cool': '😎', 
-      'think': '🤔', 'thinking': '🤔',
-      'thumbs-up': '👍', 'thumbs-down': '👎',
-      'clap': '👏', 'fire': '🔥',
-      'ok': '👌', 'peace': '✌️',
-      'wave': '👋', 'hi': '👋',
-      'sad': '😢', 'angry': '😡',
-      'surprised': '😮', 'shock': '😱'
+      's': '😊', 'smile': '😊', 'happy': '😊', 'grin': '😁', 'joy': '😄',
+      'laugh': '😂', 'lol': '😂', 'cry-laugh': '😂', 'rofl': '🤣', 'sweat': '😅',
+      'heart': '❤️', 'love': '❤️', 'heart-eyes': '😍', 'kiss': '😘', 'blush': '😊',
+      'wink': '😉', 'cool': '😎', 'smirk': '😏', 'neutral': '😐', 'expressionless': '😑',
+      'think': '🤔', 'thinking': '🤔', 'confused': '😕', 'worried': '😟', 'frown': '☹️',
+      'thumbs-up': '👍', 'thumbs-down': '👎', 'fist': '✊', 'victory': '✌️', 'fingers-crossed': '🤞',
+      'clap': '👏', 'fire': '🔥', 'star': '⭐', 'sparkles': '✨', '100': '💯',
+      'ok': '👌', 'peace': '✌️', 'point-up': '👆', 'point-down': '👇', 'point-left': '👈', 'point-right': '👉',
+      'wave': '👋', 'hi': '👋', 'pray': '🙏', 'muscle': '💪', 'selfie': '🤳',
+      'sad': '😢', 'cry': '😭', 'sob': '😭', 'angry': '😡', 'rage': '😠', 'mad': '🤬',
+      'surprised': '😮', 'shock': '😱', 'wow': '😲', 'open-mouth': '😮', 'gasp': '😯',
+      'sick': '🤒', 'dizzy': '😵', 'tired': '😴', 'sleepy': '😪', 'yawn': '🥱',
+      'nerd': '🤓', 'glasses': '😎', 'monocle': '🧐', 'cowboy': '🤠', 'party': '🥳'
     }
   },
   objects: {
     name: 'Objects',
     emojis: {
-      'phone': '📱', 'computer': '💻',
-      'car': '🚗', 'plane': '✈️',
-      'home': '🏠', 'office': '🏢',
-      'book': '📚', 'pen': '✏️',
-      'clock': '🕐', 'calendar': '📅'
+      'phone': '📱', 'computer': '💻', 'laptop': '💻', 'desktop': '🖥️', 'keyboard': '⌨️',
+      'car': '🚗', 'truck': '🚚', 'bus': '🚌', 'plane': '✈️', 'rocket': '🚀',
+      'home': '🏠', 'house': '🏡', 'office': '🏢', 'school': '🏫', 'hospital': '🏥',
+      'book': '📚', 'notebook': '📔', 'pen': '✏️', 'pencil': '✏️', 'marker': '🖊️',
+      'clock': '🕐', 'calendar': '📅', 'watch': '⌚', 'timer': '⏰', 'hourglass': '⏳',
+      'money': '💰', 'dollar': '💵', 'credit-card': '💳', 'gem': '💎', 'gift': '🎁',
+      'camera': '📷', 'video': '📹', 'tv': '📺', 'radio': '📻', 'headphones': '🎧',
+      'guitar': '🎸', 'piano': '🎹', 'microphone': '🎤', 'trumpet': '🎺', 'violin': '🎻',
+      'soccer': '⚽', 'basketball': '🏀', 'football': '🏈', 'tennis': '🎾', 'ping-pong': '🏓'
     }
   },
   nature: {
     name: 'Nature',
     emojis: {
-      'sun': '☀️', 'moon': '🌙',
-      'star': '⭐', 'cloud': '☁️',
-      'rain': '🌧️', 'snow': '❄️',
-      'tree': '🌳', 'flower': '🌸',
-      'cat': '🐱', 'dog': '🐶'
+      'sun': '☀️', 'moon': '🌙', 'crescent': '🌙', 'full-moon': '🌕', 'new-moon': '🌑',
+      'star': '⭐', 'stars': '✨', 'cloud': '☁️', 'cloudy': '⛅', 'storm': '⛈️',
+      'rain': '🌧️', 'drizzle': '🌦️', 'snow': '❄️', 'snowman': '⛄', 'thunder': '⚡',
+      'tree': '🌳', 'evergreen': '🌲', 'palm': '🌴', 'cactus': '🌵', 'leaves': '🍃',
+      'flower': '🌸', 'rose': '🌹', 'tulip': '🌷', 'sunflower': '🌻', 'blossom': '🌼',
+      'cat': '🐱', 'dog': '🐶', 'mouse': '🐭', 'hamster': '🐹', 'rabbit': '🐰',
+      'fox': '🦊', 'bear': '🐻', 'panda': '🐼', 'koala': '🐨', 'tiger': '🐯',
+      'lion': '🦁', 'cow': '🐮', 'pig': '🐷', 'monkey': '🐵', 'chicken': '🐔',
+      'penguin': '🐧', 'bird': '🐦', 'eagle': '🦅', 'duck': '🦆', 'owl': '🦉',
+      'frog': '🐸', 'snake': '🐍', 'turtle': '🐢', 'fish': '🐠', 'whale': '🐋'
+    }
+  },
+  food: {
+    name: 'Food & Drink',
+    emojis: {
+      'apple': '🍎', 'banana': '🍌', 'orange': '🍊', 'strawberry': '🍓', 'grapes': '🍇',
+      'watermelon': '🍉', 'pineapple': '🍍', 'peach': '🍑', 'cherry': '🍒', 'lemon': '🍋',
+      'bread': '🍞', 'croissant': '🥐', 'bagel': '🥯', 'pretzel': '🥨', 'pancakes': '🥞',
+      'pizza': '🍕', 'burger': '🍔', 'fries': '🍟', 'hotdog': '🌭', 'taco': '🌮',
+      'coffee': '☕', 'tea': '🍵', 'beer': '🍺', 'wine': '🍷', 'cocktail': '🍹',
+      'cake': '🍰', 'cupcake': '🧁', 'cookie': '🍪', 'donut': '🍩', 'chocolate': '🍫',
+      'ice-cream': '🍦', 'popsicle': '🍭', 'candy': '🍬', 'honey': '🍯', 'popcorn': '🍿'
+    }
+  },
+  activities: {
+    name: 'Activities',
+    emojis: {
+      'party': '🎉', 'confetti': '🎊', 'balloon': '🎈', 'birthday': '🎂', 'celebrate': '🥳',
+      'dance': '💃', 'man-dancing': '🕺', 'music': '🎵', 'note': '🎶', 'headphones': '🎧',
+      'art': '🎨', 'paint': '🖌️', 'theater': '🎭', 'movie': '🎬', 'clapper': '🎬',
+      'game': '🎮', 'joystick': '🕹️', 'dice': '🎲', 'puzzle': '🧩', 'chess': '♟️',
+      'medal': '🏅', 'trophy': '🏆', 'award': '🥇', 'ribbon': '🎗️', 'first': '🥇',
+      'travel': '✈️', 'luggage': '🧳', 'map': '🗺️', 'compass': '🧭', 'tent': '⛺'
     }
   }
 };

@@ -77,31 +77,57 @@ const WarnUserNotification: React.FC = () => {
     !dismissed.includes(warning.id)
   );
 
+  // Show browser notification for new warnings
+  useEffect(() => {
+    if (activeWarnings.length > 0 && 'Notification' in window) {
+      // Request permission if not already granted
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      
+      // Show notification if permission is granted
+      if (Notification.permission === 'granted') {
+        const latestWarning = activeWarnings[0];
+        new Notification('Account Warning Issued', {
+          body: `Reason: ${latestWarning.reason}`,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico'
+        });
+      }
+    }
+  }, [activeWarnings.length]);
+
   if (activeWarnings.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
-      {activeWarnings.map((warning) => (
-        <Alert key={warning.id} variant="destructive" className="relative">
-          <AlertTriangle className="h-4 w-4" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute top-2 right-2 h-6 w-6 p-0"
-            onClick={() => handleDismiss(warning.id)}
-          >
-            <X className="h-3 w-3" />
-          </Button>
-          <AlertTitle>Warning Issued</AlertTitle>
-          <AlertDescription className="space-y-1">
-            <p><strong>Reason:</strong> {warning.reason}</p>
-            <p><strong>Duration:</strong> {warning.duration}</p>
-            <p><strong>Issued by:</strong> {warning.issued_by_name}</p>
-            <p><strong>Expires:</strong> {format(new Date(warning.expires_at), 'PPpp')}</p>
-          </AlertDescription>
-        </Alert>
-      ))}
-    </div>
+    <>
+      {/* Background overlay */}
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
+      
+      {/* Warning notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
+        {activeWarnings.map((warning) => (
+          <Alert key={warning.id} variant="destructive" className="relative shadow-lg border-2">
+            <AlertTriangle className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-6 w-6 p-0"
+              onClick={() => handleDismiss(warning.id)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+            <AlertTitle>Warning Issued</AlertTitle>
+            <AlertDescription className="space-y-1">
+              <p><strong>Reason:</strong> {warning.reason}</p>
+              <p><strong>Duration:</strong> {warning.duration}</p>
+              <p><strong>Issued by:</strong> {warning.issued_by_name}</p>
+              <p><strong>Expires:</strong> {format(new Date(warning.expires_at), 'PPpp')}</p>
+            </AlertDescription>
+          </Alert>
+        ))}
+      </div>
+    </>
   );
 };
 
