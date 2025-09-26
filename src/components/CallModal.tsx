@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, User } from 'lucide-react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
@@ -12,19 +12,28 @@ const CallModal: React.FC = () => {
   const { currentUser } = useAuth();
   const { currentConversation, conversations } = useChat();
   const [callTime, setCallTime] = useState(0);
+  const [otherUserName, setOtherUserName] = useState('Unknown User');
 
   // Only show modal when call is not idle
-  console.log('CallModal render check - callStatus:', webRTC.callStatus);
   if (webRTC.callStatus === 'idle') return null;
 
-  // Get conversation participants for display
-  const conversation = conversations.find(c => c.id === currentConversation?.id);
-  const participants = conversation?.participants.filter(p => p !== currentUser?.uid) || [];
-  
-  // Timer effect
+  // Get other user info for display
   useEffect(() => {
-      console.log('Call status changed to:', webRTC.callStatus);
-      if (webRTC.callStatus === 'connected') {
+    if (currentConversation && !currentConversation.is_group_chat) {
+      const otherUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
+      if (otherUserId) {
+        // Try to get name from participants info first
+        const participantInfo = currentConversation.participantsInfo?.find(p => p.uid === otherUserId);
+        if (participantInfo) {
+          setOtherUserName(participantInfo.displayName || participantInfo.username || 'Unknown User');
+        }
+      }
+    }
+  }, [currentConversation, currentUser?.uid]);
+
+  // Timer effect for connected calls
+  useEffect(() => {
+    if (webRTC.callStatus === 'connected') {
       const timer = setInterval(() => {
         setCallTime(prev => prev + 1);
       }, 1000);
@@ -41,10 +50,38 @@ const CallModal: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getStatusText = () => {
+    switch (webRTC.callStatus) {
+      case 'initiating':
+        return 'Starting call...';
+      case 'ringing':
+        return 'Ringing...';
+      case 'connecting':
+        return 'Connecting...';
+      case 'connected':
+        return formatTime(callTime);
+      case 'ended':
+        return 'Call ended';
+      default:
+        return 'Call active';
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (webRTC.callStatus) {
+      case 'connected':
+        return 'text-green-500';
+      case 'ended':
+        return 'text-red-500';
+      default:
+        return 'text-muted-foreground';
+    }
+  };
+
   return (
     <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-2xl bg-background/95 backdrop-blur-lg border border-white/10"
+        className="sm:max-w-md bg-background/95 backdrop-blur-lg border border-white/10"
         style={{ zIndex: 9999 }}
       >
         <div className="flex flex-col items-center space-y-6 p-6">
@@ -55,29 +92,41 @@ const CallModal: React.FC = () => {
             ) : (
               <Phone className="h-4 w-4" />
             )}
-            <span>{webRTC.callType} call</span>
-            {participants.length > 1 && (
-              <>
-                <Users className="h-4 w-4 ml-2" />
-                <span>Group</span>
-              </>
-            )}
+            <span className="capitalize">{webRTC.callType} call</span>
           </div>
 
-          {/* Call Status and Timer */}
+          {/* Status and Timer */}
           <div className="text-center">
-            <div className="text-2xl font-semibold text-foreground mb-2">
-              {webRTC.callStatus === 'connected' ? formatTime(callTime) : 
-               webRTC.callStatus === 'ringing' ? 'Ringing...' :
-               webRTC.callStatus === 'initiating' ? 'Connecting...' : 'Call Active'}
+            <div className={`text-2xl font-semibold mb-2 ${getStatusColor()}`}>
+              {getStatusText()}
             </div>
             <div className="text-sm text-muted-foreground capitalize">
-              {webRTC.callStatus}
+              Status: {webRTC.callStatus}
+            </div>
+          </div>
+
+          {/* User Avatar and Name */}
+          <div className="flex flex-col items-center space-y-3">
+            <div className="relative">
+              <UserAvatar 
+                username={otherUserName}
+                photoURL={undefined}
+                size="lg"
+              />
+              {/* Animated ring for ringing state */}
+              {webRTC.callStatus === 'ringing' && (
+                <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-75" />
+              )}
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-foreground">
+                {otherUserName}
+              </h3>
             </div>
           </div>
 
           {/* Video Display */}
-          {webRTC.callType === 'video' && (
+          {webRTC.callType === 'video' && webRTC.callStatus === 'connected' && (
             <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden">
               {/* Remote Video */}
               <video
@@ -100,44 +149,18 @@ const CallModal: React.FC = () => {
             </div>
           )}
 
-          {/* Voice Call Participants */}
-          {webRTC.callType === 'voice' && (
-            <div className="flex flex-wrap justify-center gap-4">
-              {participants.slice(0, 3).map((participantId) => (
-                <div key={participantId} className="flex flex-col items-center space-y-2">
-                  <UserAvatar 
-                    username={`User ${participantId.slice(0, 8)}`}
-                    photoURL={undefined}
-                    size="lg"
-                  />
-                  <span className="text-sm font-medium text-foreground">
-                    User {participantId.slice(0, 8)}
-                  </span>
-                </div>
-              ))}
-              
-              {participants.length > 3 && (
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                    <span className="text-sm font-medium">+{participants.length - 3}</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">others</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Call Controls */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-center space-x-4">
             {/* Mute Button */}
             <Button
               variant="outline"
               size="lg"
               className="h-14 w-14 rounded-full"
               onClick={webRTC.toggleMute}
+              disabled={webRTC.callStatus !== 'connected'}
             >
               {webRTC.isMuted ? (
-                <MicOff className="h-6 w-6" />
+                <MicOff className="h-6 w-6 text-red-500" />
               ) : (
                 <Mic className="h-6 w-6" />
               )}
@@ -150,11 +173,12 @@ const CallModal: React.FC = () => {
                 size="lg"
                 className="h-14 w-14 rounded-full"
                 onClick={webRTC.toggleVideo}
+                disabled={webRTC.callStatus !== 'connected'}
               >
                 {webRTC.isVideoEnabled ? (
                   <Video className="h-6 w-6" />
                 ) : (
-                  <VideoOff className="h-6 w-6" />
+                  <VideoOff className="h-6 w-6 text-red-500" />
                 )}
               </Button>
             )}
@@ -169,6 +193,13 @@ const CallModal: React.FC = () => {
               <PhoneOff className="h-6 w-6" />
             </Button>
           </div>
+
+          {/* Connection Info */}
+          {webRTC.callStatus === 'connecting' && (
+            <div className="text-xs text-muted-foreground text-center">
+              <p>Establishing secure connection...</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

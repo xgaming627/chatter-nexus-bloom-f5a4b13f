@@ -8,7 +8,10 @@ const CallComponents: React.FC = () => {
   
   return (
     <>
-      {webRTC.isCallActive && <CallModal />}
+      {/* Show call modal when call is active (not idle) */}
+      {webRTC.callStatus !== 'idle' && <CallModal />}
+      
+      {/* Show incoming call dialog when there's an incoming call */}
       <IncomingCallDialog />
     </>
   );

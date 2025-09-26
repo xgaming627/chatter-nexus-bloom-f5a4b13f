@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff, Video, Users } from 'lucide-react';
+import { Phone, PhoneOff, Video } from 'lucide-react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import UserAvatar from './UserAvatar';
 
@@ -10,7 +10,7 @@ const IncomingCallDialog: React.FC = () => {
 
   if (!webRTC.incomingCall) return null;
 
-  const { roomId, callerName, callType, isGroupCall } = webRTC.incomingCall;
+  const { callerName, callType } = webRTC.incomingCall;
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
@@ -27,12 +27,6 @@ const IncomingCallDialog: React.FC = () => {
               <Phone className="h-4 w-4" />
             )}
             <span>Incoming {callType} call</span>
-            {isGroupCall && (
-              <>
-                <Users className="h-4 w-4 ml-2" />
-                <span>Group</span>
-              </>
-            )}
           </div>
 
           {/* Caller Avatar and Name */}
@@ -51,7 +45,7 @@ const IncomingCallDialog: React.FC = () => {
                 {callerName}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {isGroupCall ? 'is starting a group call' : 'is calling you'}
+                is calling you
               </p>
             </div>
           </div>
@@ -63,7 +57,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="destructive"
               size="lg"
               className="flex-1 h-14 rounded-full"
-              onClick={webRTC.endCall}
+              onClick={webRTC.declineCall}
             >
               <PhoneOff className="h-6 w-6 mr-2" />
               Decline
@@ -74,7 +68,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="default"
               size="lg"
               className="flex-1 h-14 rounded-full bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => webRTC.answerCall(roomId)}
+              onClick={webRTC.answerCall}
             >
               <Phone className="h-6 w-6 mr-2" />
               Accept

@@ -3,27 +3,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export type CallStatus = 'idle' | 'initiating' | 'ringing' | 'connected' | 'ending';
+export type CallStatus = 'idle' | 'initiating' | 'ringing' | 'connecting' | 'connected' | 'ended';
 export type CallType = 'voice' | 'video';
 
 interface IncomingCall {
   roomId: string;
   callerName: string;
   callType: CallType;
-  isGroupCall: boolean;
+  callerId: string;
 }
 
 interface WebRTCHook {
   localVideoRef: React.RefObject<HTMLVideoElement>;
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
-  isCallActive: boolean;
   callStatus: CallStatus;
   callType: CallType;
   isMuted: boolean;
   isVideoEnabled: boolean;
   incomingCall: IncomingCall | null;
   startCall: (targetUserId: string, type: CallType) => Promise<void>;
-  answerCall: (roomId: string) => Promise<void>;
+  answerCall: () => Promise<void>;
+  declineCall: () => void;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -31,7 +31,7 @@ interface WebRTCHook {
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' }
+  { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
 export const useWebRTC = (): WebRTCHook => {
@@ -52,11 +52,9 @@ export const useWebRTC = (): WebRTCHook => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
 
-  const isCallActive = callStatus !== 'idle' && callStatus !== 'ending';
-
   // Clean up function
   const cleanup = useCallback(() => {
-    console.log('Cleaning up WebRTC resources...');
+    console.log('🧹 Cleaning up WebRTC resources');
     
     // Stop local stream
     if (localStreamRef.current) {
@@ -83,7 +81,6 @@ export const useWebRTC = (): WebRTCHook => {
 
     // Reset state
     currentRoomIdRef.current = null;
-    setIncomingCall(null);
     setCallStatus('idle');
     setIsMuted(false);
     setIsVideoEnabled(false);
@@ -94,11 +91,12 @@ export const useWebRTC = (): WebRTCHook => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
     pc.onicecandidate = async (event) => {
-      if (event.candidate && currentRoomIdRef.current) {
+      if (event.candidate && currentRoomIdRef.current && currentUser?.uid) {
+        console.log('📤 Sending ICE candidate');
         try {
           await supabase.from('ice_candidates').insert({
             room_id: currentRoomIdRef.current,
-            user_id: currentUser?.uid,
+            user_id: currentUser.uid,
             candidate: {
               candidate: event.candidate.candidate,
               sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -106,33 +104,39 @@ export const useWebRTC = (): WebRTCHook => {
             }
           });
         } catch (error) {
-          console.error('Failed to save ICE candidate:', error);
+          console.error('❌ Failed to save ICE candidate:', error);
         }
       }
     };
 
     pc.ontrack = (event) => {
-      console.log('Received remote track');
-      if (remoteVideoRef.current) {
+      console.log('🎥 Received remote track');
+      if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
+      console.log('🔄 Connection state:', pc.connectionState);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
+        toast({
+          title: "Connected",
+          description: "Call connected successfully"
+        });
       } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        console.log('❌ Connection failed or disconnected');
         endCall();
       }
     };
 
     return pc;
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, toast]);
 
   // Get user media
   const getUserMedia = useCallback(async (type: CallType): Promise<MediaStream> => {
     try {
+      console.log(`🎤 Getting user media for ${type} call`);
       const constraints = {
         audio: true,
         video: type === 'video'
@@ -147,62 +151,76 @@ export const useWebRTC = (): WebRTCHook => {
       setIsVideoEnabled(type === 'video');
       return stream;
     } catch (error) {
-      console.error('Failed to get user media:', error);
+      console.error('❌ Failed to get user media:', error);
       toast({
         title: "Media Error",
-        description: "Failed to access camera/microphone",
+        description: "Failed to access camera/microphone. Please allow permissions and try again.",
         variant: "destructive"
       });
       throw error;
     }
   }, [toast]);
 
+  // Start call
   const startCall = useCallback(async (targetUserId: string, type: CallType) => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      console.log('❌ No current user');
+      return;
+    }
+
+    console.log(`📞 Starting ${type} call to:`, targetUserId);
 
     try {
-      console.log('Starting call to:', targetUserId, 'type:', type);
       setCallStatus('initiating');
       setCallType(type);
 
-      // Get user media
+      // Get user media first
       const stream = await getUserMedia(type);
       localStreamRef.current = stream;
 
-      // Create room
-      const roomId = `${Date.now()}-${currentUser.uid}-${targetUserId}`;
+      // Create room ID
+      const roomId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       currentRoomIdRef.current = roomId;
 
       // Create peer connection
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
-      // Add local stream
+      // Add local stream to peer connection
       stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream);
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.addTrack(track, stream);
+        }
       });
 
       // Create offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Save call room
-      await supabase.from('call_rooms').insert({
+      console.log('💾 Saving call room to database');
+      // Save call to database
+      const { error } = await supabase.from('call_rooms').insert({
         room_id: roomId,
         caller_id: currentUser.uid,
         callee_id: targetUserId,
         call_type: type,
-        status: 'waiting',
+        status: 'ringing',
         offer: offer as any
       });
 
+      if (error) {
+        console.error('❌ Failed to create call room:', error);
+        throw error;
+      }
+
       setCallStatus('ringing');
-      
+      console.log('✅ Call initiated successfully');
+
     } catch (error) {
-      console.error('Failed to start call:', error);
+      console.error('❌ Failed to start call:', error);
       toast({
         title: "Call Failed",
-        description: "Failed to initiate call",
+        description: error instanceof Error ? error.message : "Failed to initiate call",
         variant: "destructive"
       });
       cleanup();
@@ -210,29 +228,34 @@ export const useWebRTC = (): WebRTCHook => {
   }, [currentUser?.uid, getUserMedia, createPeerConnection, cleanup, toast]);
 
   // Answer call
-  const answerCall = useCallback(async (roomId: string) => {
-    if (!currentUser?.uid || !incomingCall) return;
+  const answerCall = useCallback(async () => {
+    if (!currentUser?.uid || !incomingCall) {
+      console.log('❌ Cannot answer call - missing user or incoming call');
+      return;
+    }
+
+    console.log('📞 Answering call:', incomingCall.roomId);
 
     try {
-      setCallStatus('initiating');
+      setCallStatus('connecting');
       setCallType(incomingCall.callType);
 
       // Get user media
       const stream = await getUserMedia(incomingCall.callType);
       localStreamRef.current = stream;
 
-      // Get call room data
-      const { data: roomData, error } = await supabase
+      // Get call data from database
+      const { data: callData, error } = await supabase
         .from('call_rooms')
         .select('*')
-        .eq('room_id', roomId)
+        .eq('room_id', incomingCall.roomId)
         .single();
 
-      if (error || !roomData?.offer) {
-        throw new Error('Call room not found');
+      if (error || !callData?.offer) {
+        throw new Error('Call not found or invalid');
       }
 
-      currentRoomIdRef.current = roomId;
+      currentRoomIdRef.current = incomingCall.roomId;
 
       // Create peer connection
       const pc = createPeerConnection();
@@ -240,28 +263,31 @@ export const useWebRTC = (): WebRTCHook => {
 
       // Add local stream
       stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream);
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.addTrack(track, stream);
+        }
       });
 
-      // Set remote description
-      await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer as any));
+      // Set remote description from offer
+      await pc.setRemoteDescription(new RTCSessionDescription(callData.offer as any));
 
       // Create answer
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      // Update call room with answer
+      // Save answer to database
       await supabase.from('call_rooms')
         .update({
           answer: answer as any,
-          status: 'active'
+          status: 'connected'
         })
-        .eq('room_id', roomId);
+        .eq('room_id', incomingCall.roomId);
 
       setIncomingCall(null);
-      
+      console.log('✅ Call answered successfully');
+
     } catch (error) {
-      console.error('Failed to answer call:', error);
+      console.error('❌ Failed to answer call:', error);
       toast({
         title: "Call Failed",
         description: "Failed to answer call",
@@ -271,19 +297,39 @@ export const useWebRTC = (): WebRTCHook => {
     }
   }, [currentUser?.uid, incomingCall, getUserMedia, createPeerConnection, cleanup, toast]);
 
+  // Decline call
+  const declineCall = useCallback(() => {
+    if (incomingCall) {
+      console.log('📞 Declining call:', incomingCall.roomId);
+      
+      // Update call status in database
+      supabase.from('call_rooms')
+        .update({ status: 'declined' })
+        .eq('room_id', incomingCall.roomId);
+      
+      setIncomingCall(null);
+    }
+  }, [incomingCall]);
+
   // End call
   const endCall = useCallback(() => {
-    console.log('Ending call...');
+    console.log('📞 Ending call');
     
-    // Update room status if we have a room
+    // Update call status if we have an active room
     if (currentRoomIdRef.current) {
       supabase.from('call_rooms')
         .update({ status: 'ended' })
         .eq('room_id', currentRoomIdRef.current);
     }
 
-    setCallStatus('ending');
-    cleanup();
+    // Clear incoming call
+    setIncomingCall(null);
+    
+    // Set status and cleanup
+    setCallStatus('ended');
+    setTimeout(() => {
+      cleanup();
+    }, 1000); // Small delay to show ended status
   }, [cleanup]);
 
   // Toggle mute
@@ -294,6 +340,7 @@ export const useWebRTC = (): WebRTCHook => {
         track.enabled = !track.enabled;
       });
       setIsMuted(!audioTracks[0]?.enabled);
+      console.log('🎤 Toggled mute:', !audioTracks[0]?.enabled);
     }
   }, []);
 
@@ -304,7 +351,9 @@ export const useWebRTC = (): WebRTCHook => {
       videoTracks.forEach(track => {
         track.enabled = !track.enabled;
       });
-      setIsVideoEnabled(videoTracks[0]?.enabled || false);
+      const enabled = videoTracks[0]?.enabled || false;
+      setIsVideoEnabled(enabled);
+      console.log('📹 Toggled video:', enabled);
     }
   }, []);
 
@@ -312,19 +361,21 @@ export const useWebRTC = (): WebRTCHook => {
   useEffect(() => {
     if (!currentUser?.uid) return;
 
-    // Listen for new call rooms (incoming calls)
-    const callRoomsChannel = supabase
-      .channel('call_rooms_channel')
+    console.log('🔌 Setting up real-time listeners for user:', currentUser.uid);
+
+    // Listen for incoming calls
+    const callChannel = supabase
+      .channel('incoming_calls')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'call_rooms',
         filter: `callee_id=eq.${currentUser.uid}`
       }, async (payload) => {
-        console.log('New incoming call:', payload.new);
+        console.log('📞 Incoming call:', payload.new);
         
-        // Get caller profile
-        const { data: profile } = await supabase
+        // Get caller info
+        const { data: callerProfile } = await supabase
           .from('profiles')
           .select('display_name, username')
           .eq('user_id', payload.new.caller_id)
@@ -332,9 +383,9 @@ export const useWebRTC = (): WebRTCHook => {
 
         setIncomingCall({
           roomId: payload.new.room_id,
-          callerName: profile?.display_name || profile?.username || 'Unknown',
+          callerName: callerProfile?.display_name || callerProfile?.username || 'Unknown User',
           callType: payload.new.call_type,
-          isGroupCall: false
+          callerId: payload.new.caller_id
         });
       })
       .on('postgres_changes', {
@@ -343,23 +394,35 @@ export const useWebRTC = (): WebRTCHook => {
         table: 'call_rooms',
         filter: `caller_id=eq.${currentUser.uid}`
       }, async (payload) => {
+        console.log('📞 Call room updated:', payload.new);
+        
         // Handle answer received
-        if (payload.new.answer && currentRoomIdRef.current === payload.new.room_id) {
+        if (payload.new.answer && currentRoomIdRef.current === payload.new.room_id && peerConnectionRef.current) {
+          console.log('📞 Answer received, setting remote description');
           try {
-            await peerConnectionRef.current?.setRemoteDescription(
+            await peerConnectionRef.current.setRemoteDescription(
               new RTCSessionDescription(payload.new.answer as any)
             );
-            console.log('Answer set successfully');
           } catch (error) {
-            console.error('Failed to set answer:', error);
+            console.error('❌ Failed to set remote description:', error);
           }
+        }
+        
+        // Handle call declined
+        if (payload.new.status === 'declined') {
+          console.log('📞 Call declined');
+          toast({
+            title: "Call Declined",
+            description: "The call was declined"
+          });
+          endCall();
         }
       })
       .subscribe();
 
     // Listen for ICE candidates
-    const iceCandidatesChannel = supabase
-      .channel('ice_candidates_channel')
+    const iceChannel = supabase
+      .channel('ice_candidates')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -368,22 +431,24 @@ export const useWebRTC = (): WebRTCHook => {
         if (currentRoomIdRef.current === payload.new.room_id && 
             payload.new.user_id !== currentUser.uid && 
             peerConnectionRef.current) {
+          console.log('📤 Received ICE candidate');
           try {
             await peerConnectionRef.current.addIceCandidate(
               new RTCIceCandidate(payload.new.candidate as any)
             );
           } catch (error) {
-            console.error('Failed to add ICE candidate:', error);
+            console.error('❌ Failed to add ICE candidate:', error);
           }
         }
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(callRoomsChannel);
-      supabase.removeChannel(iceCandidatesChannel);
+      console.log('🔌 Cleaning up real-time listeners');
+      supabase.removeChannel(callChannel);
+      supabase.removeChannel(iceChannel);
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, toast, endCall]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -395,7 +460,6 @@ export const useWebRTC = (): WebRTCHook => {
   return {
     localVideoRef,
     remoteVideoRef,
-    isCallActive,
     callStatus,
     callType,
     isMuted,
@@ -403,6 +467,7 @@ export const useWebRTC = (): WebRTCHook => {
     incomingCall,
     startCall,
     answerCall,
+    declineCall,
     endCall,
     toggleMute,
     toggleVideo
