@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
+import { useWebRTC } from '@/hooks/useWebRTC';
 import { format } from 'date-fns';
 import { 
   AlertTriangle, 
@@ -59,6 +60,7 @@ import RemoveMemberDialog from './RemoveMemberDialog';
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
+  const webRTC = useWebRTC();
   const { 
     currentConversation, 
     messages, 
@@ -66,9 +68,6 @@ const ChatWindow: React.FC = () => {
     uploadFile, 
     markAsRead, 
     reportMessage,
-    startVideoCall,
-    startVoiceCall,
-    isCallActive,
     updateUserDescription,
     updateOnlineStatus,
     blockUser,
@@ -549,7 +548,7 @@ const ChatWindow: React.FC = () => {
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {isCallActive && <CallModal isGroup={isGroup} />}
+      {webRTC.isCallActive && <CallModal isGroup={isGroup} />}
       
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
@@ -670,7 +669,14 @@ const ChatWindow: React.FC = () => {
           <Button 
             size="icon" 
             variant="ghost" 
-            onClick={() => startVoiceCall(currentConversation.id)}
+            onClick={() => {
+              if (currentConversation) {
+                const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
+                if (targetUserId) {
+                  webRTC.startCall(currentConversation.id, 'voice', targetUserId);
+                }
+              }
+            }}
             disabled={isBlocked}
             title={isBlocked ? "Unblock user to call" : "Voice call"}
           >
@@ -679,7 +685,14 @@ const ChatWindow: React.FC = () => {
           <Button 
             size="icon" 
             variant="ghost" 
-            onClick={() => startVideoCall(currentConversation.id)}
+            onClick={() => {
+              if (currentConversation) {
+                const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
+                if (targetUserId) {
+                  webRTC.startCall(currentConversation.id, 'video', targetUserId);
+                }
+              }
+            }}
             disabled={isBlocked}
             title={isBlocked ? "Unblock user to call" : "Video call"}
           >

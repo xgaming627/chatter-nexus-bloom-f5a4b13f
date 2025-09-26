@@ -13,26 +13,26 @@ interface CallModalProps {
 
 const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
   const { currentUser } = useAuth();
-  const { currentConversation, endCall: chatEndCall, activeCallType } = useChat();
+  const { currentConversation } = useChat();
   const webRTC = useWebRTC();
   const [callTime, setCallTime] = useState(0);
   
   // Auto-start the call when modal opens
   useEffect(() => {
-    if (activeCallType && currentConversation && currentUser) {
+    if (webRTC.callType && currentConversation && currentUser) {
       if (currentConversation.isGroupChat && currentConversation.participants) {
         // Group call - pass all participant IDs
         const participantIds = currentConversation.participants.filter(id => id !== currentUser.uid);
-        webRTC.startCall(currentConversation.id, activeCallType, undefined, participantIds);
+        webRTC.startCall(currentConversation.id, webRTC.callType, undefined, participantIds);
       } else {
         // Direct call - pass target user ID
         const targetUserId = currentConversation.participants.find(id => id !== currentUser.uid);
         if (targetUserId) {
-          webRTC.startCall(currentConversation.id, activeCallType, targetUserId);
+          webRTC.startCall(currentConversation.id, webRTC.callType, targetUserId);
         }
       }
     }
-  }, [activeCallType, currentConversation, currentUser, webRTC]);
+  }, [webRTC.callType, currentConversation, currentUser, webRTC]);
   
   // Start call timer when call becomes active
   useEffect(() => {
@@ -59,7 +59,6 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
 
   const handleEndCall = () => {
     webRTC.endCall();
-    chatEndCall();
   };
   
   if (!currentConversation) return null;
@@ -77,7 +76,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
     <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
       <div className="relative w-full h-full max-w-4xl max-h-screen flex flex-col">
         {/* Video Containers */}
-        {activeCallType === 'video' && (
+        {webRTC.callType === 'video' && (
           <>
             {/* Remote Video (Full Screen) */}
             <video
@@ -101,7 +100,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
         )}
         
         {/* Voice Call UI */}
-        {activeCallType === 'voice' && (
+        {webRTC.callType === 'voice' && (
           <div className="bg-gradient-to-br from-primary/20 to-primary-foreground/20 backdrop-blur-lg rounded-lg shadow-xl w-full max-w-md mx-auto mt-32 p-8">
             <div className="text-center">
               <div className="flex justify-center mb-6">
@@ -154,7 +153,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
         )}
         
         {/* Hidden video elements for voice calls (still needed for WebRTC) */}
-        {activeCallType === 'voice' && (
+        {webRTC.callType === 'voice' && (
           <>
             <video ref={webRTC.localVideoRef} style={{ display: 'none' }} autoPlay playsInline muted />
             <video ref={webRTC.remoteVideoRef} style={{ display: 'none' }} autoPlay playsInline />
@@ -179,7 +178,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
             </Button>
             
             {/* Video Toggle (only for video calls) */}
-            {activeCallType === 'video' && (
+            {webRTC.callType === 'video' && (
               <Button
                 variant={webRTC.isVideoEnabled ? "secondary" : "destructive"}
                 size="icon"
@@ -209,7 +208,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
         {/* Call Info */}
         <div className="absolute top-4 left-4 text-white">
           <p className="text-sm opacity-80 flex items-center gap-2">
-            {activeCallType === 'video' ? 'Video Call' : 'Voice Call'}
+            {webRTC.callType === 'video' ? 'Video Call' : 'Voice Call'}
             {isGroup && <span className="bg-white/20 px-2 py-1 rounded text-xs">Group</span>}
           </p>
           <p className="text-lg font-medium">

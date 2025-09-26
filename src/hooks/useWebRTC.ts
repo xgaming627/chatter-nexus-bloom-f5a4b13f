@@ -10,6 +10,7 @@ export interface WebRTCHook {
   isMuted: boolean;
   isVideoEnabled: boolean;
   callStatus: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
+  callType: 'voice' | 'video' | null;
   startCall: (conversationId: string, callType: 'voice' | 'video', targetUserId?: string, participantIds?: string[]) => Promise<void>;
   answerCall: (roomId: string) => Promise<void>;
   endCall: () => void;
@@ -31,6 +32,7 @@ export const useWebRTC = (): WebRTCHook => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected' | 'ended'>('idle');
+  const [callType, setCallType] = useState<'voice' | 'video' | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ roomId: string; callerName: string; callType: 'voice' | 'video'; isGroupCall?: boolean } | null>(null);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -212,6 +214,7 @@ export const useWebRTC = (): WebRTCHook => {
     try {
       setCallStatus('calling');
       setIsCallActive(true);
+      setCallType(callType);
       callTypeRef.current = callType;
       
       // Get local stream
@@ -316,10 +319,12 @@ export const useWebRTC = (): WebRTCHook => {
       
       if (!callRoom) throw new Error('Call room not found');
       
-      callTypeRef.current = callRoom.call_type as 'voice' | 'video';
+      const roomCallType = callRoom.call_type as 'voice' | 'video';
+      setCallType(roomCallType);
+      callTypeRef.current = roomCallType;
       
         // Get local stream
-        const localStream = await getLocalStream(callRoom.call_type as 'voice' | 'video');
+        const localStream = await getLocalStream(roomCallType);
       localStreamRef.current = localStream;
       
       // Create peer connection
@@ -401,6 +406,7 @@ export const useWebRTC = (): WebRTCHook => {
     // Reset state
     setIsCallActive(false);
     setCallStatus('idle');
+    setCallType(null);
     setIsMuted(false);
     setIsVideoEnabled(true);
     setIncomingCall(null);
@@ -450,6 +456,7 @@ export const useWebRTC = (): WebRTCHook => {
     isMuted,
     isVideoEnabled,
     callStatus,
+    callType,
     startCall,
     answerCall,
     endCall,

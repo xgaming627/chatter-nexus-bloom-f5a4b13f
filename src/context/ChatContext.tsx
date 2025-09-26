@@ -728,42 +728,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startVideoCall = (conversationId: string) => {
-    // Get target user from current conversation
-    const targetUserId = currentConversation?.participants.find(id => id !== currentUser?.uid);
-    
-    if (!targetUserId || !currentUser) {
-      toast({
-        title: "Call failed",
-        description: "Unable to start call. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsCallActive(true);
-    setActiveCallType('video');
+    // This function is deprecated - call functionality moved to useWebRTC hook
+    // The actual call should be initiated through the useWebRTC hook's startCall function
+    toast({
+      title: "Use call buttons",
+      description: "Please use the call buttons in the chat interface.",
+    });
   };
 
   const startVoiceCall = (conversationId: string) => {
-    // Get target user from current conversation
-    const targetUserId = currentConversation?.participants.find(id => id !== currentUser?.uid);
-    
-    if (!targetUserId || !currentUser) {
-      toast({
-        title: "Call failed",
-        description: "Unable to start call. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsCallActive(true);
-    setActiveCallType('voice');
+    // This function is deprecated - call functionality moved to useWebRTC hook
+    // The actual call should be initiated through the useWebRTC hook's startCall function
+    toast({
+      title: "Use call buttons", 
+      description: "Please use the call buttons in the chat interface.",
+    });
   };
 
   const endCall = () => {
-    setIsCallActive(false);
-    setActiveCallType(null);
+    // This function is deprecated - call functionality moved to useWebRTC hook
+    toast({
+      title: "Use call controls",
+      description: "Please use the call controls in the call interface.",
+    });
   };
 
   const updateUserDescription = async (description: string) => {
