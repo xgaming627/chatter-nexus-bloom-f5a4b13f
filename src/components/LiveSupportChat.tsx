@@ -3,8 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRole } from '@/hooks/useRole';
+import { useMessageLimiter } from '@/hooks/useMessageLimiter';
 import { format } from 'date-fns';
-import { X, Send } from 'lucide-react';
+import { X, Send, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,6 +30,13 @@ const LiveSupportChat: React.FC = () => {
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  // Message rate limiting
+  const messageLimiter = useMessageLimiter({
+    maxMessages: 10, // 10 messages per minute for support
+    timeWindowMs: 60000,
+    cooldownMs: 60000 // 1 minute cooldown
+  });
+  
   useEffect(() => {
     scrollToBottom();
     console.log("Support messages updated:", supportMessages);
@@ -41,9 +49,22 @@ const LiveSupportChat: React.FC = () => {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!messageLimiter.canSendMessage) {
+      const remainingTime = messageLimiter.getRemainingCooldown();
+      toast({
+        title: "Message limit reached",
+        description: remainingTime > 0 
+          ? `Please wait ${remainingTime} seconds before sending another message.`
+          : `You can send ${messageLimiter.maxMessages - messageLimiter.messagesInWindow} more messages this minute.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (newMessage.trim() && currentSupportSession) {
       console.log("Sending support message:", newMessage);
       sendSupportMessage(newMessage);
+      messageLimiter.recordMessage();
       setNewMessage('');
     }
   };
@@ -196,6 +217,12 @@ const LiveSupportChat: React.FC = () => {
       {/* Message input - only show for active sessions */}
       {currentSupportSession?.status === 'active' && (
         <form onSubmit={handleSendMessage} className="p-4 border-t mt-auto">
+          {messageLimiter.isLimited && (
+            <div className="mb-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Rate limited. Wait {messageLimiter.getRemainingCooldown()}s to send messages.
+            </div>
+          )}
           <div className="flex gap-2">
             <Textarea
               placeholder="Type a message..."
@@ -209,11 +236,16 @@ const LiveSupportChat: React.FC = () => {
             <Button 
               type="submit" 
               size="icon" 
-              disabled={!newMessage.trim()}
+              disabled={!newMessage.trim() || !messageLimiter.canSendMessage}
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
+          {!messageLimiter.isLimited && (
+            <div className="text-xs text-muted-foreground mt-1">
+              {messageLimiter.messagesInWindow}/{messageLimiter.maxMessages} messages this minute
+            </div>
+          )}
         </form>
       )}
 

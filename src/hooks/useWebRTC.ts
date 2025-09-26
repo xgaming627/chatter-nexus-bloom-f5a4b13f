@@ -73,10 +73,27 @@ export const useWebRTC = (): WebRTCHook => {
             callType: callData.call_type
           });
           
+          // Create notification for incoming call
+          try {
+            await supabase
+              .from('notifications')
+              .insert({
+                user_id: currentUser.uid,
+                type: 'call',
+                title: `Incoming ${callData.call_type} call`,
+                message: `${callerName} is calling you`,
+                is_sound_enabled: true,
+                metadata: { roomId: callData.room_id, callType: callData.call_type }
+              });
+          } catch (error) {
+            console.error('Error creating call notification:', error);
+          }
+          
           // Show toast notification
           toast({
             title: `Incoming ${callData.call_type} call`,
             description: `${callerName} is calling you`,
+            duration: 10000
           });
         }
       )
@@ -319,9 +336,12 @@ export const useWebRTC = (): WebRTCHook => {
   const endCall = useCallback(() => {
     console.log('Ending call');
     
-    // Stop local stream
+    // Stop local stream tracks properly
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.kind);
+      });
       localStreamRef.current = null;
     }
     
@@ -348,11 +368,19 @@ export const useWebRTC = (): WebRTCHook => {
     setIncomingCall(null);
     currentRoomIdRef.current = null;
     
-    // Clear video elements
+    // Clear video elements and their source objects
     if (localVideoRef.current) {
+      if (localVideoRef.current.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
       localVideoRef.current.srcObject = null;
     }
     if (remoteVideoRef.current) {
+      if (remoteVideoRef.current.srcObject) {
+        const stream = remoteVideoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
       remoteVideoRef.current.srcObject = null;
     }
   }, [currentUser]);

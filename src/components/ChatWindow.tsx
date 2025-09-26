@@ -30,6 +30,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
+import EmojiPicker from './EmojiPicker';
+import GifPicker from './GifPicker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,6 +104,7 @@ const ChatWindow: React.FC = () => {
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState<Message | null>(null);
   const [deleteMode, setDeleteMode] = useState<'me' | 'all'>('all');
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [emojiSearch, setEmojiSearch] = useState('');
   
   // Typing indicator hook
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentConversation?.id || null);
@@ -234,15 +237,20 @@ const ChatWindow: React.FC = () => {
     
     if (newMessage.trim() && currentConversation) {
       console.log("Sending message to conversation:", currentConversation.id);
+      
+      // Process message content for GIFs and other special content
+      const processedContent = processMessageContent(newMessage);
+      
       // Include reply information if replying
       sendMessage(
-        newMessage, 
+        processedContent, 
         currentConversation.id, 
         replyToMessage?.id, 
         replyToMessage?.content
       );
       setNewMessage('');
       setReplyToMessage(null); // Clear reply after sending
+      setEmojiSearch(''); // Clear emoji search
     }
   };
   
@@ -480,6 +488,43 @@ const ChatWindow: React.FC = () => {
   
   const handleRemoveMember = () => {
     setShowRemoveMemberDialog(true);
+  };
+  
+  // Handle emoji selection
+  const handleEmojiSelect = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setEmojiSearch('');
+  };
+  
+  // Handle GIF selection
+  const handleGifSelect = (gifUrl: string) => {
+    if (currentConversation && !isBlocked && !isRateLimited) {
+      sendMessage(`[GIF] ${gifUrl}`, currentConversation.id);
+      toast({
+        title: "GIF sent!",
+        description: "Your GIF has been shared in the chat."
+      });
+    }
+  };
+  
+  // Check for emoji syntax (e.g., :smile:)
+  const checkForEmojiSyntax = (text: string) => {
+    const match = text.match(/:([a-zA-Z0-9_+-]+)$/);
+    if (match) {
+      setEmojiSearch(match[1]);
+    } else {
+      setEmojiSearch('');
+    }
+  };
+  
+  // Detect tenor links and convert them
+  const processMessageContent = (content: string) => {
+    // Check for Tenor links
+    const tenorRegex = /https?:\/\/(www\.)?tenor\.com\/view\/[^\s]+/g;
+    if (tenorRegex.test(content)) {
+      return `[GIF] ${content}`;
+    }
+    return content;
   };
   
   if (!currentConversation) {
@@ -776,6 +821,20 @@ const ChatWindow: React.FC = () => {
                               />
                             )}
                           </div>
+                        ) : message.content.startsWith('[GIF]') ? (
+                          <div className="space-y-2">
+                            <div className="text-sm text-muted-foreground">GIF</div>
+                            <div className="bg-muted/20 p-2 rounded border border-dashed">
+                              <a 
+                                href={message.content.replace('[GIF] ', '')} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline text-sm"
+                              >
+                                View GIF →
+                              </a>
+                            </div>
+                          </div>
                         ) : (
                           message.content
                         )}
@@ -874,7 +933,9 @@ const ChatWindow: React.FC = () => {
             }
             value={newMessage}
             onChange={(e) => {
-              setNewMessage(e.target.value);
+              const value = e.target.value;
+              setNewMessage(value);
+              checkForEmojiSyntax(value);
               startTyping();
             }}
             onKeyDown={handleKeyDown}
@@ -883,6 +944,14 @@ const ChatWindow: React.FC = () => {
             rows={1}
             disabled={isBlocked || isRateLimited}
           />
+
+          <EmojiPicker 
+            onEmojiSelect={handleEmojiSelect}
+            searchQuery={emojiSearch}
+            onSearchChange={setEmojiSearch}
+          />
+          
+          <GifPicker onGifSelect={handleGifSelect} />
 
           <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked || isRateLimited}>
             <Send className="h-5 w-5" />
