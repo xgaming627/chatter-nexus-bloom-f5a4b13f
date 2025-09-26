@@ -547,9 +547,7 @@ const ChatWindow: React.FC = () => {
     participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || '');
   
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {webRTC.isCallActive && <CallModal />}
-      
+    <div className="flex flex-col h-full overflow-hidden">      
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
           <div onClick={handleAvatarClick} className="cursor-pointer">
@@ -669,10 +667,12 @@ const ChatWindow: React.FC = () => {
           <Button 
             size="icon" 
             variant="ghost" 
-            onClick={() => {
+            onClick={async () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
+                  // Send system message about call start
+                  await sendMessage('📞 Started a voice call', currentConversation.id);
                   webRTC.startCall(targetUserId, 'voice');
                 }
               }
@@ -685,10 +685,12 @@ const ChatWindow: React.FC = () => {
           <Button 
             size="icon" 
             variant="ghost" 
-            onClick={() => {
+            onClick={async () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
+                  // Send system message about call start
+                  await sendMessage('📹 Started a video call', currentConversation.id);
                   webRTC.startCall(targetUserId, 'video');
                 }
               }

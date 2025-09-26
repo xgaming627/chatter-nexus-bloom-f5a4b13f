@@ -52,7 +52,7 @@ export const useWebRTC = (): WebRTCHook => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
 
-  const isCallActive = callStatus === 'connected';
+  const isCallActive = callStatus !== 'idle' && callStatus !== 'ending';
 
   // Clean up function
   const cleanup = useCallback(() => {
