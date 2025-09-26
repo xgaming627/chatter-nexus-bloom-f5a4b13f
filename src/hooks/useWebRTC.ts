@@ -359,7 +359,10 @@ export const useWebRTC = (): WebRTCHook => {
 
   // Set up real-time listeners
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      console.log('❌ No current user, skipping real-time listeners');
+      return;
+    }
 
     console.log('🔌 Setting up real-time listeners for user:', currentUser.uid);
 
@@ -372,7 +375,7 @@ export const useWebRTC = (): WebRTCHook => {
         table: 'call_rooms',
         filter: `callee_id=eq.${currentUser.uid}`
       }, async (payload) => {
-        console.log('📞 Incoming call:', payload.new);
+        console.log('📞 Incoming call received:', payload.new);
         
         // Get caller info
         const { data: callerProfile } = await supabase
@@ -381,12 +384,17 @@ export const useWebRTC = (): WebRTCHook => {
           .eq('user_id', payload.new.caller_id)
           .single();
 
+        const callerName = callerProfile?.display_name || callerProfile?.username || 'Unknown User';
+        console.log('👤 Caller info:', callerName);
+
         setIncomingCall({
           roomId: payload.new.room_id,
-          callerName: callerProfile?.display_name || callerProfile?.username || 'Unknown User',
+          callerName: callerName,
           callType: payload.new.call_type,
           callerId: payload.new.caller_id
         });
+        
+        console.log('✅ Incoming call state set');
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -394,7 +402,7 @@ export const useWebRTC = (): WebRTCHook => {
         table: 'call_rooms',
         filter: `caller_id=eq.${currentUser.uid}`
       }, async (payload) => {
-        console.log('📞 Call room updated:', payload.new);
+        console.log('📞 Call room updated for caller:', payload.new);
         
         // Handle answer received
         if (payload.new.answer && currentRoomIdRef.current === payload.new.room_id && peerConnectionRef.current) {
@@ -403,6 +411,7 @@ export const useWebRTC = (): WebRTCHook => {
             await peerConnectionRef.current.setRemoteDescription(
               new RTCSessionDescription(payload.new.answer as any)
             );
+            console.log('✅ Remote description set successfully');
           } catch (error) {
             console.error('❌ Failed to set remote description:', error);
           }
@@ -418,7 +427,9 @@ export const useWebRTC = (): WebRTCHook => {
           endCall();
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Call channel subscription status:', status);
+      });
 
     // Listen for ICE candidates
     const iceChannel = supabase
@@ -428,20 +439,24 @@ export const useWebRTC = (): WebRTCHook => {
         schema: 'public',
         table: 'ice_candidates'
       }, async (payload) => {
+        console.log('📤 ICE candidate received:', payload.new.room_id, 'from user:', payload.new.user_id);
         if (currentRoomIdRef.current === payload.new.room_id && 
             payload.new.user_id !== currentUser.uid && 
             peerConnectionRef.current) {
-          console.log('📤 Received ICE candidate');
+          console.log('📤 Adding ICE candidate to peer connection');
           try {
             await peerConnectionRef.current.addIceCandidate(
               new RTCIceCandidate(payload.new.candidate as any)
             );
+            console.log('✅ ICE candidate added successfully');
           } catch (error) {
             console.error('❌ Failed to add ICE candidate:', error);
           }
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 ICE channel subscription status:', status);
+      });
 
     return () => {
       console.log('🔌 Cleaning up real-time listeners');
@@ -449,6 +464,16 @@ export const useWebRTC = (): WebRTCHook => {
       supabase.removeChannel(iceChannel);
     };
   }, [currentUser?.uid, toast, endCall]);
+
+  // Debug effect to track call status changes
+  useEffect(() => {
+    console.log('📊 Call status changed to:', callStatus);
+  }, [callStatus]);
+
+  // Debug effect to track incoming calls
+  useEffect(() => {
+    console.log('📞 Incoming call state changed:', incomingCall);
+  }, [incomingCall]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -671,6 +671,7 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
+                  console.log('🚀 Starting voice call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📞 Started a voice call', currentConversation.id);
                   webRTC.startCall(targetUserId, 'voice');
@@ -689,6 +690,7 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
+                  console.log('🚀 Starting video call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📹 Started a video call', currentConversation.id);
                   webRTC.startCall(targetUserId, 'video');
