@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
-import { useCustomCall } from '@/hooks/useCustomCall';
+import { useRealCall } from '@/hooks/useRealCall';
 import { format } from 'date-fns';
 import { 
   AlertTriangle, 
@@ -60,7 +60,7 @@ import RemoveMemberDialog from './RemoveMemberDialog';
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
-  const customCall = useCustomCall();
+  const realCall = useRealCall();
   const { 
     currentConversation, 
     messages, 
@@ -671,10 +671,10 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
-                  console.log('🚀 Starting voice call to:', targetUserId);
+                  console.log('📞 Voice call button clicked! Starting voice call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📞 Started a voice call', currentConversation.id);
-                  customCall.startCall(targetUserId, 'voice');
+                  realCall.startCall(targetUserId, 'voice');
                 }
               }
             }}
@@ -690,10 +690,10 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
-                  console.log('🚀 Starting video call to:', targetUserId);
+                  console.log('📹 Video call button clicked! Starting video call to:', targetUserId);
                   // Send system message about call start
                   await sendMessage('📹 Started a video call', currentConversation.id);
-                  customCall.startCall(targetUserId, 'video');
+                  realCall.startCall(targetUserId, 'video');
                 }
               }
             }}

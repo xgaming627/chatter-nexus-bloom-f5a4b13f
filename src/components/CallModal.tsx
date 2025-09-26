@@ -2,20 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
-import { useCustomCall } from '@/hooks/useCustomCall';
+import { useRealCall } from '@/hooks/useRealCall';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
 import UserAvatar from './UserAvatar';
 
 const CallModal: React.FC = () => {
-  const customCall = useCustomCall();
+  const realCall = useRealCall();
   const { currentUser } = useAuth();
   const { currentConversation } = useChat();
   const [callTime, setCallTime] = useState(0);
   const [otherUserName, setOtherUserName] = useState('Unknown User');
 
+  console.log('🎯 CallModal rendered, callStatus:', realCall.callStatus);
+
   // Only show modal when call is not idle
-  if (customCall.callStatus === 'idle') return null;
+  if (realCall.callStatus === 'idle') {
+    console.log('💤 CallModal hidden - call status is idle');
+    return null;
+  }
+
+  console.log('📱 CallModal showing - call status:', realCall.callStatus);
 
   // Get other user info for display
   useEffect(() => {
@@ -33,7 +40,7 @@ const CallModal: React.FC = () => {
 
   // Timer effect for connected calls
   useEffect(() => {
-    if (customCall.callStatus === 'connected') {
+    if (realCall.callStatus === 'connected') {
       const timer = setInterval(() => {
         setCallTime(prev => prev + 1);
       }, 1000);
@@ -42,7 +49,7 @@ const CallModal: React.FC = () => {
     } else {
       setCallTime(0);
     }
-  }, [customCall.callStatus]);
+  }, [realCall.callStatus]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -51,7 +58,7 @@ const CallModal: React.FC = () => {
   };
 
   const getStatusText = () => {
-    switch (customCall.callStatus) {
+    switch (realCall.callStatus) {
       case 'initiating':
         return 'Starting call...';
       case 'ringing':
@@ -68,7 +75,7 @@ const CallModal: React.FC = () => {
   };
 
   const getStatusColor = () => {
-    switch (customCall.callStatus) {
+    switch (realCall.callStatus) {
       case 'connected':
         return 'text-green-500';
       case 'ended':
@@ -87,12 +94,12 @@ const CallModal: React.FC = () => {
         <div className="flex flex-col items-center space-y-6 p-6">
           {/* Call Header */}
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            {customCall.callType === 'video' ? (
+            {realCall.callType === 'video' ? (
               <Video className="h-4 w-4" />
             ) : (
               <Phone className="h-4 w-4" />
             )}
-            <span className="capitalize">{customCall.callType} call</span>
+            <span className="capitalize">{realCall.callType} call</span>
           </div>
 
           {/* Status and Timer */}
@@ -101,7 +108,7 @@ const CallModal: React.FC = () => {
               {getStatusText()}
             </div>
             <div className="text-sm text-muted-foreground capitalize">
-              Status: {customCall.callStatus}
+              Status: {realCall.callStatus}
             </div>
           </div>
 
@@ -114,7 +121,7 @@ const CallModal: React.FC = () => {
                 size="lg"
               />
               {/* Animated ring for ringing state */}
-              {customCall.callStatus === 'ringing' && (
+              {realCall.callStatus === 'ringing' && (
                 <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-75" />
               )}
             </div>
@@ -125,15 +132,26 @@ const CallModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Video Display Placeholder */}
-          {customCall.callType === 'video' && customCall.callStatus === 'connected' && (
-            <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-              <div className="text-center">
-                <Video className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Video call active</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {customCall.isVideoEnabled ? 'Camera on' : 'Camera off'}
-                </p>
+          {/* Video Display */}
+          {realCall.callType === 'video' && realCall.callStatus === 'connected' && (
+            <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden">
+              {/* Remote Video */}
+              <video
+                ref={realCall.remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              
+              {/* Local Video (Picture-in-Picture) */}
+              <div className="absolute top-4 right-4 w-24 h-18 bg-muted rounded overflow-hidden border-2 border-white">
+                <video
+                  ref={realCall.localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
           )}
@@ -145,10 +163,10 @@ const CallModal: React.FC = () => {
               variant="outline"
               size="lg"
               className="h-14 w-14 rounded-full"
-              onClick={customCall.toggleMute}
-              disabled={customCall.callStatus !== 'connected'}
+              onClick={realCall.toggleMute}
+              disabled={realCall.callStatus !== 'connected'}
             >
-              {customCall.isMuted ? (
+              {realCall.isMuted ? (
                 <MicOff className="h-6 w-6 text-red-500" />
               ) : (
                 <Mic className="h-6 w-6" />
@@ -156,15 +174,15 @@ const CallModal: React.FC = () => {
             </Button>
 
             {/* Video Toggle (only for video calls) */}
-            {customCall.callType === 'video' && (
+            {realCall.callType === 'video' && (
               <Button
                 variant="outline"
                 size="lg"
                 className="h-14 w-14 rounded-full"
-                onClick={customCall.toggleVideo}
-                disabled={customCall.callStatus !== 'connected'}
+                onClick={realCall.toggleVideo}
+                disabled={realCall.callStatus !== 'connected'}
               >
-                {customCall.isVideoEnabled ? (
+                {realCall.isVideoEnabled ? (
                   <Video className="h-6 w-6" />
                 ) : (
                   <VideoOff className="h-6 w-6 text-red-500" />
@@ -177,14 +195,14 @@ const CallModal: React.FC = () => {
               variant="destructive"
               size="lg"
               className="h-14 w-14 rounded-full"
-              onClick={customCall.endCall}
+              onClick={realCall.endCall}
             >
               <PhoneOff className="h-6 w-6" />
             </Button>
           </div>
 
           {/* Connection Info */}
-          {customCall.callStatus === 'connecting' && (
+          {realCall.callStatus === 'connecting' && (
             <div className="text-xs text-muted-foreground text-center">
               <p>Establishing connection...</p>
             </div>

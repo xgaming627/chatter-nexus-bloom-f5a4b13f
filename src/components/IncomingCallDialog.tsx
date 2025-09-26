@@ -2,15 +2,22 @@ import React from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Phone, PhoneOff, Video } from 'lucide-react';
-import { useCustomCall } from '@/hooks/useCustomCall';
+import { useRealCall } from '@/hooks/useRealCall';
 import UserAvatar from './UserAvatar';
 
 const IncomingCallDialog: React.FC = () => {
-  const customCall = useCustomCall();
+  const realCall = useRealCall();
 
-  if (!customCall.incomingCall) return null;
+  console.log('📱 IncomingCallDialog rendered, incomingCall:', realCall.incomingCall);
 
-  const { callerName, callType } = customCall.incomingCall;
+  if (!realCall.incomingCall) {
+    console.log('💤 IncomingCallDialog hidden - no incoming call');
+    return null;
+  }
+
+  console.log('📞 IncomingCallDialog showing - incoming call from:', realCall.incomingCall.callerName);
+
+  const { callerName, callType } = realCall.incomingCall;
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
@@ -57,7 +64,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="destructive"
               size="lg"
               className="flex-1 h-14 rounded-full"
-              onClick={customCall.declineCall}
+              onClick={realCall.declineCall}
             >
               <PhoneOff className="h-6 w-6 mr-2" />
               Decline
@@ -68,7 +75,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="default"
               size="lg"
               className="flex-1 h-14 rounded-full bg-green-600 hover:bg-green-700 text-white"
-              onClick={customCall.answerCall}
+              onClick={realCall.answerCall}
             >
               <Phone className="h-6 w-6 mr-2" />
               Accept
