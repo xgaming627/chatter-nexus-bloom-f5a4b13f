@@ -29,26 +29,33 @@ serve(async (req) => {
 
     console.log(`Searching GIFs for: ${searchTerm}`);
 
-    // Make request to Tenor API
-    const tenorUrl = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(searchTerm)}&key=${TENOR_API_KEY}&limit=${limit}&media_filter=gif`;
+    // Make request to Tenor API - use v1 endpoint which is more stable
+    const tenorUrl = `https://api.tenor.com/v1/search?q=${encodeURIComponent(searchTerm)}&key=${TENOR_API_KEY}&limit=${limit}&media_filter=minimal`;
+    
+    console.log('Making request to Tenor API:', tenorUrl.replace(TENOR_API_KEY, '[HIDDEN]'));
     
     const response = await fetch(tenorUrl);
     
+    console.log('Tenor API response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`Tenor API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Tenor API error details:', errorText);
+      throw new Error(`Tenor API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('Tenor API response data:', JSON.stringify(data, null, 2));
 
     // Transform Tenor API response to match our interface
     const gifs = data.results?.map((gif: any) => ({
       id: gif.id,
-      url: gif.media_formats.gif.url,
-      preview: gif.media_formats.tinygif.url,
-      title: gif.content_description || `GIF for ${searchTerm}`,
-      width: gif.media_formats.gif.dims[0],
-      height: gif.media_formats.gif.dims[1]
-    })) || [];
+      url: gif.media[0]?.gif?.url || gif.media[0]?.mp4?.url,
+      preview: gif.media[0]?.tinygif?.url || gif.media[0]?.gif?.url,
+      title: gif.title || `GIF for ${searchTerm}`,
+      width: gif.media[0]?.gif?.dims?.[0] || 200,
+      height: gif.media[0]?.gif?.dims?.[1] || 200
+    })).filter((gif: any) => gif.url && gif.preview) || [];
 
     console.log(`Found ${gifs.length} GIFs`);
 

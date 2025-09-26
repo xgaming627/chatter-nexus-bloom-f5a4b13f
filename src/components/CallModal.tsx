@@ -73,8 +73,8 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
-      <div className="relative w-full h-full max-w-4xl max-h-screen flex flex-col">
+    <div className="fixed inset-0 bg-black z-[9999] flex items-center justify-center">
+      <div className="relative w-full h-full max-w-4xl max-h-screen flex flex-col">{/* Video Containers */}
         {/* Video Containers */}
         {webRTC.callType === 'video' && (
           <>

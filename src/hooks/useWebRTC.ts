@@ -158,6 +158,7 @@ export const useWebRTC = (): WebRTCHook => {
       if (event.candidate && currentRoomIdRef.current && currentUser) {
         console.log('Sending ICE candidate:', event.candidate);
         
+        try {
           await supabase
             .from('ice_candidates')
             .insert({
@@ -165,6 +166,9 @@ export const useWebRTC = (): WebRTCHook => {
               user_id: currentUser.uid,
               candidate: event.candidate.toJSON() as any
             });
+        } catch (error) {
+          console.error('Error saving ICE candidate:', error);
+        }
       }
     };
     
@@ -379,7 +383,15 @@ export const useWebRTC = (): WebRTCHook => {
   const endCall = useCallback(() => {
     console.log('Ending call');
     
-    // Stop local stream tracks properly
+    // Clear video elements first to prevent UI issues
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    
+    // Stop local stream tracks properly with immediate effect
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -396,14 +408,20 @@ export const useWebRTC = (): WebRTCHook => {
     
     // Update call room status if we have a room
     if (currentRoomIdRef.current && currentUser) {
-      supabase
-        .from('call_rooms')
-        .update({ status: 'ended' })
-        .eq('room_id', currentRoomIdRef.current)
-        .then(() => console.log('Call room status updated to ended'));
+      (async () => {
+        try {
+          await supabase
+            .from('call_rooms')
+            .update({ status: 'ended' })
+            .eq('room_id', currentRoomIdRef.current);
+          console.log('Call room status updated to ended');
+        } catch (error) {
+          console.error('Error updating call room status:', error);
+        }
+      })();
     }
     
-    // Reset state
+    // Reset state immediately
     setIsCallActive(false);
     setCallStatus('idle');
     setCallType(null);
@@ -411,30 +429,16 @@ export const useWebRTC = (): WebRTCHook => {
     setIsVideoEnabled(true);
     setIncomingCall(null);
     currentRoomIdRef.current = null;
-    
-    // Clear video elements and their source objects
-    if (localVideoRef.current) {
-      if (localVideoRef.current.srcObject) {
-        const stream = localVideoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-      localVideoRef.current.srcObject = null;
-    }
-    if (remoteVideoRef.current) {
-      if (remoteVideoRef.current.srcObject) {
-        const stream = remoteVideoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-      remoteVideoRef.current.srcObject = null;
-    }
   }, [currentUser]);
 
   const toggleMute = useCallback(() => {
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
+        const newMutedState = !audioTrack.enabled;
+        audioTrack.enabled = !newMutedState;
+        setIsMuted(newMutedState);
+        console.log('Audio track muted:', newMutedState);
       }
     }
   }, []);
