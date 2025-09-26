@@ -20,9 +20,16 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
   // Auto-start the call when modal opens
   useEffect(() => {
     if (activeCallType && currentConversation && currentUser) {
-      const targetUserId = currentConversation.participants.find(id => id !== currentUser.uid);
-      if (targetUserId) {
-        webRTC.startCall(currentConversation.id, activeCallType, targetUserId);
+      if (currentConversation.isGroupChat && currentConversation.participants) {
+        // Group call - pass all participant IDs
+        const participantIds = currentConversation.participants.filter(id => id !== currentUser.uid);
+        webRTC.startCall(currentConversation.id, activeCallType, undefined, participantIds);
+      } else {
+        // Direct call - pass target user ID
+        const targetUserId = currentConversation.participants.find(id => id !== currentUser.uid);
+        if (targetUserId) {
+          webRTC.startCall(currentConversation.id, activeCallType, targetUserId);
+        }
       }
     }
   }, [activeCallType, currentConversation, currentUser, webRTC]);
@@ -99,13 +106,30 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
             <div className="text-center">
               <div className="flex justify-center mb-6">
                 {isGroup ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {currentConversation.participantsInfo?.slice(0, 6).map((user) => (
-                      <div key={user.uid} className="flex flex-col items-center">
-                        <UserAvatar username={user.username} photoURL={user.photoURL} />
-                        <span className="text-xs mt-1 text-white">{user.displayName}</span>
-                      </div>
-                    ))}
+                  <div className="relative">
+                    <div className="grid grid-cols-3 gap-2 max-w-[200px]">
+                      {currentConversation.participantsInfo?.slice(0, 9).map((user, index) => (
+                        <div key={user.uid} className="flex flex-col items-center">
+                          <UserAvatar 
+                            username={user.username} 
+                            photoURL={user.photoURL} 
+                            size="sm"
+                          />
+                          {index === 0 && (
+                            <span className="text-xs mt-1 text-white truncate max-w-[60px]">
+                              {user.displayName?.split(' ')[0] || user.username}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      {currentConversation.participantsInfo && currentConversation.participantsInfo.length > 9 && (
+                        <div className="flex items-center justify-center bg-primary/50 rounded-full w-10 h-10">
+                          <span className="text-xs text-white">
+                            +{currentConversation.participantsInfo.length - 9}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <UserAvatar 
@@ -118,7 +142,7 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
               
               <h3 className="text-xl font-medium mb-2 text-white">
                 {isGroup 
-                  ? currentConversation.groupName 
+                  ? `${currentConversation.groupName || 'Group Call'} (${currentConversation.participantsInfo?.length || 0} participants)`
                   : currentConversation.participantsInfo?.[0]?.displayName || 'User'}
               </h3>
               
@@ -184,12 +208,13 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
         
         {/* Call Info */}
         <div className="absolute top-4 left-4 text-white">
-          <p className="text-sm opacity-80">
+          <p className="text-sm opacity-80 flex items-center gap-2">
             {activeCallType === 'video' ? 'Video Call' : 'Voice Call'}
+            {isGroup && <span className="bg-white/20 px-2 py-1 rounded text-xs">Group</span>}
           </p>
           <p className="text-lg font-medium">
             {isGroup 
-              ? currentConversation.groupName 
+              ? `${currentConversation.groupName || 'Group Call'} (${currentConversation.participantsInfo?.length || 0})`
               : currentConversation.participantsInfo?.[0]?.displayName || 'User'}
           </p>
         </div>

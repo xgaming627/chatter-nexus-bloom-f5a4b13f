@@ -10,12 +10,12 @@ export interface WebRTCHook {
   isMuted: boolean;
   isVideoEnabled: boolean;
   callStatus: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
-  startCall: (conversationId: string, callType: 'voice' | 'video', targetUserId?: string) => Promise<void>;
+  startCall: (conversationId: string, callType: 'voice' | 'video', targetUserId?: string, participantIds?: string[]) => Promise<void>;
   answerCall: (roomId: string) => Promise<void>;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
-  incomingCall: { roomId: string; callerName: string; callType: 'voice' | 'video' } | null;
+  incomingCall: { roomId: string; callerName: string; callType: 'voice' | 'video'; isGroupCall?: boolean } | null;
 }
 
 const ICE_SERVERS = [
@@ -31,7 +31,7 @@ export const useWebRTC = (): WebRTCHook => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected' | 'ended'>('idle');
-  const [incomingCall, setIncomingCall] = useState<{ roomId: string; callerName: string; callType: 'voice' | 'video' } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{ roomId: string; callerName: string; callType: 'voice' | 'video'; isGroupCall?: boolean } | null>(null);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -70,7 +70,8 @@ export const useWebRTC = (): WebRTCHook => {
           setIncomingCall({
             roomId: callData.room_id,
             callerName,
-            callType: callData.call_type
+            callType: callData.call_type,
+            isGroupCall: callData.metadata?.isGroupCall || false
           });
           
           // Create notification for incoming call
@@ -205,7 +206,7 @@ export const useWebRTC = (): WebRTCHook => {
     }
   }, []);
 
-  const startCall = useCallback(async (conversationId: string, callType: 'voice' | 'video', targetUserId?: string) => {
+  const startCall = useCallback(async (conversationId: string, callType: 'voice' | 'video', targetUserId?: string, participantIds?: string[]) => {
     if (!currentUser) return;
     
     try {
@@ -234,18 +235,55 @@ export const useWebRTC = (): WebRTCHook => {
       const roomId = Math.random().toString(36).substring(2, 15);
       currentRoomIdRef.current = roomId;
       
-        // Save call room to database
-        await supabase
-          .from('call_rooms')
-          .insert({
-            room_id: roomId,
-            caller_id: currentUser.uid,
-            callee_id: targetUserId,
-            conversation_id: conversationId,
-            call_type: callType,
-            status: 'waiting',
-            offer: offer as any
-          });
+      // Prepare call room data
+      const callRoomData: any = {
+        room_id: roomId,
+        caller_id: currentUser.uid,
+        conversation_id: conversationId,
+        call_type: callType,
+        status: 'waiting',
+        offer: offer as any,
+        metadata: {}
+      };
+      
+      // Handle group calls vs direct calls
+      if (participantIds && participantIds.length > 0) {
+        callRoomData.participant_ids = participantIds;
+        callRoomData.metadata = { isGroupCall: true };
+        
+        // Create notifications for all participants
+        for (const participantId of participantIds) {
+          if (participantId !== currentUser.uid) {
+            try {
+              const { data: participantProfile } = await supabase
+                .from('profiles')
+                .select('display_name, username')
+                .eq('user_id', participantId)
+                .single();
+              
+              await supabase
+                .from('notifications')
+                .insert({
+                  user_id: participantId,
+                  type: 'call',
+                  title: `Incoming group ${callType} call`,
+                  message: `${currentUser.displayName || currentUser.email} is starting a group call`,
+                  is_sound_enabled: true,
+                  metadata: { roomId, callType, isGroupCall: true }
+                });
+            } catch (error) {
+              console.error('Error creating group call notification:', error);
+            }
+          }
+        }
+      } else if (targetUserId) {
+        callRoomData.callee_id = targetUserId;
+      }
+      
+      // Save call room to database
+      await supabase
+        .from('call_rooms')
+        .insert(callRoomData);
       
       console.log('Call started with room ID:', roomId);
       
