@@ -56,7 +56,9 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           id: string
+          metadata: Json | null
           offer: Json | null
+          participant_ids: string[] | null
           room_id: string
           status: string
           updated_at: string
@@ -69,7 +71,9 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           offer?: Json | null
+          participant_ids?: string[] | null
           room_id: string
           status?: string
           updated_at?: string
@@ -82,7 +86,9 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           offer?: Json | null
+          participant_ids?: string[] | null
           room_id?: string
           status?: string
           updated_at?: string
