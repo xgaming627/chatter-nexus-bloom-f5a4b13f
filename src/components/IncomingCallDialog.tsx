@@ -14,7 +14,10 @@ const IncomingCallDialog: React.FC = () => {
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-lg border border-white/10">
+      <DialogContent 
+        className="sm:max-w-md bg-background/95 backdrop-blur-lg border border-white/10"
+        style={{ zIndex: 10000 }}
+      >
         <div className="flex flex-col items-center space-y-6 p-6">
           {/* Call Type Header */}
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -34,11 +37,15 @@ const IncomingCallDialog: React.FC = () => {
 
           {/* Caller Avatar and Name */}
           <div className="flex flex-col items-center space-y-3">
-            <UserAvatar 
-              username={callerName} 
-              photoURL={undefined}
-              size="lg"
-            />
+            <div className="relative">
+              <UserAvatar 
+                username={callerName} 
+                photoURL={undefined}
+                size="lg"
+              />
+              {/* Animated ring effect */}
+              <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-75" />
+            </div>
             <div className="text-center">
               <h3 className="text-lg font-semibold text-foreground">
                 {callerName}
@@ -56,7 +63,7 @@ const IncomingCallDialog: React.FC = () => {
               variant="destructive"
               size="lg"
               className="flex-1 h-14 rounded-full"
-              onClick={() => webRTC.endCall()}
+              onClick={webRTC.endCall}
             >
               <PhoneOff className="h-6 w-6 mr-2" />
               Decline
@@ -66,7 +73,7 @@ const IncomingCallDialog: React.FC = () => {
             <Button
               variant="default"
               size="lg"
-              className="flex-1 h-14 rounded-full bg-green-600 hover:bg-green-700"
+              className="flex-1 h-14 rounded-full bg-green-600 hover:bg-green-700 text-white"
               onClick={() => webRTC.answerCall(roomId)}
             >
               <Phone className="h-6 w-6 mr-2" />

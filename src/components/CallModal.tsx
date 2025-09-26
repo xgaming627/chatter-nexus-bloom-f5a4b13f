@@ -1,178 +1,136 @@
-
-import { useChat } from '@/context/ChatContext';
+import React, { useEffect, useState } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, Video, Mic, MicOff, X, PhoneOff, VideoOff } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import UserAvatar from './UserAvatar';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users } from 'lucide-react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useAuth } from '@/context/AuthContext';
+import { useChat } from '@/context/ChatContext';
+import UserAvatar from './UserAvatar';
 
-interface CallModalProps {
-  isGroup?: boolean;
-}
-
-const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
-  const { currentUser } = useAuth();
-  const { currentConversation } = useChat();
+const CallModal: React.FC = () => {
   const webRTC = useWebRTC();
+  const { currentUser } = useAuth();
+  const { currentConversation, conversations } = useChat();
   const [callTime, setCallTime] = useState(0);
+
+  // Only show modal when call is active
+  if (!webRTC.isCallActive) return null;
+
+  // Get conversation participants for display
+  const conversation = conversations.find(c => c.id === currentConversation?.id);
+  const participants = conversation?.participants.filter(p => p !== currentUser?.uid) || [];
   
-  // Auto-start the call when modal opens
+  // Timer effect
   useEffect(() => {
-    if (webRTC.callType && currentConversation && currentUser) {
-      if (currentConversation.isGroupChat && currentConversation.participants) {
-        // Group call - pass all participant IDs
-        const participantIds = currentConversation.participants.filter(id => id !== currentUser.uid);
-        webRTC.startCall(currentConversation.id, webRTC.callType, undefined, participantIds);
-      } else {
-        // Direct call - pass target user ID
-        const targetUserId = currentConversation.participants.find(id => id !== currentUser.uid);
-        if (targetUserId) {
-          webRTC.startCall(currentConversation.id, webRTC.callType, targetUserId);
-        }
-      }
-    }
-  }, [webRTC.callType, currentConversation, currentUser, webRTC]);
-  
-  // Start call timer when call becomes active
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
     if (webRTC.callStatus === 'connected') {
-      setCallTime(0);
-      interval = setInterval(() => {
+      const timer = setInterval(() => {
         setCallTime(prev => prev + 1);
       }, 1000);
+      
+      return () => clearInterval(timer);
+    } else {
+      setCallTime(0);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [webRTC.callStatus]);
-  
-  // Format time as mm:ss
-  const formatTime = (seconds: number) => {
+
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEndCall = () => {
-    webRTC.endCall();
-  };
-  
-  if (!currentConversation) return null;
-  
-  const getCallStatusText = () => {
-    switch (webRTC.callStatus) {
-      case 'calling': return 'Calling...';
-      case 'ringing': return 'Ringing...';
-      case 'connected': return formatTime(callTime);
-      default: return 'Connecting...';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black z-[9999] flex items-center justify-center">
-      <div className="relative w-full h-full max-w-4xl max-h-screen flex flex-col">{/* Video Containers */}
-        {/* Video Containers */}
-        {webRTC.callType === 'video' && (
-          <>
-            {/* Remote Video (Full Screen) */}
-            <video
-              ref={webRTC.remoteVideoRef}
-              className="w-full h-full object-cover bg-gray-900"
-              autoPlay
-              playsInline
-            />
-            
-            {/* Local Video (Picture-in-Picture) */}
-            <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-white/20">
-              <video
-                ref={webRTC.localVideoRef}
-                className="w-full h-full object-cover"
-                autoPlay
-                playsInline
-                muted
-              />
+    <Dialog open={true} onOpenChange={() => {}}>
+      <DialogContent 
+        className="sm:max-w-2xl bg-background/95 backdrop-blur-lg border border-white/10"
+        style={{ zIndex: 9999 }}
+      >
+        <div className="flex flex-col items-center space-y-6 p-6">
+          {/* Call Header */}
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            {webRTC.callType === 'video' ? (
+              <Video className="h-4 w-4" />
+            ) : (
+              <Phone className="h-4 w-4" />
+            )}
+            <span>{webRTC.callType} call</span>
+            {participants.length > 1 && (
+              <>
+                <Users className="h-4 w-4 ml-2" />
+                <span>Group</span>
+              </>
+            )}
+          </div>
+
+          {/* Call Status and Timer */}
+          <div className="text-center">
+            <div className="text-2xl font-semibold text-foreground mb-2">
+              {webRTC.callStatus === 'connected' ? formatTime(callTime) : 
+               webRTC.callStatus === 'ringing' ? 'Ringing...' :
+               webRTC.callStatus === 'initiating' ? 'Connecting...' : 'Call Active'}
             </div>
-          </>
-        )}
-        
-        {/* Voice Call UI */}
-        {webRTC.callType === 'voice' && (
-          <div className="bg-gradient-to-br from-primary/20 to-primary-foreground/20 backdrop-blur-lg rounded-lg shadow-xl w-full max-w-md mx-auto mt-32 p-8">
-            <div className="text-center">
-              <div className="flex justify-center mb-6">
-                {isGroup ? (
-                  <div className="relative">
-                    <div className="grid grid-cols-3 gap-2 max-w-[200px]">
-                      {currentConversation.participantsInfo?.slice(0, 9).map((user, index) => (
-                        <div key={user.uid} className="flex flex-col items-center">
-                          <UserAvatar 
-                            username={user.username} 
-                            photoURL={user.photoURL} 
-                            size="sm"
-                          />
-                          {index === 0 && (
-                            <span className="text-xs mt-1 text-white truncate max-w-[60px]">
-                              {user.displayName?.split(' ')[0] || user.username}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {currentConversation.participantsInfo && currentConversation.participantsInfo.length > 9 && (
-                        <div className="flex items-center justify-center bg-primary/50 rounded-full w-10 h-10">
-                          <span className="text-xs text-white">
-                            +{currentConversation.participantsInfo.length - 9}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <UserAvatar 
-                      username={currentConversation.participantsInfo?.[0]?.username || 'User'} 
-                      photoURL={currentConversation.participantsInfo?.[0]?.photoURL}
-                      size="lg"
-                    />
-                    <h3 className="text-xl font-medium mt-4 mb-2 text-white">
-                      {currentConversation.participantsInfo?.[0]?.displayName || 
-                       currentConversation.participantsInfo?.[0]?.username || 'User'}
-                    </h3>
-                  </div>
-                )}
-              </div>
-              
-              {isGroup && (
-                <h3 className="text-xl font-medium mb-2 text-white">
-                  {currentConversation.groupName || 'Group Call'} ({currentConversation.participantsInfo?.length || 0} participants)
-                </h3>
-              )}
-              
-              <p className="text-white/80 text-lg">
-                {getCallStatusText()}
-              </p>
+            <div className="text-sm text-muted-foreground capitalize">
+              {webRTC.callStatus}
             </div>
           </div>
-        )}
-        
-        {/* Hidden video elements for voice calls (still needed for WebRTC) */}
-        {webRTC.callType === 'voice' && (
-          <>
-            <video ref={webRTC.localVideoRef} style={{ display: 'none' }} autoPlay playsInline muted />
-            <video ref={webRTC.remoteVideoRef} style={{ display: 'none' }} autoPlay playsInline />
-          </>
-        )}
-        
-        {/* Call Controls */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-          <div className="flex justify-center space-x-4 bg-black/50 backdrop-blur-sm rounded-full px-6 py-4">
+
+          {/* Video Display */}
+          {webRTC.callType === 'video' && (
+            <div className="relative w-full max-w-md aspect-video bg-muted rounded-lg overflow-hidden">
+              {/* Remote Video */}
+              <video
+                ref={webRTC.remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              
+              {/* Local Video (Picture-in-Picture) */}
+              <div className="absolute top-4 right-4 w-24 h-18 bg-muted rounded overflow-hidden border-2 border-white">
+                <video
+                  ref={webRTC.localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Voice Call Participants */}
+          {webRTC.callType === 'voice' && (
+            <div className="flex flex-wrap justify-center gap-4">
+              {participants.slice(0, 3).map((participantId) => (
+                <div key={participantId} className="flex flex-col items-center space-y-2">
+                  <UserAvatar 
+                    username={`User ${participantId.slice(0, 8)}`}
+                    photoURL={undefined}
+                    size="lg"
+                  />
+                  <span className="text-sm font-medium text-foreground">
+                    User {participantId.slice(0, 8)}
+                  </span>
+                </div>
+              ))}
+              
+              {participants.length > 3 && (
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <span className="text-sm font-medium">+{participants.length - 3}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">others</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Call Controls */}
+          <div className="flex items-center space-x-4">
             {/* Mute Button */}
             <Button
-              variant={webRTC.isMuted ? "destructive" : "secondary"}
-              size="icon"
+              variant="outline"
+              size="lg"
               className="h-14 w-14 rounded-full"
               onClick={webRTC.toggleMute}
             >
@@ -182,12 +140,12 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
                 <Mic className="h-6 w-6" />
               )}
             </Button>
-            
+
             {/* Video Toggle (only for video calls) */}
             {webRTC.callType === 'video' && (
               <Button
-                variant={webRTC.isVideoEnabled ? "secondary" : "destructive"}
-                size="icon"
+                variant="outline"
+                size="lg"
                 className="h-14 w-14 rounded-full"
                 onClick={webRTC.toggleVideo}
               >
@@ -198,48 +156,20 @@ const CallModal: React.FC<CallModalProps> = ({ isGroup = false }) => {
                 )}
               </Button>
             )}
-            
+
             {/* End Call Button */}
             <Button
               variant="destructive"
-              size="icon"
-              className="h-14 w-14 rounded-full bg-red-500 hover:bg-red-600"
-              onClick={handleEndCall}
+              size="lg"
+              className="h-14 w-14 rounded-full"
+              onClick={webRTC.endCall}
             >
               <PhoneOff className="h-6 w-6" />
             </Button>
           </div>
         </div>
-        
-        {/* Call Info */}
-        <div className="absolute top-4 left-4 text-white">
-          <p className="text-sm opacity-80 flex items-center gap-2">
-            {webRTC.callType === 'video' ? 'Video Call' : 'Voice Call'}
-            {isGroup && <span className="bg-white/20 px-2 py-1 rounded text-xs">Group</span>}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            {!isGroup && currentConversation.participantsInfo?.[0] && (
-              <>
-                <UserAvatar 
-                  username={currentConversation.participantsInfo[0].username} 
-                  photoURL={currentConversation.participantsInfo[0].photoURL}
-                  size="sm"
-                />
-                <p className="text-lg font-medium">
-                  {currentConversation.participantsInfo[0].displayName || 
-                   currentConversation.participantsInfo[0].username || 'User'}
-                </p>
-              </>
-            )}
-            {isGroup && (
-              <p className="text-lg font-medium">
-                {currentConversation.groupName || 'Group Call'} ({currentConversation.participantsInfo?.length || 0})
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

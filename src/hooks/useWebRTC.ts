@@ -3,503 +3,408 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export interface WebRTCHook {
+export type CallStatus = 'idle' | 'initiating' | 'ringing' | 'connected' | 'ending';
+export type CallType = 'voice' | 'video';
+
+interface IncomingCall {
+  roomId: string;
+  callerName: string;
+  callType: CallType;
+  isGroupCall: boolean;
+}
+
+interface WebRTCHook {
   localVideoRef: React.RefObject<HTMLVideoElement>;
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
   isCallActive: boolean;
+  callStatus: CallStatus;
+  callType: CallType;
   isMuted: boolean;
   isVideoEnabled: boolean;
-  callStatus: 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
-  callType: 'voice' | 'video' | null;
-  startCall: (conversationId: string, callType: 'voice' | 'video', targetUserId?: string, participantIds?: string[]) => Promise<void>;
+  incomingCall: IncomingCall | null;
+  startCall: (targetUserId: string, type: CallType) => Promise<void>;
   answerCall: (roomId: string) => Promise<void>;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
-  incomingCall: { roomId: string; callerName: string; callType: 'voice' | 'video'; isGroupCall?: boolean } | null;
 }
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
 ];
 
 export const useWebRTC = (): WebRTCHook => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected' | 'ended'>('idle');
-  const [callType, setCallType] = useState<'voice' | 'video' | null>(null);
-  const [incomingCall, setIncomingCall] = useState<{ roomId: string; callerName: string; callType: 'voice' | 'video'; isGroupCall?: boolean } | null>(null);
-  
+
+  // Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentRoomIdRef = useRef<string | null>(null);
-  const callTypeRef = useRef<'voice' | 'video'>('voice');
-  
-  console.log('WebRTC Hook State:', { 
-    isCallActive, 
-    callStatus, 
-    callType, 
-    incomingCall: !!incomingCall,
-    roomId: currentRoomIdRef.current 
-  });
 
-  // Listen for incoming calls
-  useEffect(() => {
-    if (!currentUser) return;
+  // State
+  const [callStatus, setCallStatus] = useState<CallStatus>('idle');
+  const [callType, setCallType] = useState<CallType>('voice');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
 
-    const callRoomsChannel = supabase
-      .channel('call-rooms-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'call_rooms',
-          filter: `callee_id=eq.${currentUser.uid}`
-        },
-        async (payload) => {
-          console.log('Incoming call:', payload);
-          const callData = payload.new;
-          
-          // Get caller profile
-          const { data: callerProfile } = await supabase
-            .from('profiles')
-            .select('display_name, username')
-            .eq('user_id', callData.caller_id)
-            .single();
-          
-          const callerName = callerProfile?.display_name || callerProfile?.username || 'Unknown';
-          
-          setIncomingCall({
-            roomId: callData.room_id,
-            callerName,
-            callType: callData.call_type,
-            isGroupCall: callData.metadata?.isGroupCall || false
-          });
-          
-          // Create notification for incoming call
-          try {
-            await supabase
-              .from('notifications')
-              .insert({
-                user_id: currentUser.uid,
-                type: 'call',
-                title: `Incoming ${callData.call_type} call`,
-                message: `${callerName} is calling you`,
-                is_sound_enabled: true,
-                metadata: { roomId: callData.room_id, callType: callData.call_type }
-              });
-          } catch (error) {
-            console.error('Error creating call notification:', error);
-          }
-          
-          // Show toast notification
-          toast({
-            title: `Incoming ${callData.call_type} call`,
-            description: `${callerName} is calling you`,
-            duration: 10000
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'call_rooms',
-          filter: `caller_id=eq.${currentUser.uid}`
-        },
-        (payload) => {
-          console.log('Call room updated:', payload);
-          const callData = payload.new;
-          
-          if (callData.status === 'active' && callData.answer && currentRoomIdRef.current === callData.room_id) {
-            handleAnswer(callData.answer);
-          }
-        }
-      )
-      .subscribe();
+  const isCallActive = callStatus === 'connected';
 
-    // Listen for ICE candidates
-    const iceCandidatesChannel = supabase
-      .channel('ice-candidates-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'ice_candidates'
-        },
-        (payload) => {
-          console.log('New ICE candidate:', payload);
-          const candidateData = payload.new;
-          
-          if (candidateData.room_id === currentRoomIdRef.current && 
-              candidateData.user_id !== currentUser.uid &&
-              peerConnectionRef.current) {
-            
-            const candidate = new RTCIceCandidate(candidateData.candidate);
-            peerConnectionRef.current.addIceCandidate(candidate)
-              .catch(error => console.error('Error adding ICE candidate:', error));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(callRoomsChannel);
-      supabase.removeChannel(iceCandidatesChannel);
-    };
-  }, [currentUser, toast]);
-
-  const createPeerConnection = useCallback(() => {
-    const peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  // Clean up function
+  const cleanup = useCallback(() => {
+    console.log('Cleaning up WebRTC resources...');
     
-    peerConnection.onicecandidate = async (event) => {
-      if (event.candidate && currentRoomIdRef.current && currentUser) {
-        console.log('Sending ICE candidate:', event.candidate);
-        
-        try {
-          await supabase
-            .from('ice_candidates')
-            .insert({
-              room_id: currentRoomIdRef.current,
-              user_id: currentUser.uid,
-              candidate: event.candidate.toJSON() as any
-            });
-        } catch (error) {
-          console.error('Error saving ICE candidate:', error);
-        }
-      }
-    };
-    
-    peerConnection.ontrack = (event) => {
-      console.log('Received remote stream:', event.streams[0]);
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-    
-    peerConnection.onconnectionstatechange = () => {
-      console.log('Connection state:', peerConnection.connectionState);
-      if (peerConnection.connectionState === 'connected') {
-        setCallStatus('connected');
-      } else if (peerConnection.connectionState === 'disconnected' || 
-                 peerConnection.connectionState === 'failed') {
-        endCall();
-      }
-    };
-    
-    return peerConnection;
-  }, [currentUser]);
-
-  const getLocalStream = useCallback(async (callType: 'voice' | 'video'): Promise<MediaStream> => {
-    try {
-      const constraints = {
-        audio: true,
-        video: callType === 'video'
-      };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-      
-      return stream;
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
-      throw new Error('Failed to access camera/microphone');
-    }
-  }, []);
-
-  const startCall = useCallback(async (conversationId: string, callType: 'voice' | 'video', targetUserId?: string, participantIds?: string[]) => {
-    if (!currentUser) return;
-    
-    try {
-      setCallStatus('calling');
-      setIsCallActive(true);
-      setCallType(callType);
-      callTypeRef.current = callType;
-      
-      // Get local stream
-      const localStream = await getLocalStream(callType);
-      localStreamRef.current = localStream;
-      
-      // Create peer connection
-      const peerConnection = createPeerConnection();
-      peerConnectionRef.current = peerConnection;
-      
-      // Add local stream to peer connection
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
+    // Stop local stream
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log(`Stopped ${track.kind} track`);
       });
-      
-      // Create offer
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      
-      // Generate room ID
-      const roomId = Math.random().toString(36).substring(2, 15);
-      currentRoomIdRef.current = roomId;
-      
-      // Prepare call room data
-      const callRoomData: any = {
-        room_id: roomId,
-        caller_id: currentUser.uid,
-        conversation_id: conversationId,
-        call_type: callType,
-        status: 'waiting',
-        offer: offer as any,
-        metadata: {}
-      };
-      
-      // Handle group calls vs direct calls
-      if (participantIds && participantIds.length > 0) {
-        callRoomData.participant_ids = participantIds;
-        callRoomData.metadata = { isGroupCall: true };
-        
-        // Create notifications for all participants
-        for (const participantId of participantIds) {
-          if (participantId !== currentUser.uid) {
-            try {
-              const { data: participantProfile } = await supabase
-                .from('profiles')
-                .select('display_name, username')
-                .eq('user_id', participantId)
-                .single();
-              
-              await supabase
-                .from('notifications')
-                .insert({
-                  user_id: participantId,
-                  type: 'call',
-                  title: `Incoming group ${callType} call`,
-                  message: `${currentUser.displayName || currentUser.email} is starting a group call`,
-                  is_sound_enabled: true,
-                  metadata: { roomId, callType, isGroupCall: true }
-                });
-            } catch (error) {
-              console.error('Error creating group call notification:', error);
-            }
-          }
-        }
-      } else if (targetUserId) {
-        callRoomData.callee_id = targetUserId;
-      }
-      
-      // Save call room to database
-      await supabase
-        .from('call_rooms')
-        .insert(callRoomData);
-      
-      console.log('Call started with room ID:', roomId);
-      
-    } catch (error) {
-      console.error('Error starting call:', error);
-      toast({
-        title: 'Call failed',
-        description: 'Failed to start the call. Please try again.',
-        variant: 'destructive'
-      });
-      endCall();
+      localStreamRef.current = null;
     }
-  }, [currentUser, getLocalStream, createPeerConnection, toast]);
 
-  const answerCall = useCallback(async (roomId: string) => {
-    if (!currentUser) return;
-    
-    try {
-      setCallStatus('ringing');
-      setIsCallActive(true);
-      currentRoomIdRef.current = roomId;
-      setIncomingCall(null);
-      
-      // Get call room data
-      const { data: callRoom } = await supabase
-        .from('call_rooms')
-        .select('*')
-        .eq('room_id', roomId)
-        .single();
-      
-      if (!callRoom) throw new Error('Call room not found');
-      
-      const roomCallType = callRoom.call_type as 'voice' | 'video';
-      setCallType(roomCallType);
-      callTypeRef.current = roomCallType;
-      
-        // Get local stream
-        const localStream = await getLocalStream(roomCallType);
-      localStreamRef.current = localStream;
-      
-      // Create peer connection
-      const peerConnection = createPeerConnection();
-      peerConnectionRef.current = peerConnection;
-      
-      // Add local stream to peer connection
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-      
-        // Set remote description (offer)
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(callRoom.offer as unknown as RTCSessionDescriptionInit));
-      
-      // Create answer
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      
-        // Update call room with answer
-        await supabase
-          .from('call_rooms')
-          .update({
-            status: 'active',
-            answer: answer as any
-          })
-          .eq('room_id', roomId);
-      
-      console.log('Call answered for room:', roomId);
-      
-    } catch (error) {
-      console.error('Error answering call:', error);
-      toast({
-        title: 'Call failed',
-        description: 'Failed to answer the call. Please try again.',
-        variant: 'destructive'
-      });
-      endCall();
-    }
-  }, [currentUser, getLocalStream, createPeerConnection, toast]);
-
-  const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit) => {
-    if (!peerConnectionRef.current) return;
-    
-    try {
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-      console.log('Remote description set successfully');
-    } catch (error) {
-      console.error('Error setting remote description:', error);
-    }
-  }, []);
-
-  const endCall = useCallback(() => {
-    console.log('Ending call - current state:', { 
-      isCallActive, 
-      callStatus, 
-      roomId: currentRoomIdRef.current,
-      hasLocalStream: !!localStreamRef.current,
-      hasPeerConnection: !!peerConnectionRef.current
-    });
-    
-    // Clear incoming call state immediately
-    setIncomingCall(null);
-    
-    // Clear video elements first to prevent UI issues
+    // Clear video elements
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    
-    // Stop local stream tracks properly with immediate effect
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        console.log('Stopping track:', track.kind, 'state:', track.readyState);
-        track.stop();
-        track.enabled = false;
-      });
-      localStreamRef.current = null;
-    }
-    
+
     // Close peer connection
     if (peerConnectionRef.current) {
-      console.log('Closing peer connection, state:', peerConnectionRef.current.connectionState);
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
-    
-    // Update call room status if we have a room
-    if (currentRoomIdRef.current && currentUser) {
-      (async () => {
-        try {
-          await supabase
-            .from('call_rooms')
-            .update({ status: 'ended' })
-            .eq('room_id', currentRoomIdRef.current);
-          console.log('Call room status updated to ended');
-        } catch (error) {
-          console.error('Error updating call room status:', error);
-        }
-      })();
-    }
-    
-    // Reset state immediately
-    setIsCallActive(false);
-    setCallStatus('idle');
-    setCallType(null);
-    setIsMuted(false);
-    setIsVideoEnabled(true);
+
+    // Reset state
     currentRoomIdRef.current = null;
-    
-    console.log('Call ended - state reset complete');
-  }, [currentUser, isCallActive, callStatus]);
+    setIncomingCall(null);
+    setCallStatus('idle');
+    setIsMuted(false);
+    setIsVideoEnabled(false);
+  }, []);
 
-  const toggleMute = useCallback(() => {
-    console.log('Toggle mute called - current state:', { 
-      isMuted, 
-      hasLocalStream: !!localStreamRef.current,
-      audioTracks: localStreamRef.current?.getAudioTracks().length || 0
-    });
-    
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        const newMutedState = !audioTrack.enabled;
-        audioTrack.enabled = !newMutedState;
-        setIsMuted(newMutedState);
-        console.log('Audio track toggled:', { 
-          enabled: audioTrack.enabled, 
-          muted: newMutedState,
-          trackState: audioTrack.readyState 
-        });
-      } else {
-        console.warn('No audio track found');
+  // Create peer connection
+  const createPeerConnection = useCallback((): RTCPeerConnection => {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+    pc.onicecandidate = async (event) => {
+      if (event.candidate && currentRoomIdRef.current) {
+        try {
+          await supabase.from('ice_candidates').insert({
+            room_id: currentRoomIdRef.current,
+            user_id: currentUser?.uid,
+            candidate: {
+              candidate: event.candidate.candidate,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              sdpMid: event.candidate.sdpMid
+            }
+          });
+        } catch (error) {
+          console.error('Failed to save ICE candidate:', error);
+        }
       }
-    } else {
-      console.warn('No local stream available for mute toggle');
+    };
+
+    pc.ontrack = (event) => {
+      console.log('Received remote track');
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setCallStatus('connected');
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        endCall();
+      }
+    };
+
+    return pc;
+  }, [currentUser?.uid]);
+
+  // Get user media
+  const getUserMedia = useCallback(async (type: CallType): Promise<MediaStream> => {
+    try {
+      const constraints = {
+        audio: true,
+        video: type === 'video'
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (localVideoRef.current && type === 'video') {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      setIsVideoEnabled(type === 'video');
+      return stream;
+    } catch (error) {
+      console.error('Failed to get user media:', error);
+      toast({
+        title: "Media Error",
+        description: "Failed to access camera/microphone",
+        variant: "destructive"
+      });
+      throw error;
     }
-  }, [isMuted]);
+  }, [toast]);
 
-  const toggleVideo = useCallback(() => {
-    if (localStreamRef.current && callTypeRef.current === 'video') {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
+  // Start call
+  const startCall = useCallback(async (targetUserId: string, type: CallType) => {
+    if (!currentUser?.uid) return;
+
+    try {
+      setCallStatus('initiating');
+      setCallType(type);
+
+      // Get user media
+      const stream = await getUserMedia(type);
+      localStreamRef.current = stream;
+
+      // Create room
+      const roomId = `${Date.now()}-${currentUser.uid}-${targetUserId}`;
+      currentRoomIdRef.current = roomId;
+
+      // Create peer connection
+      const pc = createPeerConnection();
+      peerConnectionRef.current = pc;
+
+      // Add local stream
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      // Create offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Save call room
+      await supabase.from('call_rooms').insert({
+        room_id: roomId,
+        caller_id: currentUser.uid,
+        callee_id: targetUserId,
+        call_type: type,
+        status: 'waiting',
+        offer: offer as any
+      });
+
+      setCallStatus('ringing');
+      
+    } catch (error) {
+      console.error('Failed to start call:', error);
+      toast({
+        title: "Call Failed",
+        description: "Failed to initiate call",
+        variant: "destructive"
+      });
+      cleanup();
+    }
+  }, [currentUser?.uid, getUserMedia, createPeerConnection, cleanup, toast]);
+
+  // Answer call
+  const answerCall = useCallback(async (roomId: string) => {
+    if (!currentUser?.uid || !incomingCall) return;
+
+    try {
+      setCallStatus('initiating');
+      setCallType(incomingCall.callType);
+
+      // Get user media
+      const stream = await getUserMedia(incomingCall.callType);
+      localStreamRef.current = stream;
+
+      // Get call room data
+      const { data: roomData, error } = await supabase
+        .from('call_rooms')
+        .select('*')
+        .eq('room_id', roomId)
+        .single();
+
+      if (error || !roomData?.offer) {
+        throw new Error('Call room not found');
       }
+
+      currentRoomIdRef.current = roomId;
+
+      // Create peer connection
+      const pc = createPeerConnection();
+      peerConnectionRef.current = pc;
+
+      // Add local stream
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      // Set remote description
+      await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer as any));
+
+      // Create answer
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      // Update call room with answer
+      await supabase.from('call_rooms')
+        .update({
+          answer: answer as any,
+          status: 'active'
+        })
+        .eq('room_id', roomId);
+
+      setIncomingCall(null);
+      
+    } catch (error) {
+      console.error('Failed to answer call:', error);
+      toast({
+        title: "Call Failed",
+        description: "Failed to answer call",
+        variant: "destructive"
+      });
+      cleanup();
+    }
+  }, [currentUser?.uid, incomingCall, getUserMedia, createPeerConnection, cleanup, toast]);
+
+  // End call
+  const endCall = useCallback(() => {
+    console.log('Ending call...');
+    
+    // Update room status if we have a room
+    if (currentRoomIdRef.current) {
+      supabase.from('call_rooms')
+        .update({ status: 'ended' })
+        .eq('room_id', currentRoomIdRef.current);
+    }
+
+    setCallStatus('ending');
+    cleanup();
+  }, [cleanup]);
+
+  // Toggle mute
+  const toggleMute = useCallback(() => {
+    if (localStreamRef.current) {
+      const audioTracks = localStreamRef.current.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(!audioTracks[0]?.enabled);
     }
   }, []);
+
+  // Toggle video
+  const toggleVideo = useCallback(() => {
+    if (localStreamRef.current) {
+      const videoTracks = localStreamRef.current.getVideoTracks();
+      videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsVideoEnabled(videoTracks[0]?.enabled || false);
+    }
+  }, []);
+
+  // Set up real-time listeners
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    // Listen for new call rooms (incoming calls)
+    const callRoomsChannel = supabase
+      .channel('call_rooms_channel')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'call_rooms',
+        filter: `callee_id=eq.${currentUser.uid}`
+      }, async (payload) => {
+        console.log('New incoming call:', payload.new);
+        
+        // Get caller profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, username')
+          .eq('user_id', payload.new.caller_id)
+          .single();
+
+        setIncomingCall({
+          roomId: payload.new.room_id,
+          callerName: profile?.display_name || profile?.username || 'Unknown',
+          callType: payload.new.call_type,
+          isGroupCall: false
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'call_rooms',
+        filter: `caller_id=eq.${currentUser.uid}`
+      }, async (payload) => {
+        // Handle answer received
+        if (payload.new.answer && currentRoomIdRef.current === payload.new.room_id) {
+          try {
+            await peerConnectionRef.current?.setRemoteDescription(
+              new RTCSessionDescription(payload.new.answer as any)
+            );
+            console.log('Answer set successfully');
+          } catch (error) {
+            console.error('Failed to set answer:', error);
+          }
+        }
+      })
+      .subscribe();
+
+    // Listen for ICE candidates
+    const iceCandidatesChannel = supabase
+      .channel('ice_candidates_channel')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'ice_candidates'
+      }, async (payload) => {
+        if (currentRoomIdRef.current === payload.new.room_id && 
+            payload.new.user_id !== currentUser.uid && 
+            peerConnectionRef.current) {
+          try {
+            await peerConnectionRef.current.addIceCandidate(
+              new RTCIceCandidate(payload.new.candidate as any)
+            );
+          } catch (error) {
+            console.error('Failed to add ICE candidate:', error);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(callRoomsChannel);
+      supabase.removeChannel(iceCandidatesChannel);
+    };
+  }, [currentUser?.uid]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
 
   return {
     localVideoRef,
     remoteVideoRef,
     isCallActive,
-    isMuted,
-    isVideoEnabled,
     callStatus,
     callType,
+    isMuted,
+    isVideoEnabled,
+    incomingCall,
     startCall,
     answerCall,
     endCall,
     toggleMute,
-    toggleVideo,
-    incomingCall
+    toggleVideo
   };
 };

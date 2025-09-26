@@ -1,75 +1,99 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const TENOR_API_KEY = Deno.env.get('TENOR_API_KEY');
-    if (!TENOR_API_KEY) {
-      throw new Error('TENOR_API_KEY is not set');
+    const GIPHY_API_KEY = Deno.env.get('GIPHY_API_KEY')
+    
+    if (!GIPHY_API_KEY) {
+      console.error('GIPHY_API_KEY environment variable is not set')
+      return new Response(
+        JSON.stringify({ error: 'GIPHY API key not configured' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
-    const { searchTerm, limit = 20 } = await req.json();
-
+    const body = await req.json()
+    const { searchTerm, limit = 20 } = body
+    
     if (!searchTerm) {
-      return new Response(JSON.stringify({ error: 'Search term is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Search term is required' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
-    console.log(`Searching GIFs for: ${searchTerm}`);
-
-    // Make request to Tenor API - use v1 endpoint which is more stable
-    const tenorUrl = `https://api.tenor.com/v1/search?q=${encodeURIComponent(searchTerm)}&key=${TENOR_API_KEY}&limit=${limit}&media_filter=minimal`;
+    console.log(`Searching GIFs for: ${searchTerm}`)
     
-    console.log('Making request to Tenor API:', tenorUrl.replace(TENOR_API_KEY, '[HIDDEN]'));
+    const giphyUrl = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(searchTerm)}&limit=${limit}&rating=g`
     
-    const response = await fetch(tenorUrl);
+    console.log('Making request to GIPHY API...')
     
-    console.log('Tenor API response status:', response.status, response.statusText);
+    const giphyResponse = await fetch(giphyUrl)
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Tenor API error details:', errorText);
-      throw new Error(`Tenor API error: ${response.status} ${response.statusText} - ${errorText}`);
+    if (!giphyResponse.ok) {
+      console.error(`GIPHY API error: ${giphyResponse.status} ${giphyResponse.statusText}`)
+      const errorText = await giphyResponse.text()
+      console.error(`GIPHY API error details: ${errorText}`)
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `GIPHY API error: ${giphyResponse.status} ${giphyResponse.statusText}`,
+          details: errorText
+        }),
+        { 
+          status: giphyResponse.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
-    const data = await response.json();
-    console.log('Tenor API response data:', JSON.stringify(data, null, 2));
-
-    // Transform Tenor API response to match our interface
-    const gifs = data.results?.map((gif: any) => ({
+    const giphyData = await giphyResponse.json()
+    console.log(`Found ${giphyData.data?.length || 0} GIFs`)
+    
+    // Transform GIPHY response to match our expected format
+    const gifs = giphyData.data?.map((gif: any) => ({
       id: gif.id,
-      url: gif.media[0]?.gif?.url || gif.media[0]?.mp4?.url,
-      preview: gif.media[0]?.tinygif?.url || gif.media[0]?.gif?.url,
-      title: gif.title || `GIF for ${searchTerm}`,
-      width: gif.media[0]?.gif?.dims?.[0] || 200,
-      height: gif.media[0]?.gif?.dims?.[1] || 200
-    })).filter((gif: any) => gif.url && gif.preview) || [];
+      url: gif.images.fixed_height.url,
+      preview: gif.images.fixed_height_small.url,
+      title: gif.title,
+      width: parseInt(gif.images.fixed_height.width) || 200,
+      height: parseInt(gif.images.fixed_height.height) || 200
+    })) || []
 
-    console.log(`Found ${gifs.length} GIFs`);
-
-    return new Response(JSON.stringify({ gifs }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({ gifs }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
+    
   } catch (error) {
-    console.error("Error searching GIFs:", error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Failed to search GIFs' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error searching GIFs:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to search GIFs',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
-});
+})

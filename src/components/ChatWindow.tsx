@@ -548,7 +548,7 @@ const ChatWindow: React.FC = () => {
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {webRTC.isCallActive && <CallModal isGroup={isGroup} />}
+      {webRTC.isCallActive && <CallModal />}
       
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
@@ -673,7 +673,7 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
-                  webRTC.startCall(currentConversation.id, 'voice', targetUserId);
+                  webRTC.startCall(targetUserId, 'voice');
                 }
               }
             }}
@@ -689,7 +689,7 @@ const ChatWindow: React.FC = () => {
               if (currentConversation) {
                 const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
                 if (targetUserId) {
-                  webRTC.startCall(currentConversation.id, 'video', targetUserId);
+                  webRTC.startCall(targetUserId, 'video');
                 }
               }
             }}

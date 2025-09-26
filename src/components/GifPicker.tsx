@@ -32,29 +32,29 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
     }
 
     setLoading(true);
-    console.log('Searching for GIFs:', query);
     try {
       const { data, error } = await supabase.functions.invoke('search-gifs', {
         body: { searchTerm: query, limit: 20 }
       });
 
-      console.log('GIF search response:', { data, error });
-
       if (error) {
-        throw error;
-      }
-
-      if (data?.gifs) {
-        console.log('Found GIFs:', data.gifs.length);
-        setGifs(data.gifs);
-      } else {
-        console.log('No GIFs found in response');
+        console.error('GIF search error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to search GIFs. Please try again.",
+          variant: "destructive"
+        });
         setGifs([]);
+      } else {
+        console.log('GIF search response:', data);
+        // Handle GIPHY API response format
+        const results = data?.gifs || [];
+        setGifs(results);
       }
     } catch (error) {
       console.error('Error searching GIFs:', error);
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to search GIFs. Please try again.",
         variant: "destructive"
       });
