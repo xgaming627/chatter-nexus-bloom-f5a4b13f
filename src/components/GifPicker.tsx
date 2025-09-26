@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Image, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GifResult {
   id: string;
@@ -23,8 +24,7 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Tenor API key would typically come from environment variables
-  // For demo purposes, we'll use a mock implementation
+  // Search GIFs using Supabase edge function
   const searchGifs = async (query: string) => {
     if (!query.trim()) {
       setGifs([]);
@@ -33,28 +33,19 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
 
     setLoading(true);
     try {
-      // Mock GIF results - in a real implementation, you'd call Tenor API
-      // Example: https://api.tenor.com/v1/search?q=${query}&key=YOUR_API_KEY&limit=20
-      const mockGifs: GifResult[] = [
-        {
-          id: '1',
-          url: `https://media.tenor.com/example1.gif`,
-          preview: `https://media.tenor.com/example1-preview.gif`,
-          title: `${query} reaction`
-        },
-        // Add more mock results...
-      ];
+      const { data, error } = await supabase.functions.invoke('search-gifs', {
+        body: { searchTerm: query, limit: 20 }
+      });
 
-      // For now, we'll simulate the API call and show a message
-      setTimeout(() => {
-        toast({
-          title: "GIF Search",
-          description: "GIF integration ready! Add your Tenor API key to enable GIF search.",
-        });
+      if (error) {
+        throw error;
+      }
+
+      if (data?.gifs) {
+        setGifs(data.gifs);
+      } else {
         setGifs([]);
-        setLoading(false);
-      }, 500);
-
+      }
     } catch (error) {
       console.error('Error searching GIFs:', error);
       toast({
@@ -63,6 +54,7 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
         variant: "destructive"
       });
       setGifs([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -137,12 +129,7 @@ const GifPicker: React.FC<GifPickerProps> = ({ onGifSelect }) => {
             </div>
           ) : search.trim() ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
-              <div className="mb-2">GIF Integration Ready!</div>
-              <div className="text-xs">
-                Add your Tenor API key to enable GIF search.
-                <br />
-                You can also paste Tenor links directly in chat.
-              </div>
+              No GIFs found for "{search}"
             </div>
           ) : (
             <div className="p-4 text-center text-muted-foreground text-sm">
