@@ -12,11 +12,12 @@ import SearchUsers from "@/components/SearchUsers";
 import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
-import { ChatProvider } from "@/context/ChatContext";
+import { ChatProvider, useChat } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
 import WarnUserNotification from "@/components/WarnUserNotification";
 import ModeratorNotifications from "@/components/ModeratorNotifications";
 import NotificationDisplay from "@/components/NotificationDisplay";
+import CallComponents from "@/components/CallComponents";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -98,6 +99,7 @@ const Index = () => {
         <WarnUserNotification />
         <ModeratorNotifications />
         <NotificationDisplay />
+        <CallComponents />
         
         <div className="flex flex-col h-screen bg-background">
           {/* Header */}

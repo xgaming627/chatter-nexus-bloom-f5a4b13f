@@ -728,21 +728,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startVideoCall = (conversationId: string) => {
+    // Get target user from current conversation
+    const targetUserId = currentConversation?.participants.find(id => id !== currentUser?.uid);
+    
+    if (!targetUserId || !currentUser) {
+      toast({
+        title: "Call failed",
+        description: "Unable to start call. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsCallActive(true);
     setActiveCallType('video');
-    toast({
-      title: "Video call started",
-      description: "Video call feature is limited in this demo",
-    });
   };
 
   const startVoiceCall = (conversationId: string) => {
+    // Get target user from current conversation
+    const targetUserId = currentConversation?.participants.find(id => id !== currentUser?.uid);
+    
+    if (!targetUserId || !currentUser) {
+      toast({
+        title: "Call failed",
+        description: "Unable to start call. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsCallActive(true);
     setActiveCallType('voice');
-    toast({
-      title: "Voice call started",
-      description: "Voice call feature is limited in this demo",
-    });
   };
 
   const endCall = () => {

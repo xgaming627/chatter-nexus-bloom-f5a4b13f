@@ -47,6 +47,48 @@ export type Database = {
         }
         Relationships: []
       }
+      call_rooms: {
+        Row: {
+          answer: Json | null
+          call_type: string
+          callee_id: string | null
+          caller_id: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          offer: Json | null
+          room_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answer?: Json | null
+          call_type: string
+          callee_id?: string | null
+          caller_id: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          offer?: Json | null
+          room_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: Json | null
+          call_type?: string
+          callee_id?: string | null
+          caller_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          offer?: Json | null
+          room_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           auto_delete_after: string | null
@@ -99,6 +141,30 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      ice_candidates: {
+        Row: {
+          candidate: Json
+          created_at: string
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          candidate: Json
+          created_at?: string
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          candidate?: Json
+          created_at?: string
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       login_sessions: {
         Row: {
