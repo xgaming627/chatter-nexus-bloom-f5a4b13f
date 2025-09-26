@@ -13,8 +13,9 @@ const CallModal: React.FC = () => {
   const { currentConversation, conversations } = useChat();
   const [callTime, setCallTime] = useState(0);
 
-  // Only show modal when call is active
-  if (!webRTC.isCallActive) return null;
+  // Only show modal when call is not idle
+  console.log('CallModal render check - callStatus:', webRTC.callStatus);
+  if (webRTC.callStatus === 'idle') return null;
 
   // Get conversation participants for display
   const conversation = conversations.find(c => c.id === currentConversation?.id);
@@ -22,7 +23,8 @@ const CallModal: React.FC = () => {
   
   // Timer effect
   useEffect(() => {
-    if (webRTC.callStatus === 'connected') {
+      console.log('Call status changed to:', webRTC.callStatus);
+      if (webRTC.callStatus === 'connected') {
       const timer = setInterval(() => {
         setCallTime(prev => prev + 1);
       }, 1000);

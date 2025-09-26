@@ -157,11 +157,11 @@ export const useWebRTC = (): WebRTCHook => {
     }
   }, [toast]);
 
-  // Start call
   const startCall = useCallback(async (targetUserId: string, type: CallType) => {
     if (!currentUser?.uid) return;
 
     try {
+      console.log('Starting call to:', targetUserId, 'type:', type);
       setCallStatus('initiating');
       setCallType(type);
 
