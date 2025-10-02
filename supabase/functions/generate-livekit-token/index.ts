@@ -13,11 +13,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('No authorization header provided');
+      console.error('Available headers:', Array.from(req.headers.keys()));
       throw new Error('No authorization header');
     }
+
+    console.log('Auth header present:', authHeader.substring(0, 20) + '...');
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -25,11 +30,20 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    console.log('Getting user from auth...');
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      throw new Error('Unauthorized');
+    
+    if (userError) {
+      console.error('Auth error details:', JSON.stringify(userError));
+      throw new Error(`Auth failed: ${userError.message}`);
     }
+    
+    if (!user) {
+      console.error('No user returned from auth');
+      throw new Error('No user found');
+    }
+    
+    console.log('User authenticated:', user.id);
 
     const { roomName, participantName } = await req.json();
 
