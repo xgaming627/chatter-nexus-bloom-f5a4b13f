@@ -111,8 +111,8 @@ export const CallButton: React.FC<CallButtonProps> = ({
         onClick={startCall}
         className={className}
       >
-        {isVideoCall ? <Video className="h-4 w-4 mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
-        {buttonText || (isVideoCall ? 'Video Call' : 'Voice Call')}
+        {isVideoCall ? <Video className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} /> : <Phone className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} />}
+        {buttonText}
       </Button>
 
       {isInCall && (

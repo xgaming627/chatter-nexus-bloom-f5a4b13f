@@ -21,6 +21,14 @@ export const useLiveKit = () => {
       return null;
     }
 
+    // Verify we have a valid session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      console.error('No valid session:', sessionError);
+      toast.error('Authentication required. Please log in again.');
+      return null;
+    }
+
     setIsGeneratingToken(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-livekit-token', {
