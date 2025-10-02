@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { toast } from '@/hooks/use-toast';
 
 interface NotificationData {
   id: string;
@@ -17,40 +16,26 @@ export const useNotifications = () => {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const showNotification = (data: NotificationData) => {
-    // Show browser notification if permission granted and page is not visible
-    if (Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+    // Show browser notification if permission granted
+    if (Notification.permission === 'granted') {
       const notification = new Notification(data.title, {
         body: data.message,
         icon: '/favicon.ico',
         silent: !data.is_sound_enabled,
-        tag: data.type === 'call' ? 'call-notification' : 'message-notification',
-        requireInteraction: data.type === 'call' // Keep call notifications visible until user acts
+        tag: data.type,
+        requireInteraction: data.type === 'mention' || data.type === 'warning'
       });
 
-      // Auto close after 5 seconds for non-call notifications
-      if (data.type !== 'call') {
-        setTimeout(() => notification.close(), 5000);
+      // Auto close after 8 seconds for non-critical notifications
+      if (data.type !== 'mention' && data.type !== 'warning') {
+        setTimeout(() => notification.close(), 8000);
       }
 
       // Handle notification click
       notification.onclick = () => {
         window.focus();
         notification.close();
-        
-        // Handle call notification clicks
-        if (data.type === 'call' && data.metadata?.roomId) {
-          // The useCustomCall hook will handle the incoming call UI
-        }
       };
-    }
-
-    // Always show toast notification when page is visible
-    if (document.visibilityState === 'visible' || data.type === 'call') {
-      toast({
-        title: data.title,
-        description: data.message,
-        duration: data.type === 'call' ? 10000 : 5000, // Longer duration for calls
-      });
     }
 
     // Play sound if enabled

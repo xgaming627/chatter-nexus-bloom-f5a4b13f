@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
-import { useRealCall } from '@/hooks/useRealCall';
 import { format } from 'date-fns';
 import { 
   AlertTriangle, 
@@ -33,6 +32,8 @@ import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
 import EmojiPicker from './EmojiPicker';
 import GifPicker from './GifPicker';
+import { ImageUpload } from './ImageUpload';
+import { CallButton } from './LiveKitRoom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +41,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import CallModal from './CallModal';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -60,7 +60,6 @@ import RemoveMemberDialog from './RemoveMemberDialog';
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
-  const realCall = useRealCall();
   const { 
     currentConversation, 
     messages, 
@@ -499,10 +498,14 @@ const ChatWindow: React.FC = () => {
   const handleGifSelect = (gifUrl: string) => {
     if (currentConversation && !isBlocked && !isRateLimited) {
       sendMessage(`[GIF] ${gifUrl}`, currentConversation.id);
-      toast({
-        title: "GIF sent!",
-        description: "Your GIF has been shared in the chat."
-      });
+    }
+  };
+  
+  // Handle image upload
+  const handleImageSelect = async (imageUrl: string, fileName: string) => {
+    if (currentConversation && !isBlocked && !isRateLimited) {
+      // Send message with image metadata stored in special format
+      await sendMessage(`[IMAGE] ${imageUrl}|${fileName}`, currentConversation.id);
     }
   };
   
@@ -664,44 +667,24 @@ const ChatWindow: React.FC = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            onClick={async () => {
-              if (currentConversation) {
-                const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
-                if (targetUserId) {
-                  console.log('📞 Voice call button clicked! Starting voice call to:', targetUserId);
-                  // Send system message about call start
-                  await sendMessage('📞 Started a voice call', currentConversation.id);
-                  realCall.startCall(targetUserId, 'voice');
-                }
-              }
-            }}
-            disabled={isBlocked}
-            title={isBlocked ? "Unblock user to call" : "Voice call"}
-          >
-            <Phone className="h-5 w-5" />
-          </Button>
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            onClick={async () => {
-              if (currentConversation) {
-                const targetUserId = currentConversation.participants.find(id => id !== currentUser?.uid);
-                if (targetUserId) {
-                  console.log('📹 Video call button clicked! Starting video call to:', targetUserId);
-                  // Send system message about call start
-                  await sendMessage('📹 Started a video call', currentConversation.id);
-                  realCall.startCall(targetUserId, 'video');
-                }
-              }
-            }}
-            disabled={isBlocked}
-            title={isBlocked ? "Unblock user to call" : "Video call"}
-          >
-            <Video className="h-5 w-5" />
-          </Button>
+          <CallButton
+            roomName={currentConversation?.id || ''}
+            participantName={currentUser?.displayName || currentUser?.email || 'User'}
+            isVideoCall={false}
+            variant="ghost"
+            size="icon"
+            buttonText=""
+            className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+          />
+          <CallButton
+            roomName={currentConversation?.id || ''}
+            participantName={currentUser?.displayName || currentUser?.email || 'User'}
+            isVideoCall={true}
+            variant="ghost"
+            size="icon"
+            buttonText=""
+            className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+          />
         </div>
       </div>
       
@@ -840,17 +823,30 @@ const ChatWindow: React.FC = () => {
                           </div>
                         ) : message.content.startsWith('[GIF]') ? (
                           <div className="space-y-2">
-                            <div className="text-sm text-muted-foreground">GIF</div>
-                            <div className="bg-muted/20 p-2 rounded border border-dashed">
-                              <a 
-                                href={message.content.replace('[GIF] ', '')} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline text-sm"
-                              >
-                                View GIF →
-                              </a>
-                            </div>
+                            <img 
+                              src={message.content.replace('[GIF] ', '')} 
+                              alt="GIF"
+                              className="rounded-md max-h-60 max-w-full object-contain"
+                            />
+                          </div>
+                        ) : message.content.startsWith('[IMAGE]') ? (
+                          <div className="space-y-2">
+                            {(() => {
+                              const parts = message.content.replace('[IMAGE] ', '').split('|');
+                              const imageUrl = parts[0];
+                              const fileName = parts[1] || 'Image';
+                              return (
+                                <>
+                                  <img 
+                                    src={imageUrl} 
+                                    alt={fileName}
+                                    className="rounded-md max-h-80 max-w-full object-contain cursor-pointer"
+                                    onClick={() => window.open(imageUrl, '_blank')}
+                                  />
+                                  <div className="text-xs text-muted-foreground">{fileName}</div>
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : (
                           message.content
@@ -969,6 +965,8 @@ const ChatWindow: React.FC = () => {
           />
           
           <GifPicker onGifSelect={handleGifSelect} />
+          
+          <ImageUpload onImageSelect={handleImageSelect} />
 
           <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked || isRateLimited}>
             <Send className="h-5 w-5" />
