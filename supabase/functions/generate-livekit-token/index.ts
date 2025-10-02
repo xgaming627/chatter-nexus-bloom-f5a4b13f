@@ -13,34 +13,23 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
-    
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('No authorization header provided');
-      console.error('Available headers:', Array.from(req.headers.keys()));
       throw new Error('No authorization header');
     }
 
-    console.log('Auth header present:', authHeader.substring(0, 20) + '...');
-
+    const token = authHeader.replace('Bearer ', '');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    console.log('Getting user from auth...');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     
-    if (userError) {
-      console.error('Auth error details:', JSON.stringify(userError));
-      throw new Error(`Auth failed: ${userError.message}`);
-    }
-    
-    if (!user) {
-      console.error('No user returned from auth');
-      throw new Error('No user found');
+    if (userError || !user) {
+      console.error('Auth error:', userError);
+      throw new Error('Unauthorized');
     }
     
     console.log('User authenticated:', user.id);

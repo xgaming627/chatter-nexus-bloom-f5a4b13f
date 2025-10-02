@@ -31,13 +31,8 @@ export const useLiveKit = () => {
 
     setIsGeneratingToken(true);
     try {
-      console.log('Invoking generate-livekit-token with session:', session.access_token.substring(0, 20) + '...');
-      
       const { data, error } = await supabase.functions.invoke('generate-livekit-token', {
-        body: { roomName, participantName },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        body: { roomName, participantName }
       });
 
       if (error) {
