@@ -59,8 +59,8 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   }
 
   return (
-    <Dialog open={true} onOpenChange={onLeave}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0">
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onLeave(); }}>
+      <DialogContent className="max-w-6xl h-[80vh] p-0" onInteractOutside={(e) => e.preventDefault()}>
         <LKRoom
           token={token}
           serverUrl={serverUrl}
@@ -68,6 +68,11 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
           video={isVideoCall}
           audio={true}
           onDisconnected={onLeave}
+          onError={(error) => {
+            console.error('LiveKit connection error:', error);
+            toast.error(`Connection failed: ${error.message}. Please check LiveKit credentials.`);
+            onLeave();
+          }}
           className="h-full"
         >
           <VideoConference />
@@ -103,9 +108,14 @@ export const CallButton: React.FC<CallButtonProps> = ({
   receiverPhoto
 }) => {
   const [isInCall, setIsInCall] = useState(false);
+  const [isInitiating, setIsInitiating] = useState(false);
   const { sendCallNotification, isSendingNotification } = useCallNotifications();
 
   const startCall = async () => {
+    if (isInitiating) return; // Prevent double-clicks
+    
+    setIsInitiating(true);
+    
     // If we have receiver info, send notification first
     if (receiverId && receiverName) {
       const notification = await sendCallNotification(
@@ -118,13 +128,18 @@ export const CallButton: React.FC<CallButtonProps> = ({
       
       if (!notification) {
         toast.error('Failed to notify the other user');
+        setIsInitiating(false);
         return;
       }
       
       toast.success(`Calling ${receiverName}...`);
+      
+      // Wait a moment before opening call window so notification is sent
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     setIsInCall(true);
+    setIsInitiating(false);
   };
 
   const endCall = () => {
@@ -138,10 +153,10 @@ export const CallButton: React.FC<CallButtonProps> = ({
         size={size}
         onClick={startCall}
         className={className}
-        disabled={isSendingNotification}
+        disabled={isSendingNotification || isInitiating}
       >
         {isVideoCall ? <Video className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} /> : <Phone className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} />}
-        {buttonText}
+        {isInitiating ? 'Calling...' : buttonText}
       </Button>
 
       {isInCall && (
