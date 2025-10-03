@@ -5,13 +5,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useRole } from '@/hooks/useRole';
 import { useMessageLimiter } from '@/hooks/useMessageLimiter';
 import { format } from 'date-fns';
-import { X, Send, Clock } from 'lucide-react';
+import { X, Send, Clock, Phone, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserAvatar from './UserAvatar';
 import LiveSupportEndDialog from './LiveSupportEndDialog';
 import FeedbackDialog from './FeedbackDialog';
+import { CallButton } from './LiveKitRoom';
 import { toast } from '@/hooks/use-toast';
 
 const LiveSupportChat: React.FC = () => {
@@ -127,13 +128,31 @@ const LiveSupportChat: React.FC = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Control buttons */}
-      <div className="p-2 border-b flex justify-between">
+      <div className="p-2 border-b flex justify-between items-center">
         <div>
           <span className="text-sm font-medium">
             Support Session {currentSupportSession.id.slice(0, 8)}...
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* Call buttons */}
+          <CallButton
+            roomName={`support-${currentSupportSession.id}`}
+            participantName={currentUser?.displayName || currentUser?.email || 'User'}
+            isVideoCall={false}
+            variant="ghost"
+            size="sm"
+            buttonText=""
+          />
+          <CallButton
+            roomName={`support-${currentSupportSession.id}`}
+            participantName={currentUser?.displayName || currentUser?.email || 'User'}
+            isVideoCall={true}
+            variant="ghost"
+            size="sm"
+            buttonText=""
+          />
+          
           {isModerator && (
             <>
               <Button 
