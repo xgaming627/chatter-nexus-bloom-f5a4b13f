@@ -58,9 +58,26 @@ serve(async (req) => {
     const serverUrl = Deno.env.get('LIVEKIT_SERVER_URL');
 
     if (!apiKey || !apiSecret || !serverUrl) {
-      console.error('Missing LiveKit configuration');
-      throw new Error('LiveKit not configured');
+      console.error('Missing LiveKit configuration', { 
+        hasApiKey: !!apiKey, 
+        hasApiSecret: !!apiSecret, 
+        hasServerUrl: !!serverUrl 
+      });
+      return new Response(
+        JSON.stringify({ error: 'LiveKit not configured properly' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
     }
+
+    console.log('LiveKit config check:', { 
+      hasApiKey: !!apiKey, 
+      hasApiSecret: !!apiSecret,
+      serverUrl,
+      apiKeyPrefix: apiKey.substring(0, 10) + '...'
+    });
 
     console.log('Generating token for:', { userId: user.id, roomName, participantName });
 

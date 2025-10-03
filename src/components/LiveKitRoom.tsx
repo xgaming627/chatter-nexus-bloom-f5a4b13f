@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { LiveKitRoom as LKRoom, VideoConference, useToken } from '@livekit/components-react';
+import { LiveKitRoom as LKRoom, VideoConference } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Phone, Video } from 'lucide-react';
 import { useLiveKit } from '@/hooks/useLiveKit';
 import { useAuth } from '@/context/AuthContext';
+import { useCallNotifications } from '@/hooks/useCallNotifications';
+import { toast } from 'sonner';
 
 interface LiveKitRoomProps {
   roomName: string;
@@ -46,6 +48,7 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Connecting to call...</DialogTitle>
+            <DialogDescription>Please wait while we connect you</DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -82,6 +85,9 @@ interface CallButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  receiverId?: string;
+  receiverName?: string;
+  receiverPhoto?: string;
 }
 
 export const CallButton: React.FC<CallButtonProps> = ({
@@ -91,11 +97,33 @@ export const CallButton: React.FC<CallButtonProps> = ({
   buttonText,
   variant = 'default',
   size = 'default',
-  className = ''
+  className = '',
+  receiverId,
+  receiverName,
+  receiverPhoto
 }) => {
   const [isInCall, setIsInCall] = useState(false);
+  const { sendCallNotification, isSendingNotification } = useCallNotifications();
 
-  const startCall = () => {
+  const startCall = async () => {
+    // If we have receiver info, send notification first
+    if (receiverId && receiverName) {
+      const notification = await sendCallNotification(
+        receiverId,
+        receiverName,
+        receiverPhoto,
+        roomName,
+        isVideoCall
+      );
+      
+      if (!notification) {
+        toast.error('Failed to notify the other user');
+        return;
+      }
+      
+      toast.success(`Calling ${receiverName}...`);
+    }
+    
     setIsInCall(true);
   };
 
@@ -110,6 +138,7 @@ export const CallButton: React.FC<CallButtonProps> = ({
         size={size}
         onClick={startCall}
         className={className}
+        disabled={isSendingNotification}
       >
         {isVideoCall ? <Video className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} /> : <Phone className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} />}
         {buttonText}

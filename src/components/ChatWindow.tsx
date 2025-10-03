@@ -25,15 +25,16 @@ import {
   Users,
   Check,
   CheckCheck,
-  Clock
+  Clock,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
 import EmojiPicker from './EmojiPicker';
 import GifPicker from './GifPicker';
-import { ImageUpload } from './ImageUpload';
 import { CallButton } from './LiveKitRoom';
+import { CallNotificationsManager } from './CallNotification';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -675,6 +676,9 @@ const ChatWindow: React.FC = () => {
             size="icon"
             buttonText=""
             className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+            receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
+            receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
+            receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
           />
           <CallButton
             roomName={currentConversation?.id || ''}
@@ -684,6 +688,9 @@ const ChatWindow: React.FC = () => {
             size="icon"
             buttonText=""
             className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+            receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
+            receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
+            receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
           />
         </div>
       </div>
@@ -834,17 +841,13 @@ const ChatWindow: React.FC = () => {
                             {(() => {
                               const parts = message.content.replace('[IMAGE] ', '').split('|');
                               const imageUrl = parts[0];
-                              const fileName = parts[1] || 'Image';
                               return (
-                                <>
-                                  <img 
-                                    src={imageUrl} 
-                                    alt={fileName}
-                                    className="rounded-md max-h-80 max-w-full object-contain cursor-pointer"
-                                    onClick={() => window.open(imageUrl, '_blank')}
-                                  />
-                                  <div className="text-xs text-muted-foreground">{fileName}</div>
-                                </>
+                                <img 
+                                  src={imageUrl} 
+                                  alt="Shared image"
+                                  className="rounded-md max-h-80 max-w-full object-contain cursor-pointer"
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                />
                               );
                             })()}
                           </div>
@@ -926,8 +929,9 @@ const ChatWindow: React.FC = () => {
             variant="ghost"
             onClick={() => fileInputRef.current?.click()}
             disabled={isBlocked || isRateLimited}
+            title="Upload image"
           >
-            <Paperclip className="h-5 w-5" />
+            <ImageIcon className="h-5 w-5" />
             <input
               ref={fileInputRef}
               type="file"
@@ -965,8 +969,6 @@ const ChatWindow: React.FC = () => {
           />
           
           <GifPicker onGifSelect={handleGifSelect} />
-          
-          <ImageUpload onImageSelect={handleImageSelect} />
 
           <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked || isRateLimited}>
             <Send className="h-5 w-5" />

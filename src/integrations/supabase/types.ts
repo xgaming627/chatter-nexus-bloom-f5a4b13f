@@ -47,6 +47,51 @@ export type Database = {
         }
         Relationships: []
       }
+      call_notifications: {
+        Row: {
+          caller_id: string
+          caller_name: string
+          caller_photo: string | null
+          created_at: string
+          id: string
+          is_video_call: boolean
+          receiver_id: string
+          receiver_name: string
+          receiver_photo: string | null
+          room_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          caller_id: string
+          caller_name: string
+          caller_photo?: string | null
+          created_at?: string
+          id?: string
+          is_video_call?: boolean
+          receiver_id: string
+          receiver_name: string
+          receiver_photo?: string | null
+          room_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          caller_id?: string
+          caller_name?: string
+          caller_photo?: string | null
+          created_at?: string
+          id?: string
+          is_video_call?: boolean
+          receiver_id?: string
+          receiver_name?: string
+          receiver_photo?: string | null
+          room_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       call_rooms: {
         Row: {
           answer: Json | null
@@ -601,6 +646,10 @@ export type Database = {
       can_view_profile_for_search: {
         Args: { target_user_id: string }
         Returns: boolean
+      }
+      cleanup_old_call_notifications: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       get_active_warnings: {
         Args: { target_user_id: string }

@@ -19,6 +19,8 @@ import ModeratorNotifications from "@/components/ModeratorNotifications";
 import NotificationDisplay from "@/components/NotificationDisplay";
 import { BrowserNotificationPermission } from "@/components/BrowserNotificationPermission";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
+import { CallNotificationsManager } from "@/components/CallNotification";
+import { LiveKitRoom } from "@/components/LiveKitRoom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -38,6 +40,7 @@ const Index = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{roomName: string; isVideoCall: boolean} | null>(null);
 
   // Set dark mode preference
   useEffect(() => {
@@ -79,6 +82,14 @@ const Index = () => {
     // Simplified - no action needed since we don't have real notifications yet
     setUnreadNotifications(0);
   };
+
+  const handleAcceptCall = (roomName: string, isVideoCall: boolean) => {
+    setIncomingCall({ roomName, isVideoCall });
+  };
+
+  const handleLeaveCall = () => {
+    setIncomingCall(null);
+  };
   
   return (
     <LiveSupportProvider>
@@ -100,6 +111,17 @@ const Index = () => {
         <ModeratorNotifications />
         <NotificationDisplay />
         <BrowserNotificationPermission />
+        <CallNotificationsManager onAcceptCall={handleAcceptCall} />
+        
+        {/* Incoming call LiveKit room */}
+        {incomingCall && (
+          <LiveKitRoom
+            roomName={incomingCall.roomName}
+            participantName={currentUser?.displayName || currentUser?.email || 'User'}
+            isVideoCall={incomingCall.isVideoCall}
+            onLeave={handleLeaveCall}
+          />
+        )}
         
         <div className="flex flex-col h-screen bg-background">
           {/* Header */}
