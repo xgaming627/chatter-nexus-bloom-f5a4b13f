@@ -5,7 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 interface UserAvatarProps {
   username?: string;
   photoURL?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ username, photoURL, size = 'md' }) => {
@@ -13,6 +13,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ username, photoURL, size = 'md'
     sm: 'h-8 w-8',
     md: 'h-10 w-10',
     lg: 'h-14 w-14',
+    xl: 'h-24 w-24 text-4xl',
   };
   
   const getFallbackInitial = () => {
