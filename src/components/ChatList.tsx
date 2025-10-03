@@ -146,16 +146,16 @@ const ChatList: React.FC = () => {
       
       <div className="flex-1 overflow-y-auto">
         <ul>
-          {conversations.map((conversation) => {
+            {conversations.map((conversation) => {
             const { username, photoURL } = getAvatarInfo(conversation);
             const isActive = currentConversation?.id === conversation.id;
             
             return (
-              <li key={conversation.id} className="border-b last:border-b-0">
+              <li key={conversation.id} className="border-b last:border-b-0 animate-fadeIn">
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start p-3 h-auto",
+                    "w-full justify-start p-3 h-auto hover:scale-[1.02] transition-transform",
                     isActive && "bg-accent text-accent-foreground"
                   )}
                   onClick={() => handleSelectConversation(conversation.id)}
@@ -171,7 +171,7 @@ const ChatList: React.FC = () => {
                           {getLastMessageTime(conversation)}
                         </div>
                           {conversation.unread_count > 0 && (
-                            <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                            <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse">
                               {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
                             </Badge>
                           )}

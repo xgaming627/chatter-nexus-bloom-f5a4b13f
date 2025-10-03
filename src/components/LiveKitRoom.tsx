@@ -13,6 +13,8 @@ import UserAvatar from './UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
+import VideoLoadingOverlay from './VideoLoadingOverlay';
+
 interface LiveKitRoomProps {
   roomName: string;
   participantName: string;
@@ -35,6 +37,8 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(!isVideoCall);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
+  const [videoLoadingStates, setVideoLoadingStates] = useState<Record<string, boolean>>({});
   
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -77,26 +81,34 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
 
   const toggleMute = async () => {
     if (localParticipant) {
-      await localParticipant.setMicrophoneEnabled(!isMuted);
-      setIsMuted(!isMuted);
+      const newMutedState = !localParticipant.isMicrophoneEnabled;
+      await localParticipant.setMicrophoneEnabled(!newMutedState);
+      setIsMuted(newMutedState);
     }
   };
 
   const toggleCamera = async () => {
     if (localParticipant) {
-      await localParticipant.setCameraEnabled(!isCameraOff);
-      setIsCameraOff(!isCameraOff);
+      const newCameraState = !localParticipant.isCameraEnabled;
+      await localParticipant.setCameraEnabled(!newCameraState);
+      setIsCameraOff(newCameraState);
     }
   };
 
   const toggleScreenShare = async () => {
     if (localParticipant) {
-      if (isScreenSharing) {
-        await localParticipant.setScreenShareEnabled(false);
-        setIsScreenSharing(false);
-      } else {
-        await localParticipant.setScreenShareEnabled(true);
-        setIsScreenSharing(true);
+      try {
+        const newScreenShareState = !localParticipant.isScreenShareEnabled;
+        await localParticipant.setScreenShareEnabled(!newScreenShareState);
+        setIsScreenSharing(!newScreenShareState);
+        if (!newScreenShareState) {
+          toast.info('Screen sharing started');
+        } else {
+          toast.info('Screen sharing stopped');
+        }
+      } catch (error) {
+        console.error('Error toggling screen share:', error);
+        toast.error('Failed to toggle screen sharing');
       }
     }
   };
@@ -115,8 +127,8 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
   
   return (
     <div className="h-full w-full bg-background flex flex-col">
-      <div className="flex-1 grid gap-4 p-4" style={{
-        gridTemplateColumns: participants.length === 1 ? '1fr' : participants.length === 2 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(300px, 1fr))'
+      <div className="flex-1 grid gap-4 p-4 overflow-auto" style={{
+        gridTemplateColumns: participants.length === 1 ? '1fr' : participants.length === 2 ? 'repeat(2, 1fr)' : participants.length === 3 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(250px, 1fr))'
       }}>
         {participants.map((participant) => {
           const profile = profiles[participant.identity];
@@ -130,12 +142,39 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
           );
           
           return (
-            <div key={participant.identity} className="rounded-lg overflow-hidden bg-muted relative aspect-video">
+            <div 
+              key={participant.identity} 
+              className={cn(
+                "rounded-lg overflow-hidden bg-muted relative aspect-video cursor-pointer transition-all hover:ring-2 hover:ring-primary",
+                focusedParticipantId === participant.identity && "ring-4 ring-primary"
+              )}
+              onClick={() => setFocusedParticipantId(
+                focusedParticipantId === participant.identity ? null : participant.identity
+              )}
+            >
+              {videoLoadingStates[participant.identity] && (
+                <VideoLoadingOverlay isLoading={true} />
+              )}
               {videoTrack?.publication?.track ? (
                 <video
                   ref={(el) => {
                     if (el && videoTrack.publication?.track) {
                       videoTrack.publication.track.attach(el);
+                      
+                      // Track video loading state
+                      el.addEventListener('waiting', () => {
+                        setVideoLoadingStates(prev => ({
+                          ...prev,
+                          [participant.identity]: true
+                        }));
+                      });
+                      
+                      el.addEventListener('playing', () => {
+                        setVideoLoadingStates(prev => ({
+                          ...prev,
+                          [participant.identity]: false
+                        }));
+                      });
                     }
                   }}
                   className="w-full h-full object-cover"
@@ -311,8 +350,12 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
 
   return (
     <div className={cn(
-      "fixed bg-background border shadow-lg rounded-lg overflow-hidden z-50 transition-all",
-      isMinimized ? "bottom-4 right-4 w-80 h-32" : isFullscreen ? "inset-0 w-full h-full rounded-none" : "bottom-4 right-4 w-[90vw] max-w-4xl h-[80vh]"
+      "fixed bg-background border shadow-lg overflow-hidden z-50 transition-all duration-300",
+      isMinimized 
+        ? "bottom-4 right-4 w-80 h-32 rounded-lg" 
+        : isFullscreen 
+        ? "inset-0 w-full h-full rounded-none" 
+        : "bottom-4 right-4 w-[min(90vw,900px)] h-[min(85vh,700px)] rounded-lg"
     )}>
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <Button

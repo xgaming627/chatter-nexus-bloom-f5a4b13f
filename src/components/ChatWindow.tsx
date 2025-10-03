@@ -76,8 +76,6 @@ const ChatWindow: React.FC = () => {
     hasNewMessages,
     getBlockedUsers,
     deleteMessage,
-    storeChat,
-    unstoreChat,
     deleteChat,
     leaveChat,
     addMemberToChat,
@@ -451,24 +449,6 @@ const ChatWindow: React.FC = () => {
     }
   };
   
-  const handleStoreChat = () => {
-    if (!currentConversation) return;
-    
-    if (currentConversation.isStored) {
-      unstoreChat(currentConversation.id);
-      toast({
-        title: "Chat unstored",
-        description: "This chat has been removed from your stored chats",
-      });
-    } else {
-      storeChat(currentConversation.id);
-      toast({
-        title: "Chat stored",
-        description: "This chat has been added to your stored chats",
-      });
-    }
-  };
-  
   const handleDeleteChat = async () => {
     if (!currentConversation) return;
     
@@ -615,14 +595,6 @@ const ChatWindow: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            size="icon" 
-            variant="ghost"
-            onClick={handleStoreChat}
-            title={currentConversation.isStored ? "Unstore Chat" : "Store Chat"}
-          >
-            <Folder className={`h-5 w-5 ${currentConversation.isStored ? "fill-current" : ""}`} />
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -721,7 +693,7 @@ const ChatWindow: React.FC = () => {
               
               if (isSystemMessage) {
                 return (
-                  <div key={message.id} className="flex justify-center">
+                  <div key={message.id} className="flex justify-center animate-fadeIn">
                     <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full text-xs text-center text-gray-600 dark:text-gray-300">
                       {message.content}
                     </div>
@@ -732,7 +704,7 @@ const ChatWindow: React.FC = () => {
               return (
                 <div 
                   key={message.id} 
-                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
+                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group animate-fadeIn`}
                 >
                   <div className="max-w-[80%] break-words">
                     {!isOwnMessage && (

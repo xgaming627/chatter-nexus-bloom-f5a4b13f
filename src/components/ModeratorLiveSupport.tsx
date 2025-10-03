@@ -108,9 +108,9 @@ const ModeratorLiveSupport: React.FC = () => {
           )}
         </div>
         <ScrollArea className="h-[500px]">
-          {supportSessions.filter(s => s.status !== 'ended').length > 0 ? (
+          {supportSessions.filter(s => s.status !== 'ended' && s.user_id).length > 0 ? (
             supportSessions
-              .filter(s => s.status !== 'ended')
+              .filter(s => s.status !== 'ended' && s.user_id)
               .map(session => {
                 const isRead = session.last_read_by_moderator === true;
                 const userHasVPN = session.userInfo?.vpnDetected;

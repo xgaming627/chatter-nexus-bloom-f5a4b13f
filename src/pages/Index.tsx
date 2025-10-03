@@ -216,13 +216,6 @@ const Index = () => {
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-2"
-                    onClick={() => setShowModeratorPanel(false)}
-                  >
-                    Back to Chat
-                  </Button>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <ChatList />
@@ -237,7 +230,7 @@ const Index = () => {
           ) : (
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar */}
-              <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col">
+              <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col animate-fadeIn">
                 <div className="p-4">
                   <NewChatButton />
                   <div className="md:hidden mb-4">
@@ -259,7 +252,7 @@ const Index = () => {
               </div>
               
               {/* Chat area */}
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden animate-scaleIn">
                 <ChatWindow />
               </div>
             </div>

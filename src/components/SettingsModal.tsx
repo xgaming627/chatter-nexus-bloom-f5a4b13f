@@ -26,6 +26,7 @@ import StatusSelector from "./StatusSelector";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import Credits from "./Credits";
+import { useRole } from "@/hooks/useRole";
 
 interface SettingsModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const { updateDmSettings } = useChat();
   const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
+  const { isModerator } = useRole();
   const [useDarkMode, setUseDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark");
@@ -72,7 +74,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const toggleDarkMode = () => {
     setUseDarkMode(!useDarkMode);
     if (typeof window !== "undefined") {
-      document.documentElement.classList.toggle("dark");
+      const html = document.documentElement;
+      html.classList.toggle("dark");
+      localStorage.setItem('theme', html.classList.contains("dark") ? 'dark' : 'light');
     }
   };
 
@@ -169,11 +173,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </RadioGroup>
                 </div>
 
-                {isOwnerUser(currentUser) && (
+                {isModerator && onShowModeratorPanel && (
                   <Button 
                     onClick={() => {
                       onOpenChange(false);
-                      onShowModeratorPanel?.();
+                      onShowModeratorPanel();
                     }}
                     variant="outline"
                     className="w-full"
