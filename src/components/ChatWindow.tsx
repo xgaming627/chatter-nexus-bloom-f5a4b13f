@@ -57,6 +57,7 @@ import WarnUserDialogWrapper from './WarnUserDialogWrapper';
 import { useRole } from '@/hooks/useRole';
 import AddMemberDialog from './AddMemberDialog';
 import RemoveMemberDialog from './RemoveMemberDialog';
+import { playMessageSound } from '@/utils/notificationSound';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -112,10 +113,19 @@ const ChatWindow: React.FC = () => {
   const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+  const prevMessagesLengthRef = useRef(messages.length);
   
   useEffect(() => {
+    // Play sound for new messages from others
+    if (messages.length > prevMessagesLengthRef.current && currentUser) {
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage && latestMessage.senderId !== currentUser.uid) {
+        playMessageSound();
+      }
+    }
+    prevMessagesLengthRef.current = messages.length;
     scrollToBottom();
-  }, [messages]);
+  }, [messages, currentUser]);
 
   const isModeratorUser = (userId: string) => {
     // This would be replaced with proper role checking from database

@@ -26,6 +26,24 @@ export const CallNotification: React.FC<CallNotificationProps> = ({
   onAccept,
   onDecline
 }) => {
+  const [audio] = useState(() => new Audio('/notification-sound.mp3'));
+
+  useEffect(() => {
+    // Play notification sound
+    audio.play().catch(e => console.log('Could not play notification sound:', e));
+
+    // Auto-decline after 1 minute
+    const timeout = setTimeout(() => {
+      onDecline();
+      toast.info('Call missed');
+    }, 60000);
+
+    return () => {
+      clearTimeout(timeout);
+      audio.pause();
+    };
+  }, [audio, onDecline]);
+
   return (
     <Card className="fixed top-4 right-4 z-50 w-96 shadow-lg animate-in slide-in-from-top">
       <CardContent className="p-4">

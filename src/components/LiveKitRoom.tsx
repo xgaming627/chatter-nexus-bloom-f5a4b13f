@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { LiveKitRoom as LKRoom, useParticipants, useTracks } from '@livekit/components-react';
+import { LiveKitRoom as LKRoom, useParticipants, useTracks, useLocalParticipant } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, Video, PhoneOff } from 'lucide-react';
+import { Phone, Video, PhoneOff, Mic, MicOff, VideoOff, MonitorUp, Minimize2, Maximize2 } from 'lucide-react';
 import { useLiveKit } from '@/hooks/useLiveKit';
 import { useAuth } from '@/context/AuthContext';
 import { useCallNotifications } from '@/hooks/useCallNotifications';
+import { useChat } from '@/context/ChatContext';
 import { toast } from 'sonner';
 import { Track } from 'livekit-client';
 import UserAvatar from './UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface LiveKitRoomProps {
   roomName: string;
@@ -26,10 +27,14 @@ interface UserProfile {
   photo_url?: string;
 }
 
-const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGroupCall?: boolean }> = ({ isVideoCall, onLeave, isGroupCall }) => {
+const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGroupCall?: boolean; onMinimize: () => void; isMinimized: boolean }> = ({ isVideoCall, onLeave, isGroupCall, onMinimize, isMinimized }) => {
   const participants = useParticipants();
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [hadMultipleParticipants, setHadMultipleParticipants] = useState(false);
+  const { localParticipant } = useLocalParticipant();
+  const [isMuted, setIsMuted] = useState(false);
+  const [isCameraOff, setIsCameraOff] = useState(!isVideoCall);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -68,7 +73,47 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
     }
   }, [participants.length, isGroupCall, hadMultipleParticipants, onLeave]);
   
-  const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone]);
+  const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare]);
+
+  const toggleMute = async () => {
+    if (localParticipant) {
+      const enabled = !isMuted;
+      await localParticipant.setMicrophoneEnabled(enabled);
+      setIsMuted(!enabled);
+    }
+  };
+
+  const toggleCamera = async () => {
+    if (localParticipant) {
+      const enabled = !isCameraOff;
+      await localParticipant.setCameraEnabled(enabled);
+      setIsCameraOff(!enabled);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (localParticipant) {
+      if (isScreenSharing) {
+        await localParticipant.setScreenShareEnabled(false);
+        setIsScreenSharing(false);
+      } else {
+        await localParticipant.setScreenShareEnabled(true);
+        setIsScreenSharing(true);
+      }
+    }
+  };
+  
+  if (isMinimized) {
+    return (
+      <div className="h-full w-full bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <Video className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Call in progress</p>
+          <p className="text-xs text-muted-foreground">{participants.length} participant{participants.length !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="h-full w-full bg-background flex flex-col">
@@ -79,12 +124,16 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
           const profile = profiles[participant.identity];
           const videoTrack = tracks.find(t => 
             t.participant.identity === participant.identity && 
-            t.source === Track.Source.Camera
+            (t.source === Track.Source.Camera || t.source === Track.Source.ScreenShare)
+          );
+          const audioTrack = tracks.find(t =>
+            t.participant.identity === participant.identity &&
+            t.source === Track.Source.Microphone
           );
           
           return (
             <div key={participant.identity} className="rounded-lg overflow-hidden bg-muted relative aspect-video">
-              {videoTrack ? (
+              {videoTrack?.publication?.track ? (
                 <video
                   ref={(el) => {
                     if (el && videoTrack.publication?.track) {
@@ -107,8 +156,24 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
                   </p>
                 </div>
               )}
+              {audioTrack?.publication?.track && (
+                <audio
+                  ref={(el) => {
+                    if (el && audioTrack.publication?.track) {
+                      audioTrack.publication.track.attach(el);
+                    }
+                  }}
+                  autoPlay
+                />
+              )}
               <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-full">
-                <div className={`w-2 h-2 rounded-full transition-colors ${participant.isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-all",
+                  participant.isSpeaking ? "bg-green-500 animate-pulse scale-125" : "bg-muted-foreground"
+                )} />
+                {participant.isMicrophoneEnabled === false && (
+                  <MicOff className="w-3 h-3 text-red-500" />
+                )}
                 <span className="text-sm font-medium text-foreground">
                   {profile?.username || participant.name}
                 </span>
@@ -118,15 +183,50 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
         })}
       </div>
       
-      <div className="p-4 flex justify-center gap-4 bg-background border-t">
+      <div className="p-4 flex justify-center gap-3 bg-background border-t">
+        <Button
+          variant={isMuted ? "destructive" : "secondary"}
+          size="lg"
+          onClick={toggleMute}
+          className="rounded-full"
+        >
+          {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+        </Button>
+        
+        <Button
+          variant={isCameraOff ? "destructive" : "secondary"}
+          size="lg"
+          onClick={toggleCamera}
+          className="rounded-full"
+        >
+          {isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+        </Button>
+        
+        <Button
+          variant={isScreenSharing ? "default" : "secondary"}
+          size="lg"
+          onClick={toggleScreenShare}
+          className="rounded-full"
+        >
+          <MonitorUp className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={onMinimize}
+          className="rounded-full"
+        >
+          {isMinimized ? <Maximize2 className="h-5 w-5" /> : <Minimize2 className="h-5 w-5" />}
+        </Button>
+        
         <Button
           variant="destructive"
           size="lg"
           onClick={onLeave}
           className="rounded-full"
         >
-          <PhoneOff className="h-5 w-5 mr-2" />
-          End Call
+          <PhoneOff className="h-5 w-5" />
         </Button>
       </div>
     </div>
@@ -141,9 +241,13 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   isGroupCall = false
 }) => {
   const { generateToken } = useLiveKit();
+  const { sendMessage, currentConversation } = useChat();
+  const { currentUser } = useAuth();
   const [token, setToken] = useState<string>('');
   const [serverUrl, setServerUrl] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [callStarted, setCallStarted] = useState(false);
 
   useEffect(() => {
     const initializeRoom = async () => {
@@ -160,43 +264,91 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
     initializeRoom();
   }, [roomName, participantName, generateToken, onLeave]);
 
+  useEffect(() => {
+    if (!isConnecting && token && !callStarted && currentConversation) {
+      setCallStarted(true);
+      // Send system message that call started
+      sendMessage(
+        `🎥 ${isVideoCall ? 'Video' : 'Voice'} call started`,
+        currentConversation.id
+      );
+    }
+  }, [isConnecting, token, callStarted, currentConversation, isVideoCall, sendMessage]);
+
+  const handleLeave = () => {
+    if (currentConversation && callStarted) {
+      // Send system message that call ended
+      sendMessage(
+        `📞 ${isVideoCall ? 'Video' : 'Voice'} call ended`,
+        currentConversation.id
+      );
+    }
+    onLeave();
+  };
+
   if (isConnecting || !token || !serverUrl) {
     return (
-      <Dialog open={true} onOpenChange={onLeave}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Connecting to call...</DialogTitle>
-            <DialogDescription>Please wait while we connect you</DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className={cn(
+        "fixed bg-background border shadow-lg rounded-lg overflow-hidden z-50",
+        isMinimized ? "bottom-4 right-4 w-80 h-24" : "bottom-4 right-4 w-96 h-[500px]"
+      )}>
+        <div className="flex items-center justify-center h-full p-8">
+          <div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-sm text-muted-foreground">Connecting to call...</p>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Dialog open={true} onOpenChange={(open) => { if (!open) onLeave(); }}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0" onInteractOutside={(e) => e.preventDefault()}>
-        <LKRoom
-          token={token}
-          serverUrl={serverUrl}
-          connect={true}
-          video={isVideoCall}
-          audio={true}
-          onDisconnected={onLeave}
-          onError={(error) => {
-            console.error('LiveKit connection error:', error);
-            toast.error(`Connection failed: ${error.message}. Please check LiveKit credentials.`);
-            onLeave();
-          }}
-          className="h-full"
+    <div className={cn(
+      "fixed bg-background border shadow-lg rounded-lg overflow-hidden z-50 transition-all",
+      isMinimized ? "bottom-4 right-4 w-80 h-32" : "bottom-4 right-4 w-[600px] h-[500px]"
+    )}>
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMinimized(!isMinimized)}
+          className="bg-background/80 backdrop-blur-sm"
         >
-          <CallInterface isVideoCall={isVideoCall} onLeave={onLeave} isGroupCall={isGroupCall} />
-        </LKRoom>
-      </DialogContent>
-    </Dialog>
+          {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLeave}
+          className="bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground"
+        >
+          <PhoneOff className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <LKRoom
+        token={token}
+        serverUrl={serverUrl}
+        connect={true}
+        video={isVideoCall}
+        audio={true}
+        onDisconnected={handleLeave}
+        onError={(error) => {
+          console.error('LiveKit connection error:', error);
+          toast.error(`Connection failed: ${error.message}`);
+          handleLeave();
+        }}
+        className="h-full"
+      >
+        <CallInterface 
+          isVideoCall={isVideoCall} 
+          onLeave={handleLeave} 
+          isGroupCall={isGroupCall}
+          onMinimize={() => setIsMinimized(!isMinimized)}
+          isMinimized={isMinimized}
+        />
+      </LKRoom>
+    </div>
   );
 };
 
