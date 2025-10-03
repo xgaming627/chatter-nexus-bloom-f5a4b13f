@@ -77,17 +77,15 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
 
   const toggleMute = async () => {
     if (localParticipant) {
-      const enabled = !isMuted;
-      await localParticipant.setMicrophoneEnabled(enabled);
-      setIsMuted(!enabled);
+      await localParticipant.setMicrophoneEnabled(!isMuted);
+      setIsMuted(!isMuted);
     }
   };
 
   const toggleCamera = async () => {
     if (localParticipant) {
-      const enabled = !isCameraOff;
-      await localParticipant.setCameraEnabled(enabled);
-      setIsCameraOff(!enabled);
+      await localParticipant.setCameraEnabled(!isCameraOff);
+      setIsCameraOff(!isCameraOff);
     }
   };
 
@@ -247,6 +245,7 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   const [serverUrl, setServerUrl] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [callStarted, setCallStarted] = useState(false);
 
   useEffect(() => {
@@ -267,21 +266,29 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   useEffect(() => {
     if (!isConnecting && token && !callStarted && currentConversation) {
       setCallStarted(true);
-      // Send system message that call started
-      sendMessage(
-        `🎥 ${isVideoCall ? 'Video' : 'Voice'} call started`,
-        currentConversation.id
-      );
+      // Send system message that call started from Nexus Chat
+      const systemMessage = {
+        conversation_id: currentConversation.id,
+        sender_id: '00000000-0000-0000-0000-000000000000', // System UUID
+        content: `🎥 ${isVideoCall ? 'Video' : 'Voice'} call started`,
+        is_system_message: true
+      };
+      
+      supabase.from('messages').insert(systemMessage);
     }
-  }, [isConnecting, token, callStarted, currentConversation, isVideoCall, sendMessage]);
+  }, [isConnecting, token, callStarted, currentConversation, isVideoCall]);
 
   const handleLeave = () => {
     if (currentConversation && callStarted) {
-      // Send system message that call ended
-      sendMessage(
-        `📞 ${isVideoCall ? 'Video' : 'Voice'} call ended`,
-        currentConversation.id
-      );
+      // Send system message that call ended from Nexus Chat
+      const systemMessage = {
+        conversation_id: currentConversation.id,
+        sender_id: '00000000-0000-0000-0000-000000000000', // System UUID
+        content: `📞 ${isVideoCall ? 'Video' : 'Voice'} call ended`,
+        is_system_message: true
+      };
+      
+      supabase.from('messages').insert(systemMessage);
     }
     onLeave();
   };
@@ -305,14 +312,24 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   return (
     <div className={cn(
       "fixed bg-background border shadow-lg rounded-lg overflow-hidden z-50 transition-all",
-      isMinimized ? "bottom-4 right-4 w-80 h-32" : "bottom-4 right-4 w-[600px] h-[500px]"
+      isMinimized ? "bottom-4 right-4 w-80 h-32" : isFullscreen ? "inset-0 w-full h-full rounded-none" : "bottom-4 right-4 w-[90vw] max-w-4xl h-[80vh]"
     )}>
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="bg-background/80 backdrop-blur-sm"
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setIsMinimized(!isMinimized)}
           className="bg-background/80 backdrop-blur-sm"
+          title={isMinimized ? "Restore" : "Minimize"}
         >
           {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
         </Button>
@@ -321,6 +338,7 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
           size="icon"
           onClick={handleLeave}
           className="bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground"
+          title="End call"
         >
           <PhoneOff className="h-4 w-4" />
         </Button>

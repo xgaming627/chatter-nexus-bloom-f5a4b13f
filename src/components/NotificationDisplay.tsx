@@ -115,6 +115,17 @@ const NotificationDisplay: React.FC = () => {
     !dismissed.includes(notification.id)
   );
 
+  useEffect(() => {
+    // Auto-dismiss notifications after 2 seconds
+    activeNotifications.forEach((notification) => {
+      const timer = setTimeout(() => {
+        handleDismiss(notification.id);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    });
+  }, [activeNotifications.length]);
+
   if (activeNotifications.length === 0) return null;
 
   return (
@@ -125,7 +136,10 @@ const NotificationDisplay: React.FC = () => {
       />
       <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
         {activeNotifications.map((notification) => (
-          <Alert key={notification.id} className="relative bg-background border shadow-lg">
+          <Alert 
+            key={notification.id} 
+            className="relative bg-background border shadow-lg animate-in fade-in slide-in-from-right-4 duration-300"
+          >
             <MessageSquare className="h-4 w-4" />
             <Button
               variant="ghost"
