@@ -29,6 +29,7 @@ interface UserProfile {
 const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGroupCall?: boolean }> = ({ isVideoCall, onLeave, isGroupCall }) => {
   const participants = useParticipants();
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
+  const [hadMultipleParticipants, setHadMultipleParticipants] = useState(false);
   
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -52,13 +53,20 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
     fetchProfiles();
   }, [participants]);
   
-  // End call if only 1 participant left in non-group calls
+  // Track if we've ever had multiple participants
   useEffect(() => {
-    if (!isGroupCall && participants.length === 1) {
+    if (participants.length >= 2) {
+      setHadMultipleParticipants(true);
+    }
+  }, [participants.length]);
+  
+  // End call if someone leaves a 1-on-1 call
+  useEffect(() => {
+    if (!isGroupCall && hadMultipleParticipants && participants.length === 1) {
       toast.info('The other participant has left the call');
       onLeave();
     }
-  }, [participants.length, isGroupCall, onLeave]);
+  }, [participants.length, isGroupCall, hadMultipleParticipants, onLeave]);
   
   const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone]);
   
