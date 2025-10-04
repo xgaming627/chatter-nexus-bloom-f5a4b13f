@@ -98,8 +98,8 @@ const Index = () => {
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-teams-purple mb-2 dark:text-white">ChatNexus</h1>
-              <p className="text-gray-600 dark:text-gray-300">Connect with your team, anywhere, anytime</p>
+              <h1 className="text-4xl font-bold text-teams-purple mb-2 dark:text-white">Nexus Chat</h1>
+              <p className="text-gray-600 dark:text-gray-300">Connect with your friends, anywhere, anytime.</p>
             </div>
             <AuthForms />
           </div>
@@ -278,7 +278,7 @@ const Index = () => {
             <ScrollArea className="max-h-[400px] pr-4">
               <div className="space-y-4 py-4">
                 <p>
-                  👋 Welcome to Nexus Chat (v1.13.5)!
+                  👋 Welcome to Nexus Chat (BETA v1.13.6)!
                   This app is currently under development, so you may notice ongoing changes and new features being added.
                 </p>
                 
@@ -288,7 +288,7 @@ const Index = () => {
                 </p>
                 
                 <p>
-                  Nexus Chat is proudly built and managed by the Nexus Team. 💡
+                  Nexus Chat is proudly built and managed by the Quibly Team. 💡
                   If you need help, just click on your profile picture and select "Live Support" — we're here for you!
                 </p>
                 
@@ -299,7 +299,7 @@ const Index = () => {
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
                   <h4 className="font-medium text-blue-800 dark:text-blue-300">Try our features!</h4>
                   <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                    Send a message to username "xgaming" to complete the tutorial and try out all features!
+                    Click new chat and start chatting with your friends, thank you for being here!
                   </p>
                 </div>
               </div>
