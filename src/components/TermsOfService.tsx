@@ -17,8 +17,8 @@ const TermsOfService = () => {
       <ScrollArea className="h-[500px] rounded-md border p-4">
         <div className="space-y-4">
           <h2 className="text-xl font-bold">Nexus Chat - Terms of Service</h2>
-          <p className="text-sm text-muted-foreground">Effective Date: 4/21/2025</p>
-          <p className="text-sm text-muted-foreground">Version: 1.13</p>
+          <p className="text-sm text-muted-foreground">Effective Date: 10/4/2025</p>
+          <p className="text-sm text-muted-foreground">Version: 1.13.5</p>
           
           <p>Welcome to Nexus Chat, a service provided and operated by the Nexus Team ("we", "us", or "our"). By accessing or using Nexus Chat, including by agreeing to the welcome message, you acknowledge that you have read, understood, and agreed to these Terms of Service ("Terms") and our Privacy Policy. If you do not agree, do not use Nexus Chat.</p>
           
@@ -110,7 +110,7 @@ const TermsOfService = () => {
           
           <h3 className="text-lg font-semibold mt-6">13. Contact Information</h3>
           <p>Have questions or need support?</p>
-          <p>📧 Email: nexuschatting@gmail.com</p>
+          <p>📧 Email: contactquibly@gmail.com</p>
           <p>🌐 Support: Profile {'>'} Live support</p>
           
           <h3 className="text-lg font-semibold mt-6">14. All Rights Reserved</h3>
