@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, Message } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { 
   AlertTriangle, 
@@ -33,8 +34,13 @@ import { Textarea } from '@/components/ui/textarea';
 import UserAvatar from './UserAvatar';
 import EmojiPicker from './EmojiPicker';
 import GifPicker from './GifPicker';
+import { ImageUpload } from './ImageUpload';
+import BannersDisplay from './BannersDisplay';
 import { CallButton } from './LiveKitRoom';
 import { CallNotificationsManager } from './CallNotification';
+import { usePinnedMessages } from '@/hooks/usePinnedMessages';
+import { usePinnedConversations } from '@/hooks/usePinnedConversations';
+import { useFavoriteGifs } from '@/hooks/useFavoriteGifs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +88,7 @@ const ChatWindow: React.FC = () => {
     removeMemberFromChat,
     isRateLimited,
     markMessageAsDeletedForUser,
+    refreshConversations,
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
@@ -106,6 +113,13 @@ const ChatWindow: React.FC = () => {
   
   // Typing indicator hook
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentConversation?.id || null);
+  
+  // Pinning and favorites hooks
+  const { pinnedMessages, pinMessage, unpinMessage } = usePinnedMessages(currentConversation?.id || null);
+  const { pinnedConversations, pinConversation, unpinConversation } = usePinnedConversations(currentUser?.uid || null);
+  const { favoriteGifs, addFavoriteGif, removeFavoriteGif, isFavorite } = useFavoriteGifs(currentUser?.uid || null);
+  
+  const isConversationPinned = currentConversation ? pinnedConversations.includes(currentConversation.id) : false;
   
   const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
   const [showLeaveChatDialog, setShowLeaveChatDialog] = useState(false);
@@ -146,38 +160,42 @@ const ChatWindow: React.FC = () => {
       }
     };
     
+    let activityTimeout: NodeJS.Timeout;
+    const ACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+    const STATUS_UPDATE_THROTTLE = 30000; // Only update status every 30 seconds
+    let lastStatusUpdate = 0;
+    
+    const throttledStatusUpdate = (status: 'online' | 'away' | 'offline') => {
+      const now = Date.now();
+      if (now - lastStatusUpdate > STATUS_UPDATE_THROTTLE) {
+        updateOnlineStatus(status);
+        lastStatusUpdate = now;
+      }
+    };
+    
     const handleUserActivity = () => {
-      let timeout: NodeJS.Timeout;
+      if (activityTimeout) clearTimeout(activityTimeout);
+      throttledStatusUpdate('online');
       
-      const resetTimeout = () => {
-        if (timeout) clearTimeout(timeout);
-        updateOnlineStatus('online');
-        
-        timeout = setTimeout(() => {
-          updateOnlineStatus('away');
-        }, 10 * 60 * 1000);
-      };
-      
-      document.addEventListener('mousemove', resetTimeout);
-      document.addEventListener('keydown', resetTimeout);
-      document.addEventListener('click', resetTimeout);
-      
-      resetTimeout();
-      
-      return () => {
-        clearTimeout(timeout);
-        document.removeEventListener('mousemove', resetTimeout);
-        document.removeEventListener('keydown', resetTimeout);
-        document.removeEventListener('click', resetTimeout);
-      };
+      activityTimeout = setTimeout(() => {
+        throttledStatusUpdate('away');
+      }, ACTIVITY_TIMEOUT);
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    const cleanup = handleUserActivity();
+    document.addEventListener('mousemove', handleUserActivity);
+    document.addEventListener('keydown', handleUserActivity);
+    document.addEventListener('click', handleUserActivity);
+    
+    // Initial activity
+    handleUserActivity();
     
     return () => {
+      if (activityTimeout) clearTimeout(activityTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      cleanup();
+      document.removeEventListener('mousemove', handleUserActivity);
+      document.removeEventListener('keydown', handleUserActivity);
+      document.removeEventListener('click', handleUserActivity);
     };
   }, [currentUser, updateOnlineStatus]);
   
@@ -414,12 +432,30 @@ const ChatWindow: React.FC = () => {
   const handleUpdateGroupSettings = async () => {
     if (!currentConversation || !currentConversation.isGroupChat) return;
     
+    if (newGroupName.trim()) {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ group_name: newGroupName.trim() })
+        .eq('id', currentConversation.id);
+      
+      if (error) {
+        console.error('Error updating group name:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update group name",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
     toast({
       title: "Group updated",
       description: "Group settings have been updated",
     });
     
     setShowGroupSettingsDialog(false);
+    refreshConversations();
   };
   
   const handleAvatarClick = () => {
@@ -541,7 +577,16 @@ const ChatWindow: React.FC = () => {
     participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || '');
   
   return (
-    <div className="flex flex-col h-full overflow-hidden">      
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Banners */}
+      <BannersDisplay 
+        conversationId={currentConversation?.id} 
+        onJoinCall={(roomName, isVideoCall) => {
+          // Handle join call logic
+          console.log('Joining call:', roomName, isVideoCall);
+        }}
+      />
+      
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-3">
           <div onClick={handleAvatarClick} className="cursor-pointer">
@@ -905,24 +950,7 @@ const ChatWindow: React.FC = () => {
         )}
         
         <form onSubmit={handleSendMessage} className="flex gap-2">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isBlocked || isRateLimited}
-            title="Upload image"
-          >
-            <ImageIcon className="h-5 w-5" />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={isBlocked || isRateLimited}
-            />
-          </Button>
+          <ImageUpload onImageSelect={handleImageSelect} />
 
           <Textarea
             placeholder={

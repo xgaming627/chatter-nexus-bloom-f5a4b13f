@@ -81,35 +81,49 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
 
   const toggleMute = async () => {
     if (localParticipant) {
-      const newMutedState = !localParticipant.isMicrophoneEnabled;
-      await localParticipant.setMicrophoneEnabled(!newMutedState);
-      setIsMuted(newMutedState);
+      const enabled = localParticipant.isMicrophoneEnabled;
+      await localParticipant.setMicrophoneEnabled(!enabled);
+      setIsMuted(!enabled);
     }
   };
 
   const toggleCamera = async () => {
     if (localParticipant) {
-      const newCameraState = !localParticipant.isCameraEnabled;
-      await localParticipant.setCameraEnabled(!newCameraState);
-      setIsCameraOff(newCameraState);
+      const enabled = localParticipant.isCameraEnabled;
+      await localParticipant.setCameraEnabled(!enabled);
+      setIsCameraOff(!enabled);
     }
   };
 
   const toggleScreenShare = async () => {
-    if (localParticipant) {
-      try {
-        const newScreenShareState = !localParticipant.isScreenShareEnabled;
-        await localParticipant.setScreenShareEnabled(!newScreenShareState);
-        setIsScreenSharing(!newScreenShareState);
-        if (!newScreenShareState) {
-          toast.info('Screen sharing started');
-        } else {
-          toast.info('Screen sharing stopped');
-        }
-      } catch (error) {
-        console.error('Error toggling screen share:', error);
-        toast.error('Failed to toggle screen sharing');
+    if (!localParticipant) return;
+    
+    try {
+      // Check if user has Nexus Plus for 1080p
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('nexus_plus_active')
+        .eq('user_id', localParticipant.identity)
+        .single();
+      
+      const hasNexusPlus = profileData?.nexus_plus_active || false;
+      const maxResolution = hasNexusPlus ? 1920 : 1280; // 1080p vs 720p
+      
+      const enabled = localParticipant.isScreenShareEnabled;
+      
+      if (!enabled) {
+        // Start screen sharing with resolution limit
+        await localParticipant.setScreenShareEnabled(true);
+        toast.info(`Screen sharing started ${hasNexusPlus ? '(1080p)' : '(720p)'}`);
+      } else {
+        await localParticipant.setScreenShareEnabled(false);
+        toast.info('Screen sharing stopped');
       }
+      
+      setIsScreenSharing(!enabled);
+    } catch (error) {
+      console.error('Error toggling screen share:', error);
+      toast.error('Failed to toggle screen sharing');
     }
   };
   

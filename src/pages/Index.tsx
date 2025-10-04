@@ -15,6 +15,7 @@ import NewChatButton from "@/components/NewChatButton";
 import { ChatProvider, useChat } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
 import WarnUserNotification from "@/components/WarnUserNotification";
+import WarningReloadHandler from "@/components/WarningReloadHandler";
 import ModeratorNotifications from "@/components/ModeratorNotifications";
 import NotificationDisplay from "@/components/NotificationDisplay";
 import { BrowserNotificationPermission } from "@/components/BrowserNotificationPermission";
@@ -108,6 +109,7 @@ const Index = () => {
       <ChatProvider>
         <UsernameSetupModal />
         <WarnUserNotification />
+        <WarningReloadHandler />
         <ModeratorNotifications />
         <NotificationDisplay />
         <BrowserNotificationPermission />
@@ -129,9 +131,6 @@ const Index = () => {
             <div className="flex justify-between items-center max-w-[1400px] mx-auto">
               <h1 className="text-xl font-bold">Nexus Chat</h1>
               <div className="flex items-center gap-2">
-                <div className="max-w-xs w-64 hidden md:block">
-                  <SearchUsers />
-                </div>
                 
                 <Popover>
                   <PopoverTrigger asChild>

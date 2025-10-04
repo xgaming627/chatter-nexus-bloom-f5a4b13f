@@ -27,6 +27,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import Credits from "./Credits";
 import { useRole } from "@/hooks/useRole";
+import NexusPlusModal from "./NexusPlusModal";
 
 interface SettingsModalProps {
   open: boolean;
@@ -98,9 +99,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </DialogHeader>
 
           <Tabs defaultValue="account" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="account">Account</TabsTrigger>
               <TabsTrigger value="privacy">Privacy</TabsTrigger>
+              <TabsTrigger value="nexus">Nexus+</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="terms">Terms</TabsTrigger>
             </TabsList>
@@ -215,6 +217,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Label htmlFor="do-not-disturb">Do Not Disturb (Disable sound notifications)</Label>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="nexus">
+              <NexusPlusModal open={true} onOpenChange={() => {}} isEmbedded={true} />
             </TabsContent>
 
             <TabsContent value="history">

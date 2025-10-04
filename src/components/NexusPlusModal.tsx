@@ -10,9 +10,10 @@ import confetti from "canvas-confetti";
 interface NexusPlusModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isEmbedded?: boolean;
 }
 
-export const NexusPlusModal = ({ open, onOpenChange }: NexusPlusModalProps) => {
+const NexusPlusModal: React.FC<NexusPlusModalProps> = ({ open, onOpenChange, isEmbedded = false }) => {
   const [licenseKey, setLicenseKey] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [showPurchase, setShowPurchase] = useState(false);
@@ -87,17 +88,18 @@ export const NexusPlusModal = ({ open, onOpenChange }: NexusPlusModalProps) => {
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+  const content = (
+    <>
+      {!isEmbedded && (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Crown className="h-6 w-6 text-yellow-500" />
             Nexus Plus
           </DialogTitle>
         </DialogHeader>
+      )}
 
-        <div className="space-y-6">
+      <div className="space-y-6">
           {/* Features Section */}
           <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
             <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -186,8 +188,21 @@ export const NexusPlusModal = ({ open, onOpenChange }: NexusPlusModalProps) => {
               />
             </div>
           )}
-        </div>
+      </div>
+    </>
+  );
+  
+  if (isEmbedded) {
+    return content;
+  }
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        {content}
       </DialogContent>
     </Dialog>
   );
 };
+
+export default NexusPlusModal;

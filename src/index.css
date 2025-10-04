@@ -2,6 +2,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Google AdSense styles */
+.adsbygoogle {
+  display: block;
+}
+
+ins.adsbygoogle[data-ad-status="unfilled"] {
+  display: none !important;
+}
  
 @layer base {
   :root {
