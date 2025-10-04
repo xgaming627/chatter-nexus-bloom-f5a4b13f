@@ -193,6 +193,30 @@ export type Database = {
           },
         ]
       }
+      favorite_gifs: {
+        Row: {
+          added_at: string | null
+          gif_title: string | null
+          gif_url: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          gif_title?: string | null
+          gif_url: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          gif_title?: string | null
+          gif_url?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ice_candidates: {
         Row: {
           candidate: Json
@@ -214,6 +238,36 @@ export type Database = {
           id?: string
           room_id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      license_keys: {
+        Row: {
+          activated_at: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          key_code: string
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_code: string
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_code?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -371,6 +425,74 @@ export type Database = {
         }
         Relationships: []
       }
+      pinned_conversations: {
+        Row: {
+          conversation_id: string
+          id: string
+          pinned_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          pinned_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          pinned_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinned_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pinned_messages: {
+        Row: {
+          conversation_id: string
+          id: string
+          message_id: string
+          pinned_at: string | null
+          pinned_by: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          message_id: string
+          pinned_at?: string | null
+          pinned_by: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          message_id?: string
+          pinned_at?: string | null
+          pinned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinned_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pinned_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -378,6 +500,9 @@ export type Database = {
           display_name: string | null
           do_not_disturb: boolean | null
           id: string
+          nexus_plus_active: boolean | null
+          nexus_plus_expires_at: string | null
+          nexus_plus_reminder_shown: boolean | null
           online_status: string | null
           photo_url: string | null
           show_moderator_badge: boolean | null
@@ -391,6 +516,9 @@ export type Database = {
           display_name?: string | null
           do_not_disturb?: boolean | null
           id?: string
+          nexus_plus_active?: boolean | null
+          nexus_plus_expires_at?: string | null
+          nexus_plus_reminder_shown?: boolean | null
           online_status?: string | null
           photo_url?: string | null
           show_moderator_badge?: boolean | null
@@ -404,6 +532,9 @@ export type Database = {
           display_name?: string | null
           do_not_disturb?: boolean | null
           id?: string
+          nexus_plus_active?: boolean | null
+          nexus_plus_expires_at?: string | null
+          nexus_plus_reminder_shown?: boolean | null
           online_status?: string | null
           photo_url?: string | null
           show_moderator_badge?: boolean | null
@@ -500,6 +631,7 @@ export type Database = {
           id: string
           ipv4_address: string | null
           ipv6_address: string | null
+          last_activity: string | null
           last_read_by_moderator: boolean
           rating: number | null
           status: string
@@ -517,6 +649,7 @@ export type Database = {
           id?: string
           ipv4_address?: string | null
           ipv6_address?: string | null
+          last_activity?: string | null
           last_read_by_moderator?: boolean
           rating?: number | null
           status?: string
@@ -534,6 +667,7 @@ export type Database = {
           id?: string
           ipv4_address?: string | null
           ipv6_address?: string | null
+          last_activity?: string | null
           last_read_by_moderator?: boolean
           rating?: number | null
           status?: string
@@ -639,6 +773,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_close_inactive_support_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       auto_delete_old_conversations: {
         Args: Record<PropertyKey, never>
         Returns: undefined
