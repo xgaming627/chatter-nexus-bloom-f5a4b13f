@@ -127,7 +127,7 @@ const Index = () => {
           {/* Header */}
           <header className="bg-teams-purple text-white py-2 px-4 shadow-md dark:bg-gray-800">
             <div className="flex justify-between items-center max-w-[1400px] mx-auto">
-              <h1 className="text-xl font-bold">ChatNexus</h1>
+              <h1 className="text-xl font-bold">Nexus Chat</h1>
               <div className="flex items-center gap-2">
                 <div className="max-w-xs w-64 hidden md:block">
                   <SearchUsers />
