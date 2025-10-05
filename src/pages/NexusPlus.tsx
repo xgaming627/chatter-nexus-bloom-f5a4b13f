@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Crown, Sparkles, Zap, TrendingUp, Video, Palette } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 
 const NexusPlus: React.FC = () => {
@@ -26,7 +25,6 @@ const NexusPlus: React.FC = () => {
       return;
     }
 
-    // Check if user has Nexus Plus
     const checkNexusPlus = async () => {
       const { data } = await supabase
         .from('profiles')
@@ -112,12 +110,33 @@ const NexusPlus: React.FC = () => {
 
   const handlePurchase = () => {
     setShowPurchase(true);
-    // Load Payhip script dynamically
-    const script = document.createElement('script');
-    script.src = 'https://payhip.com/embed-page.js?v=24u68984';
-    script.async = true;
-    document.body.appendChild(script);
   };
+
+  // ✅ Load Payhip script once
+  useEffect(() => {
+    const existingScript = document.getElementById('payhip-embed-script');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = 'payhip-embed-script';
+      script.src = 'https://payhip.com/embed-page.js';
+      script.async = true;
+      script.onload = () => console.log('✅ Payhip script loaded');
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // ✅ Re-initialize Payhip when purchase page is shown
+  useEffect(() => {
+    if (showPurchase) {
+      setTimeout(() => {
+        if ((window as any).Payhip?.EmbedPage) {
+          (window as any).Payhip.EmbedPage();
+        } else {
+          console.warn('⚠️ Payhip not loaded yet');
+        }
+      }, 300);
+    }
+  }, [showPurchase]);
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -142,7 +161,7 @@ const NexusPlus: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-yellow-700 dark:text-yellow-300">
-                Your premium subscription expires in{' '}
+                Your premium subscription expires{' '}
                 <span className="font-bold">
                   {formatDistanceToNow(expiresAt, { addSuffix: true })}
                 </span>
@@ -239,16 +258,18 @@ const NexusPlus: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowPurchase(false)}
-                >
+                <Button variant="ghost" onClick={() => setShowPurchase(false)}>
                   ← Back
                 </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="payhip-embed-page" data-key="ck6Id"></div>
+              <div
+                className="payhip-embed-page"
+                data-key="ck6Id"
+                data-theme="light"
+                style={{ minHeight: '500px' }}
+              ></div>
             </CardContent>
           </Card>
         )}
