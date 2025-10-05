@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { LiveKitRoom as LKRoom, useParticipants, useTracks, useLocalParticipant } from '@livekit/components-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { LiveKitRoom as LKRoom, useParticipants, useTracks, useLocalParticipant, RoomAudioRenderer } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { Button } from '@/components/ui/button';
-import { Phone, Video, PhoneOff, Mic, MicOff, VideoOff, MonitorUp, Minimize2, Maximize2 } from 'lucide-react';
+import { Phone, Video, PhoneOff, Mic, MicOff, VideoOff, MonitorUp, Minimize2, Maximize2, Crown } from 'lucide-react';
 import { useLiveKit } from '@/hooks/useLiveKit';
 import { useAuth } from '@/context/AuthContext';
 import { useCallNotifications } from '@/hooks/useCallNotifications';
 import { useChat } from '@/context/ChatContext';
 import { toast } from 'sonner';
-import { Track } from 'livekit-client';
+import { Track, LocalParticipant } from 'livekit-client';
 import UserAvatar from './UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-
 import VideoLoadingOverlay from './VideoLoadingOverlay';
 
 interface LiveKitRoomProps {
@@ -27,9 +26,20 @@ interface UserProfile {
   user_id: string;
   username: string;
   photo_url?: string;
+  nexus_plus_active?: boolean;
 }
 
-const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGroupCall?: boolean; onMinimize: () => void; isMinimized: boolean }> = ({ isVideoCall, onLeave, isGroupCall, onMinimize, isMinimized }) => {
+const screenShareSound = new Audio('/notification-sound.mp3');
+
+const CallInterface: React.FC<{ 
+  isVideoCall: boolean; 
+  onLeave: () => void; 
+  isGroupCall?: boolean; 
+  onMinimize: () => void; 
+  isMinimized: boolean;
+  onToggleFullscreen: () => void;
+  isFullscreen: boolean;
+}> = ({ isVideoCall, onLeave, isGroupCall, onMinimize, isMinimized, onToggleFullscreen, isFullscreen }) => {
   const participants = useParticipants();
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [hadMultipleParticipants, setHadMultipleParticipants] = useState(false);
@@ -39,7 +49,22 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
   const [videoLoadingStates, setVideoLoadingStates] = useState<Record<string, boolean>>({});
+  const [screenShareSoundPlayed, setScreenShareSoundPlayed] = useState<Record<string, boolean>>({});
+  const audioContextRef = useRef<AudioContext | null>(null);
   
+  // Initialize AudioContext on user interaction
+  useEffect(() => {
+    const initAudioContext = () => {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+        console.log('AudioContext initialized');
+      }
+    };
+    
+    window.addEventListener('click', initAudioContext, { once: true });
+    return () => window.removeEventListener('click', initAudioContext);
+  }, []);
+
   useEffect(() => {
     const fetchProfiles = async () => {
       const userIds = participants.map(p => p.identity);
@@ -47,7 +72,7 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
       
       const { data } = await supabase
         .from('profiles')
-        .select('user_id, username, photo_url')
+        .select('user_id, username, photo_url, nexus_plus_active')
         .in('user_id', userIds);
       
       if (data) {
@@ -62,14 +87,12 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
     fetchProfiles();
   }, [participants]);
   
-  // Track if we've ever had multiple participants
   useEffect(() => {
     if (participants.length >= 2) {
       setHadMultipleParticipants(true);
     }
   }, [participants.length]);
   
-  // End call if someone leaves a 1-on-1 call
   useEffect(() => {
     if (!isGroupCall && hadMultipleParticipants && participants.length === 1) {
       toast.info('The other participant has left the call');
@@ -79,19 +102,59 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
   
   const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare]);
 
+  // Monitor screen sharing and play sound for all participants
+  useEffect(() => {
+    const screenShareTracks = tracks.filter(t => t.source === Track.Source.ScreenShare);
+    
+    screenShareTracks.forEach((track) => {
+      const participantId = track.participant.identity;
+      if (!screenShareSoundPlayed[participantId]) {
+        screenShareSound.play().catch(e => console.log('Could not play sound:', e));
+        setScreenShareSoundPlayed(prev => ({ ...prev, [participantId]: true }));
+        
+        if (participantId !== localParticipant?.identity) {
+          const profile = profiles[participantId];
+          toast.info(`${profile?.username || 'Someone'} is sharing their screen`);
+        }
+      }
+    });
+    
+    // Clean up played state when screen sharing stops
+    const activeScreenShareIds = screenShareTracks.map(t => t.participant.identity);
+    setScreenShareSoundPlayed(prev => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach(id => {
+        if (!activeScreenShareIds.includes(id)) {
+          delete newState[id];
+        }
+      });
+      return newState;
+    });
+  }, [tracks, localParticipant, profiles, screenShareSoundPlayed]);
+
   const toggleMute = async () => {
-    if (localParticipant) {
-      const enabled = localParticipant.isMicrophoneEnabled;
-      await localParticipant.setMicrophoneEnabled(!enabled);
-      setIsMuted(!enabled);
+    if (!localParticipant) return;
+    try {
+      const currentlyEnabled = localParticipant.isMicrophoneEnabled;
+      await localParticipant.setMicrophoneEnabled(!currentlyEnabled);
+      setIsMuted(currentlyEnabled);
+      console.log('Microphone toggled:', !currentlyEnabled ? 'unmuted' : 'muted');
+    } catch (error) {
+      console.error('Error toggling microphone:', error);
+      toast.error('Failed to toggle microphone');
     }
   };
 
   const toggleCamera = async () => {
-    if (localParticipant) {
-      const enabled = localParticipant.isCameraEnabled;
-      await localParticipant.setCameraEnabled(!enabled);
-      setIsCameraOff(!enabled);
+    if (!localParticipant) return;
+    try {
+      const currentlyEnabled = localParticipant.isCameraEnabled;
+      await localParticipant.setCameraEnabled(!currentlyEnabled);
+      setIsCameraOff(currentlyEnabled);
+      console.log('Camera toggled:', !currentlyEnabled ? 'on' : 'off');
+    } catch (error) {
+      console.error('Error toggling camera:', error);
+      toast.error('Failed to toggle camera');
     }
   };
 
@@ -99,7 +162,6 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
     if (!localParticipant) return;
     
     try {
-      // Check if user has Nexus Plus for 1080p
       const { data: profileData } = await supabase
         .from('profiles')
         .select('nexus_plus_active')
@@ -107,20 +169,19 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
         .single();
       
       const hasNexusPlus = profileData?.nexus_plus_active || false;
-      const maxResolution = hasNexusPlus ? 1920 : 1280; // 1080p vs 720p
+      const currentlySharing = localParticipant.isScreenShareEnabled;
       
-      const enabled = localParticipant.isScreenShareEnabled;
-      
-      if (!enabled) {
-        // Start screen sharing with resolution limit
-        await localParticipant.setScreenShareEnabled(true);
-        toast.info(`Screen sharing started ${hasNexusPlus ? '(1080p)' : '(720p)'}`);
+      if (!currentlySharing) {
+        await localParticipant.setScreenShareEnabled(true, {
+          audio: true
+        });
+        setIsScreenSharing(true);
+        toast.success(`Screen sharing started ${hasNexusPlus ? '(1080p)' : '(720p)'}`);
       } else {
         await localParticipant.setScreenShareEnabled(false);
+        setIsScreenSharing(false);
         toast.info('Screen sharing stopped');
       }
-      
-      setIsScreenSharing(!enabled);
     } catch (error) {
       console.error('Error toggling screen share:', error);
       toast.error('Failed to toggle screen sharing');
@@ -141,95 +202,144 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
   
   return (
     <div className="h-full w-full bg-background flex flex-col">
+      <RoomAudioRenderer />
       <div className="flex-1 grid gap-4 p-4 overflow-auto" style={{
-        gridTemplateColumns: participants.length === 1 ? '1fr' : participants.length === 2 ? 'repeat(2, 1fr)' : participants.length === 3 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(250px, 1fr))'
+        gridTemplateColumns: participants.length === 1 ? '1fr' : 
+                           participants.length === 2 ? 'repeat(2, 1fr)' : 
+                           'repeat(auto-fit, minmax(250px, 1fr))'
       }}>
         {participants.map((participant) => {
           const profile = profiles[participant.identity];
           const videoTrack = tracks.find(t => 
             t.participant.identity === participant.identity && 
-            (t.source === Track.Source.Camera || t.source === Track.Source.ScreenShare)
+            t.source === Track.Source.Camera
           );
-          const audioTrack = tracks.find(t =>
+          const screenShareTrack = tracks.find(t =>
             t.participant.identity === participant.identity &&
-            t.source === Track.Source.Microphone
+            t.source === Track.Source.ScreenShare
           );
           
+          // Don't render audio tracks for local participant to avoid echo
+          const shouldRenderAudio = participant.identity !== localParticipant?.identity;
+          const audioTrack = shouldRenderAudio ? tracks.find(t =>
+            t.participant.identity === participant.identity &&
+            t.source === Track.Source.Microphone
+          ) : null;
+          
+          const hasNexusPlus = profile?.nexus_plus_active || false;
+          
           return (
-            <div 
-              key={participant.identity} 
-              className={cn(
-                "rounded-lg overflow-hidden bg-muted relative aspect-video cursor-pointer transition-all hover:ring-2 hover:ring-primary",
-                focusedParticipantId === participant.identity && "ring-4 ring-primary"
-              )}
-              onClick={() => setFocusedParticipantId(
-                focusedParticipantId === participant.identity ? null : participant.identity
-              )}
-            >
-              {videoLoadingStates[participant.identity] && (
-                <VideoLoadingOverlay isLoading={true} />
-              )}
-              {videoTrack?.publication?.track ? (
-                <video
-                  ref={(el) => {
-                    if (el && videoTrack.publication?.track) {
-                      videoTrack.publication.track.attach(el);
-                      
-                      // Track video loading state
-                      el.addEventListener('waiting', () => {
-                        setVideoLoadingStates(prev => ({
-                          ...prev,
-                          [participant.identity]: true
-                        }));
-                      });
-                      
-                      el.addEventListener('playing', () => {
-                        setVideoLoadingStates(prev => ({
-                          ...prev,
-                          [participant.identity]: false
-                        }));
-                      });
-                    }
-                  }}
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  playsInline
-                />
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
-                  <UserAvatar
-                    username={profile?.username || participant.name}
-                    photoURL={profile?.photo_url}
-                    size="xl"
+            <React.Fragment key={participant.identity}>
+              {/* Main camera/avatar view */}
+              <div 
+                className={cn(
+                  "rounded-lg overflow-hidden bg-muted relative aspect-video cursor-pointer transition-all hover:ring-2 hover:ring-primary",
+                  focusedParticipantId === participant.identity && "ring-4 ring-primary",
+                  isFullscreen && focusedParticipantId === participant.identity && "col-span-full row-span-full"
+                )}
+                onClick={() => setFocusedParticipantId(
+                  focusedParticipantId === participant.identity ? null : participant.identity
+                )}
+              >
+                {videoLoadingStates[participant.identity] && (
+                  <VideoLoadingOverlay isLoading={true} />
+                )}
+                {videoTrack?.publication?.track ? (
+                  <video
+                    ref={(el) => {
+                      if (el && videoTrack.publication?.track) {
+                        videoTrack.publication.track.attach(el);
+                        
+                        el.addEventListener('waiting', () => {
+                          setVideoLoadingStates(prev => ({
+                            ...prev,
+                            [participant.identity]: true
+                          }));
+                        });
+                        
+                        el.addEventListener('playing', () => {
+                          setVideoLoadingStates(prev => ({
+                            ...prev,
+                            [participant.identity]: false
+                          }));
+                        });
+                      }
+                    }}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted={participant.identity === localParticipant?.identity}
                   />
-                  <p className="mt-4 text-foreground font-medium">
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
+                    <UserAvatar
+                      username={profile?.username || participant.name}
+                      photoURL={profile?.photo_url}
+                      size="xl"
+                    />
+                    <p className="mt-4 text-foreground font-medium flex items-center gap-2">
+                      {hasNexusPlus && <Crown className="h-4 w-4 text-yellow-500" />}
+                      <span className={cn(hasNexusPlus && "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500")}>
+                        {profile?.username || participant.name}
+                      </span>
+                    </p>
+                  </div>
+                )}
+                {audioTrack?.publication?.track && (
+                  <audio
+                    ref={(el) => {
+                      if (el && audioTrack.publication?.track) {
+                        audioTrack.publication.track.attach(el);
+                      }
+                    }}
+                    autoPlay
+                  />
+                )}
+                <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-full">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full transition-all",
+                    participant.isSpeaking ? "bg-green-500 animate-pulse scale-125" : "bg-muted-foreground"
+                  )} />
+                  {participant.isMicrophoneEnabled === false && (
+                    <MicOff className="w-3 h-3 text-red-500" />
+                  )}
+                  {hasNexusPlus && <Crown className="w-3 h-3 text-yellow-500" />}
+                  <span className={cn(
+                    "text-sm font-medium",
+                    hasNexusPlus ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500" : "text-foreground"
+                  )}>
                     {profile?.username || participant.name}
-                  </p>
+                  </span>
+                </div>
+              </div>
+              
+              {/* Screen share view */}
+              {screenShareTrack?.publication?.track && (
+                <div 
+                  className="rounded-lg overflow-hidden bg-black relative aspect-video col-span-full"
+                  onClick={() => setFocusedParticipantId(
+                    focusedParticipantId === `${participant.identity}-screen` ? null : `${participant.identity}-screen`
+                  )}
+                >
+                  <video
+                    ref={(el) => {
+                      if (el && screenShareTrack.publication?.track) {
+                        screenShareTrack.publication.track.attach(el);
+                      }
+                    }}
+                    className="w-full h-full object-contain"
+                    autoPlay
+                    playsInline
+                  />
+                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-full">
+                    <MonitorUp className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      {profile?.username || participant.name}'s screen
+                    </span>
+                  </div>
                 </div>
               )}
-              {audioTrack?.publication?.track && (
-                <audio
-                  ref={(el) => {
-                    if (el && audioTrack.publication?.track) {
-                      audioTrack.publication.track.attach(el);
-                    }
-                  }}
-                  autoPlay
-                />
-              )}
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-full">
-                <div className={cn(
-                  "w-2 h-2 rounded-full transition-all",
-                  participant.isSpeaking ? "bg-green-500 animate-pulse scale-125" : "bg-muted-foreground"
-                )} />
-                {participant.isMicrophoneEnabled === false && (
-                  <MicOff className="w-3 h-3 text-red-500" />
-                )}
-                <span className="text-sm font-medium text-foreground">
-                  {profile?.username || participant.name}
-                </span>
-              </div>
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
@@ -244,14 +354,16 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
           {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
         </Button>
         
-        <Button
-          variant={isCameraOff ? "destructive" : "secondary"}
-          size="lg"
-          onClick={toggleCamera}
-          className="rounded-full"
-        >
-          {isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-        </Button>
+        {isVideoCall && (
+          <Button
+            variant={isCameraOff ? "destructive" : "secondary"}
+            size="lg"
+            onClick={toggleCamera}
+            className="rounded-full"
+          >
+            {isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+          </Button>
+        )}
         
         <Button
           variant={isScreenSharing ? "default" : "secondary"}
@@ -265,10 +377,10 @@ const CallInterface: React.FC<{ isVideoCall: boolean; onLeave: () => void; isGro
         <Button
           variant="ghost"
           size="lg"
-          onClick={onMinimize}
+          onClick={onToggleFullscreen}
           className="rounded-full"
         >
-          {isMinimized ? <Maximize2 className="h-5 w-5" /> : <Minimize2 className="h-5 w-5" />}
+          {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
         </Button>
         
         <Button
@@ -292,7 +404,7 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   isGroupCall = false
 }) => {
   const { generateToken } = useLiveKit();
-  const { sendMessage, currentConversation } = useChat();
+  const { currentConversation } = useChat();
   const { currentUser } = useAuth();
   const [token, setToken] = useState<string>('');
   const [serverUrl, setServerUrl] = useState<string>('');
@@ -319,24 +431,42 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
   useEffect(() => {
     if (!isConnecting && token && !callStarted && currentConversation) {
       setCallStarted(true);
-      // Send system message that call started from Nexus Chat
       const systemMessage = {
         conversation_id: currentConversation.id,
-        sender_id: '00000000-0000-0000-0000-000000000000', // System UUID
+        sender_id: '00000000-0000-0000-0000-000000000000',
         content: `🎥 ${isVideoCall ? 'Video' : 'Voice'} call started`,
         is_system_message: true
       };
       
       supabase.from('messages').insert(systemMessage);
+
+      // Send notification to all group members if it's a group call
+      if (isGroupCall && currentConversation.participants) {
+        currentConversation.participants.forEach(async (participantId) => {
+          if (participantId !== currentUser?.uid) {
+            await supabase.from('notifications').insert({
+              user_id: participantId,
+              type: 'call',
+              title: 'Group Call Started',
+              message: `${currentUser?.displayName || 'Someone'} started a ${isVideoCall ? 'video' : 'voice'} call in ${currentConversation.group_name || 'group chat'}`,
+              is_sound_enabled: true,
+              metadata: { 
+                conversation_id: currentConversation.id,
+                room_name: roomName,
+                is_video_call: isVideoCall 
+              }
+            });
+          }
+        });
+      }
     }
-  }, [isConnecting, token, callStarted, currentConversation, isVideoCall]);
+  }, [isConnecting, token, callStarted, currentConversation, isVideoCall, isGroupCall, currentUser, roomName]);
 
   const handleLeave = () => {
     if (currentConversation && callStarted) {
-      // Send system message that call ended from Nexus Chat
       const systemMessage = {
         conversation_id: currentConversation.id,
-        sender_id: '00000000-0000-0000-0000-000000000000', // System UUID
+        sender_id: '00000000-0000-0000-0000-000000000000',
         content: `📞 ${isVideoCall ? 'Video' : 'Voice'} call ended`,
         is_system_message: true
       };
@@ -350,7 +480,7 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
     return (
       <div className={cn(
         "fixed bg-background border shadow-lg rounded-lg overflow-hidden z-50",
-        isMinimized ? "bottom-4 right-4 w-80 h-24" : "bottom-4 right-4 w-96 h-[500px]"
+        "bottom-4 right-4 w-96 h-32"
       )}>
         <div className="flex items-center justify-center h-full p-8">
           <div>
@@ -371,36 +501,6 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
         ? "inset-0 w-full h-full rounded-none" 
         : "bottom-4 right-4 w-[min(90vw,900px)] h-[min(85vh,700px)] rounded-lg"
     )}>
-      <div className="absolute top-2 right-2 z-10 flex gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="bg-background/80 backdrop-blur-sm"
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-        >
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsMinimized(!isMinimized)}
-          className="bg-background/80 backdrop-blur-sm"
-          title={isMinimized ? "Restore" : "Minimize"}
-        >
-          {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLeave}
-          className="bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground"
-          title="End call"
-        >
-          <PhoneOff className="h-4 w-4" />
-        </Button>
-      </div>
-      
       <LKRoom
         token={token}
         serverUrl={serverUrl}
@@ -421,6 +521,8 @@ export const LiveKitRoom: React.FC<LiveKitRoomProps> = ({
           isGroupCall={isGroupCall}
           onMinimize={() => setIsMinimized(!isMinimized)}
           isMinimized={isMinimized}
+          onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+          isFullscreen={isFullscreen}
         />
       </LKRoom>
     </div>
@@ -459,12 +561,11 @@ export const CallButton: React.FC<CallButtonProps> = ({
   const { sendCallNotification, isSendingNotification } = useCallNotifications();
 
   const startCall = async () => {
-    if (isInitiating) return; // Prevent double-clicks
+    if (isInitiating) return;
     
     setIsInitiating(true);
     
-    // If we have receiver info, send notification first
-    if (receiverId && receiverName) {
+    if (receiverId && receiverName && !isGroupCall) {
       const notification = await sendCallNotification(
         receiverId,
         receiverName,
@@ -480,8 +581,6 @@ export const CallButton: React.FC<CallButtonProps> = ({
       }
       
       toast.success(`Calling ${receiverName}...`);
-      
-      // Wait a moment before opening call window so notification is sent
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
@@ -498,14 +597,23 @@ export const CallButton: React.FC<CallButtonProps> = ({
       <Button 
         variant={variant} 
         size={size}
-        onClick={startCall}
         className={className}
-        disabled={isSendingNotification || isInitiating}
+        onClick={startCall}
+        disabled={isInitiating || isSendingNotification}
       >
-        {isVideoCall ? <Video className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} /> : <Phone className={buttonText ? "h-4 w-4 mr-2" : "h-4 w-4"} />}
-        {isInitiating ? 'Calling...' : buttonText}
+        {isInitiating || isSendingNotification ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+            Calling...
+          </>
+        ) : (
+          <>
+            {isVideoCall ? <Video className="h-4 w-4 mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
+            {buttonText || (isVideoCall ? 'Video Call' : 'Voice Call')}
+          </>
+        )}
       </Button>
-
+      
       {isInCall && (
         <LiveKitRoom
           roomName={roomName}

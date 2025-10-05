@@ -27,7 +27,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import Credits from "./Credits";
 import { useRole } from "@/hooks/useRole";
-import NexusPlusModal from "./NexusPlusModal";
+import { useNavigate } from 'react-router-dom';
+import { Crown } from "lucide-react";
 
 interface SettingsModalProps {
   open: boolean;
@@ -45,6 +46,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
   const { isModerator } = useRole();
+  const navigate = useNavigate();
   const [useDarkMode, setUseDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark");
@@ -99,10 +101,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </DialogHeader>
 
           <Tabs defaultValue="account" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="account">Account</TabsTrigger>
               <TabsTrigger value="privacy">Privacy</TabsTrigger>
-              <TabsTrigger value="nexus">Nexus+</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="terms">Terms</TabsTrigger>
             </TabsList>
@@ -189,6 +190,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </Button>
                 )}
 
+                <Button 
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate('/nexus-plus');
+                  }}
+                  variant="default"
+                  className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Get Nexus Plus
+                </Button>
+
                 <Button onClick={handleLogout} variant="destructive">
                   Log Out
                 </Button>
@@ -217,10 +230,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Label htmlFor="do-not-disturb">Do Not Disturb (Disable sound notifications)</Label>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="nexus">
-              <NexusPlusModal open={true} onOpenChange={() => {}} isEmbedded={true} />
             </TabsContent>
 
             <TabsContent value="history">
