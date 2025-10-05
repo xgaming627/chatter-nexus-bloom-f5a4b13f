@@ -10,18 +10,18 @@ import { Crown, Sparkles, Zap, TrendingUp, Video, Palette } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatDistanceToNow } from 'date-fns';
 
+const PAYHIP_SCRIPT_URL = 'https://payhip.com/embed-page.js?v=24u68984';
+const PAYHIP_KEY = 'ck6Id'; // Replace with your actual Payhip embed key
+
 const NexusPlus: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-
   const [licenseKey, setLicenseKey] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [showPurchase, setShowPurchase] = useState(false);
   const [nexusPlusActive, setNexusPlusActive] = useState(false);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
-  const [payhipLoaded, setPayhipLoaded] = useState(false);
 
-  // --- Load user data ---
   useEffect(() => {
     if (!currentUser) {
       navigate('/');
@@ -46,12 +46,13 @@ const NexusPlus: React.FC = () => {
     checkNexusPlus();
   }, [currentUser, navigate]);
 
-  // --- Confetti Animation ---
   const triggerConfetti = () => {
-    const duration = 3 * 1000;
+    const duration = 3000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const randomInRange = (min: number, max: number) =>
+      Math.random() * (max - min) + min;
 
     const interval = window.setInterval(() => {
       const timeLeft = animationEnd - Date.now();
@@ -71,7 +72,6 @@ const NexusPlus: React.FC = () => {
     }, 250);
   };
 
-  // --- Verify license key ---
   const handleVerifyLicense = async () => {
     if (!licenseKey.trim()) {
       toast.error('Please enter a license key');
@@ -88,9 +88,7 @@ const NexusPlus: React.FC = () => {
 
       const { data, error } = await supabase.functions.invoke('verify-license', {
         body: { licenseKey: licenseKey.trim() },
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
       });
 
       if (error) throw error;
@@ -99,9 +97,7 @@ const NexusPlus: React.FC = () => {
         triggerConfetti();
         toast.success('🎉 Nexus Plus activated successfully!');
         setLicenseKey('');
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        setTimeout(() => window.location.reload(), 2000);
       } else {
         toast.error(data.error || 'Invalid license key');
       }
@@ -113,51 +109,44 @@ const NexusPlus: React.FC = () => {
     }
   };
 
-  // --- Show purchase section ---
-  const handlePurchase = () => {
-    setShowPurchase(true);
-  };
-
-  // ✅ Load Payhip script safely
-  useEffect(() => {
-    const existingScript = document.getElementById('payhip-embed-script');
-
-    if (existingScript && (window as any).Payhip) {
-      setPayhipLoaded(true);
+  const injectPayhip = () => {
+    if (document.querySelector(`script[src="${PAYHIP_SCRIPT_URL}"]`)) {
+      // Already loaded — reinit
+      if ((window as any).PayhipPageEmbed) {
+        console.log('✅ Payhip already loaded, initializing...');
+        (window as any).PayhipPageEmbed();
+      } else {
+        console.warn('⚠️ Payhip script not ready yet, retrying...');
+        setTimeout(injectPayhip, 1000);
+      }
       return;
     }
 
     const script = document.createElement('script');
-    script.id = 'payhip-embed-script';
-    script.src = 'https://payhip.com/embed-page.js';
+    script.src = PAYHIP_SCRIPT_URL;
     script.async = true;
     script.onload = () => {
-      console.log('✅ Payhip script loaded');
-      setPayhipLoaded(true);
+      console.log('✅ Payhip script loaded and initialized');
+      if ((window as any).PayhipPageEmbed) {
+        (window as any).PayhipPageEmbed();
+      } else {
+        console.warn('⚠️ PayhipPageEmbed not found after load, retrying...');
+        setTimeout(() => {
+          if ((window as any).PayhipPageEmbed) (window as any).PayhipPageEmbed();
+        }, 1500);
+      }
     };
-    script.onerror = () => console.error('❌ Failed to load Payhip script');
     document.body.appendChild(script);
-  }, []);
+  };
 
-  // ✅ Initialize Payhip when ready
-  useEffect(() => {
-    if (showPurchase && payhipLoaded) {
-      const timer = setTimeout(() => {
-        try {
-          (window as any).Payhip?.EmbedPage?.();
-          console.log('✅ Payhip initialized successfully');
-        } catch (err) {
-          console.error('❌ Payhip initialization failed:', err);
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [showPurchase, payhipLoaded]);
+  const handlePurchase = () => {
+    setShowPurchase(true);
+    setTimeout(() => injectPayhip(), 500);
+  };
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Crown className="h-8 w-8 text-yellow-500" />
@@ -168,7 +157,6 @@ const NexusPlus: React.FC = () => {
           </Button>
         </div>
 
-        {/* Active Subscription */}
         {nexusPlusActive && expiresAt && (
           <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-200 dark:border-yellow-800">
             <CardHeader>
@@ -184,14 +172,10 @@ const NexusPlus: React.FC = () => {
                   {formatDistanceToNow(expiresAt, { addSuffix: true })}
                 </span>
               </p>
-              <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
-                You can claim another license to extend your subscription!
-              </p>
             </CardContent>
           </Card>
         )}
 
-        {/* Features */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -203,33 +187,32 @@ const NexusPlus: React.FC = () => {
             <ul className="space-y-3">
               <li className="flex items-center gap-3">
                 <Video className="h-5 w-5 text-yellow-600" />
-                <span>1080p HD Screen Sharing</span>
+                1080p HD Screen Sharing
               </li>
               <li className="flex items-center gap-3">
                 <Crown className="h-5 w-5 text-yellow-600" />
-                <span>Golden Username Badge</span>
+                Golden Username Badge
               </li>
               <li className="flex items-center gap-3">
                 <Palette className="h-5 w-5 text-yellow-600" />
-                <span>Special Call Effects & Filters</span>
+                Special Call Effects & Filters
               </li>
               <li className="flex items-center gap-3">
                 <Sparkles className="h-5 w-5 text-yellow-600" />
-                <span>Exclusive Profile Customization</span>
+                Exclusive Profile Customization
               </li>
               <li className="flex items-center gap-3">
                 <TrendingUp className="h-5 w-5 text-yellow-600" />
-                <span>Priority in Live Support Queue</span>
+                Priority in Live Support Queue
               </li>
               <li className="flex items-center gap-3">
                 <Zap className="h-5 w-5 text-yellow-600" />
-                <span>Early Access to New Features</span>
+                Early Access to New Features
               </li>
             </ul>
           </CardContent>
         </Card>
 
-        {/* Price Card */}
         <Card className="text-center">
           <CardContent className="py-6">
             <div className="text-4xl font-bold text-primary mb-2">$9.99</div>
@@ -237,65 +220,43 @@ const NexusPlus: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* License / Purchase */}
         {!showPurchase ? (
           <Card>
             <CardHeader>
               <CardTitle>Activate License</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Have a license key?</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Enter your license key"
-                    value={licenseKey}
-                    onChange={(e) => setLicenseKey(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleVerifyLicense()}
-                    disabled={isVerifying}
-                  />
-                  <Button
-                    onClick={handleVerifyLicense}
-                    disabled={isVerifying || !licenseKey.trim()}
-                  >
-                    {isVerifying ? 'Verifying...' : 'Activate'}
-                  </Button>
-                </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter your license key"
+                  value={licenseKey}
+                  onChange={(e) => setLicenseKey(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleVerifyLicense()}
+                  disabled={isVerifying}
+                />
+                <Button onClick={handleVerifyLicense} disabled={isVerifying}>
+                  {isVerifying ? 'Verifying...' : 'Activate'}
+                </Button>
               </div>
 
-              <Button
-                variant="default"
-                onClick={handlePurchase}
-                className="w-full"
-                size="lg"
-              >
+              <Button className="w-full" size="lg" onClick={handlePurchase}>
                 <Crown className="h-5 w-5 mr-2" />
                 Purchase Nexus Plus
               </Button>
             </CardContent>
           </Card>
-        ) : !payhipLoaded ? (
-          <Card>
-            <CardContent className="text-center py-8 text-muted-foreground">
-              Loading payment page...
-            </CardContent>
-          </Card>
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Button variant="ghost" onClick={() => setShowPurchase(false)}>
-                  ← Back
-                </Button>
-              </CardTitle>
+              <Button variant="ghost" onClick={() => setShowPurchase(false)}>
+                ← Back
+              </Button>
             </CardHeader>
             <CardContent>
               <div
                 className="payhip-embed-page"
-                data-key="ck6Id"
-                data-theme="light"
-                style={{ minHeight: '500px' }}
+                data-key={PAYHIP_KEY}
+                style={{ minHeight: '400px' }}
               ></div>
             </CardContent>
           </Card>
