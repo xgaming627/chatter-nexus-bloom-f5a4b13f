@@ -19,7 +19,8 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import ModeratorLiveSupport from './ModeratorLiveSupport';
 import { useChat } from '@/context/ChatContext';
-import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle, Megaphone } from 'lucide-react';
+import BannerManagement from './BannerManagement';
 import ChatWindow from './ChatWindow';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -501,10 +502,11 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="messages">Message Search</TabsTrigger>
           <TabsTrigger value="support">Live Support</TabsTrigger>
+          <TabsTrigger value="banners">Banner Management</TabsTrigger>
           <TabsTrigger value="terms">Terms of Service</TabsTrigger>
         </TabsList>
 
@@ -683,6 +685,10 @@ const ModeratorPanel: React.FC = () => {
 
         <TabsContent value="support">
           <ModeratorLiveSupport />
+        </TabsContent>
+
+        <TabsContent value="banners">
+          <BannerManagement />
         </TabsContent>
 
         <TabsContent value="terms">

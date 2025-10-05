@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { Settings, Bell } from "lucide-react";
+import { Settings, Bell, Crown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
 import ChatList from "@/components/ChatList";
@@ -12,6 +13,7 @@ import SearchUsers from "@/components/SearchUsers";
 import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
+import NexusTitle from "@/components/NexusTitle";
 import { ChatProvider, useChat } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
 import WarnUserNotification from "@/components/WarnUserNotification";
@@ -129,7 +131,7 @@ const Index = () => {
           {/* Header */}
           <header className="bg-teams-purple text-white py-2 px-4 shadow-md dark:bg-gray-800">
             <div className="flex justify-between items-center max-w-[1400px] mx-auto">
-              <h1 className="text-xl font-bold">Nexus Chat</h1>
+              <NexusTitle />
               <div className="flex items-center gap-2">
                 
                 <Popover>

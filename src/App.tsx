@@ -9,6 +9,8 @@ import { LiveSupportProvider } from "./context/LiveSupportContext";
 import AppInitializer from "./components/AppInitializer";
 import Index from "./pages/Index";
 import SupportChat from "./pages/SupportChat";
+import NexusPlus from "./pages/NexusPlus";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import QuotaWarningBanner from "./components/QuotaWarningBanner";
 import WarnUserNotification from "./components/WarnUserNotification";
@@ -38,7 +40,9 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/support-chat/:sessionId" element={<SupportChat />} />
+              <Route path="/support/:sessionId" element={<SupportChat />} />
+              <Route path="/nexus-plus" element={<NexusPlus />} />
+              <Route path="/profile" element={<Profile />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
