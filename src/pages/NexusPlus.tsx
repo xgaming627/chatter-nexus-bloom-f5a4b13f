@@ -10,6 +10,8 @@ import { Crown, Sparkles, Zap, TrendingUp, Video, Palette } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatDistanceToNow } from 'date-fns';
 
+const PAYHIP_EMBED_SCRIPT = 'https://payhip.com/embed-page.js?v=24u68984';
+
 const NexusPlus: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -17,35 +19,15 @@ const NexusPlus: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [nexusPlusActive, setNexusPlusActive] = useState(false);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
-  const [payhipLoaded, setPayhipLoaded] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(false);
 
-  // ✅ Load Payhip script once
-  useEffect(() => {
-    const existing = document.getElementById('payhip-script');
-    if (existing) {
-      setPayhipLoaded(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'payhip-script';
-    script.src = 'https://payhip.com/payhip.js';
-    script.async = true;
-    script.onload = () => {
-      console.log('✅ Payhip script loaded');
-      setPayhipLoaded(true);
-    };
-    script.onerror = () => console.error('❌ Failed to load Payhip script');
-    document.head.appendChild(script);
-  }, []);
-
+  // ✅ Check user and Nexus Plus subscription
   useEffect(() => {
     if (!currentUser) {
       navigate('/');
       return;
     }
 
-    // Check if user has Nexus Plus
     const checkNexusPlus = async () => {
       const { data } = await supabase
         .from('profiles')
@@ -64,6 +46,7 @@ const NexusPlus: React.FC = () => {
     checkNexusPlus();
   }, [currentUser, navigate]);
 
+  // ✅ Confetti effect
   const triggerConfetti = () => {
     const duration = 3 * 1000;
     const animationEnd = Date.now() + duration;
@@ -88,6 +71,7 @@ const NexusPlus: React.FC = () => {
     }, 250);
   };
 
+  // ✅ License verification
   const handleVerifyLicense = async () => {
     if (!licenseKey.trim()) {
       toast.error('Please enter a license key');
@@ -129,35 +113,34 @@ const NexusPlus: React.FC = () => {
     }
   };
 
-  // ✅ Handle Payhip purchase modal
-  const handlePurchase = () => {
-    if (!(window as any).Payhip) {
-      toast.error('⚠️ Payhip not ready yet. Please wait a moment.');
-      return;
-    }
+  // ✅ Load Payhip embed page inside modal
+  const loadPayhipEmbed = () => {
+    const container = document.getElementById('payhip-container');
+    if (!container) return;
 
-    try {
-      const tempLink = document.createElement('a');
-      tempLink.href = 'https://payhip.com/b/ck6Id';
-      tempLink.className = 'payhip-buy-button';
-      tempLink.dataset.theme = 'green';
-      tempLink.dataset.product = 'ck6Id';
-      document.body.appendChild(tempLink);
+    container.innerHTML = ''; // remove previous embed if exists
 
-      (window as any).Payhip.EmbedButton?.();
-      tempLink.click();
-      tempLink.remove();
+    const div = document.createElement('div');
+    div.className = 'payhip-embed-page';
+    div.setAttribute('data-key', 'ck6Id');
+    container.appendChild(div);
 
-      console.log('✅ Payhip checkout triggered');
-    } catch (err) {
-      console.error('❌ Failed to open Payhip checkout:', err);
-      toast.error('Failed to open Payhip checkout');
+    // Load or reinitialize Payhip embed script
+    if ((window as any).PayhipPageEmbed) {
+      (window as any).PayhipPageEmbed();
+    } else if (!document.querySelector(`script[src="${PAYHIP_EMBED_SCRIPT}"]`)) {
+      const script = document.createElement('script');
+      script.src = PAYHIP_EMBED_SCRIPT;
+      script.async = true;
+      script.onload = () => (window as any).PayhipPageEmbed();
+      document.body.appendChild(script);
     }
   };
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Crown className="h-8 w-8 text-yellow-500" />
@@ -168,6 +151,7 @@ const NexusPlus: React.FC = () => {
           </Button>
         </div>
 
+        {/* Active subscription */}
         {nexusPlusActive && expiresAt && (
           <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-200 dark:border-yellow-800">
             <CardHeader>
@@ -190,6 +174,7 @@ const NexusPlus: React.FC = () => {
           </Card>
         )}
 
+        {/* Premium Features */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -227,6 +212,7 @@ const NexusPlus: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Price */}
         <Card className="text-center">
           <CardContent className="py-6">
             <div className="text-4xl font-bold text-primary mb-2">$9.99</div>
@@ -234,6 +220,7 @@ const NexusPlus: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* License Activation */}
         <Card>
           <CardHeader>
             <CardTitle>Activate License</CardTitle>
@@ -250,8 +237,8 @@ const NexusPlus: React.FC = () => {
                   onKeyPress={(e) => e.key === 'Enter' && handleVerifyLicense()}
                   disabled={isVerifying}
                 />
-                <Button 
-                  onClick={handleVerifyLicense} 
+                <Button
+                  onClick={handleVerifyLicense}
                   disabled={isVerifying || !licenseKey.trim()}
                 >
                   {isVerifying ? 'Verifying...' : 'Activate'}
@@ -263,14 +250,31 @@ const NexusPlus: React.FC = () => {
               variant="default"
               className="w-full"
               size="lg"
-              onClick={handlePurchase}
-              disabled={!payhipLoaded}
+              onClick={() => {
+                setShowPurchase(true);
+                setTimeout(loadPayhipEmbed, 100); // Slight delay for DOM render
+              }}
             >
               <Crown className="h-5 w-5 mr-2" />
-              {payhipLoaded ? 'Purchase Nexus Plus' : 'Loading Payhip...'}
+              Purchase Nexus Plus
             </Button>
           </CardContent>
         </Card>
+
+        {/* ✅ Payhip Modal */}
+        {showPurchase && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg max-w-md w-full">
+              <button
+                className="mb-2 text-sm text-gray-700 dark:text-gray-300"
+                onClick={() => setShowPurchase(false)}
+              >
+                ← Close
+              </button>
+              <div id="payhip-container" style={{ minHeight: 500 }}></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
