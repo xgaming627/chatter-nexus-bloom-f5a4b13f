@@ -609,7 +609,7 @@ export const CallButton: React.FC<CallButtonProps> = ({
         ) : (
           <>
             {isVideoCall ? <Video className="h-4 w-4 mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
-            {buttonText || (isVideoCall ? 'Video Call' : 'Voice Call')}
+            {buttonText || (isVideoCall ? '' : '')}
           </>
         )}
       </Button>
