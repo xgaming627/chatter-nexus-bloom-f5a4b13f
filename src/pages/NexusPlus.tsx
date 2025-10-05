@@ -11,7 +11,6 @@ import confetti from 'canvas-confetti';
 import { formatDistanceToNow } from 'date-fns';
 
 const PAYHIP_SCRIPT_URL = 'https://payhip.com/embed-page.js?v=24u68984';
-const PAYHIP_KEY = 'ck6Id'; // Replace with your actual Payhip embed key
 
 const NexusPlus: React.FC = () => {
   const { currentUser } = useAuth();
@@ -109,39 +108,45 @@ const NexusPlus: React.FC = () => {
     }
   };
 
-  const injectPayhip = () => {
-    if (document.querySelector(`script[src="${PAYHIP_SCRIPT_URL}"]`)) {
-      // Already loaded — reinit
-      if ((window as any).PayhipPageEmbed) {
-        console.log('✅ Payhip already loaded, initializing...');
-        (window as any).PayhipPageEmbed();
-      } else {
-        console.warn('⚠️ Payhip script not ready yet, retrying...');
-        setTimeout(injectPayhip, 1000);
-      }
-      return;
-    }
+  const loadPayhipEmbed = () => {
+    // Remove existing embed if any
+    const oldEmbed = document.querySelector('.payhip-embed-page');
+    if (oldEmbed) oldEmbed.remove();
 
-    const script = document.createElement('script');
-    script.src = PAYHIP_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => {
-      console.log('✅ Payhip script loaded and initialized');
-      if ((window as any).PayhipPageEmbed) {
-        (window as any).PayhipPageEmbed();
-      } else {
-        console.warn('⚠️ PayhipPageEmbed not found after load, retrying...');
-        setTimeout(() => {
-          if ((window as any).PayhipPageEmbed) (window as any).PayhipPageEmbed();
-        }, 1500);
-      }
-    };
-    document.body.appendChild(script);
+    // Create the Payhip container
+    const container = document.getElementById('payhip-container');
+    if (!container) return;
+
+    const div = document.createElement('div');
+    div.className = 'payhip-embed-page';
+    div.setAttribute('data-key', 'ck6Id');
+    container.appendChild(div);
+
+    // Load the Payhip script or reinitialize if already loaded
+    if ((window as any).PayhipPageEmbed) {
+      console.log('✅ Payhip already loaded, reinitializing...');
+      (window as any).PayhipPageEmbed();
+    } else if (!document.querySelector(`script[src="${PAYHIP_SCRIPT_URL}"]`)) {
+      console.log('🔄 Loading Payhip script...');
+      const script = document.createElement('script');
+      script.src = PAYHIP_SCRIPT_URL;
+      script.async = true;
+      script.onload = () => {
+        console.log('✅ Payhip script loaded successfully');
+        if ((window as any).PayhipPageEmbed) {
+          (window as any).PayhipPageEmbed();
+        }
+      };
+      document.body.appendChild(script);
+    } else {
+      console.log('⚠️ Payhip script present but not initialized yet, retrying...');
+      setTimeout(loadPayhipEmbed, 1000);
+    }
   };
 
   const handlePurchase = () => {
     setShowPurchase(true);
-    setTimeout(() => injectPayhip(), 500);
+    setTimeout(loadPayhipEmbed, 300); // wait for render
   };
 
   return (
@@ -253,11 +258,7 @@ const NexusPlus: React.FC = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div
-                className="payhip-embed-page"
-                data-key={PAYHIP_KEY}
-                style={{ minHeight: '400px' }}
-              ></div>
+              <div id="payhip-container" style={{ minHeight: '500px' }}></div>
             </CardContent>
           </Card>
         )}
