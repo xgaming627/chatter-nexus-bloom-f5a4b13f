@@ -114,28 +114,26 @@ const NexusPlus: React.FC = () => {
   };
 
   // ✅ Load Payhip embed page inside modal
-  const loadPayhipEmbed = () => {
-    const container = document.getElementById('payhip-container');
-    if (!container) return;
+ const loadPayhipEmbed = () => {
+  const container = document.getElementById('payhip-container');
+  if (!container) return;
 
-    container.innerHTML = ''; // remove previous embed if exists
+  container.innerHTML = ''; // remove old embed if exists
 
-    const div = document.createElement('div');
-    div.className = 'payhip-embed-page';
-    div.setAttribute('data-key', 'ck6Id');
-    container.appendChild(div);
+  const div = document.createElement('div');
+  div.className = 'payhip-embed-page';
+  div.setAttribute('data-key', 'ck6Id');
+  container.appendChild(div);
 
-    // Load or reinitialize Payhip embed script
-    if ((window as any).PayhipPageEmbed) {
-      (window as any).PayhipPageEmbed();
-    } else if (!document.querySelector(`script[src="${PAYHIP_EMBED_SCRIPT}"]`)) {
-      const script = document.createElement('script');
-      script.src = PAYHIP_EMBED_SCRIPT;
-      script.async = true;
-      script.onload = () => (window as any).PayhipPageEmbed();
-      document.body.appendChild(script);
-    }
-  };
+  // Only load the script once
+  if (!document.querySelector(`script[src="${PAYHIP_EMBED_SCRIPT}"]`)) {
+    const script = document.createElement('script');
+    script.src = PAYHIP_EMBED_SCRIPT;
+    script.async = true;
+    document.body.appendChild(script);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-background p-4">
