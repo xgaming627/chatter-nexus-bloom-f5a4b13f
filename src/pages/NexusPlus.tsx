@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Crown, Sparkles, Zap, TrendingUp, Video, Palette } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { formatDistanceToNow } from 'date-fns';
+import NexusPlusCountdown from '@/components/NexusPlusCountdown';
 
 const NexusPlus: React.FC = () => {
   const { currentUser } = useAuth();
@@ -134,14 +134,9 @@ const NexusPlus: React.FC = () => {
                 Nexus Plus Active
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-yellow-700 dark:text-yellow-300">
-                Your premium subscription expires in{' '}
-                <span className="font-bold">
-                  {formatDistanceToNow(expiresAt, { addSuffix: true })}
-                </span>
-              </p>
-              <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+            <CardContent className="space-y-2">
+              <NexusPlusCountdown expiresAt={expiresAt} />
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
                 You can claim another license to extend your subscription!
               </p>
             </CardContent>

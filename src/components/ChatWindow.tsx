@@ -27,7 +27,8 @@ import {
   Check,
   CheckCheck,
   Clock,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -758,9 +759,14 @@ const ChatWindow: React.FC = () => {
                           username={senderProfile?.username || "User"}
                           photoURL={senderProfile?.photo_url}
                           size="sm"
+                          isNexusPlus={senderProfile?.nexus_plus_active || false}
                         />
-                        <span className="text-xs font-medium ml-2 flex items-center">
+                        <span className={cn(
+                          "text-xs font-medium ml-2 flex items-center",
+                          senderProfile?.nexus_plus_active && "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500"
+                        )}>
                           {senderProfile?.display_name || senderProfile?.username || "User"}
+                          {senderProfile?.nexus_plus_active && <Crown className="h-3 w-3 ml-1 text-yellow-500" />}
                           {isModeratorMessage && (
                             <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                               <Shield className="h-3 w-3" />

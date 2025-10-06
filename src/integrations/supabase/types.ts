@@ -499,6 +499,7 @@ export type Database = {
           description: string | null
           display_name: string | null
           do_not_disturb: boolean | null
+          free_trial_claimed: boolean | null
           id: string
           nexus_plus_active: boolean | null
           nexus_plus_expires_at: string | null
@@ -515,6 +516,7 @@ export type Database = {
           description?: string | null
           display_name?: string | null
           do_not_disturb?: boolean | null
+          free_trial_claimed?: boolean | null
           id?: string
           nexus_plus_active?: boolean | null
           nexus_plus_expires_at?: string | null
@@ -531,6 +533,7 @@ export type Database = {
           description?: string | null
           display_name?: string | null
           do_not_disturb?: boolean | null
+          free_trial_claimed?: boolean | null
           id?: string
           nexus_plus_active?: boolean | null
           nexus_plus_expires_at?: string | null

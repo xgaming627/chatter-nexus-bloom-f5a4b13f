@@ -532,7 +532,8 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "This session has been closed"
       });
       
-      // Clear session completely after force ending
+      // Clear messages and session completely after force ending
+      setSupportMessages([]);
       setCurrentSupportSession(null);
       setIsActiveSupportSession(false);
       
@@ -578,7 +579,8 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         description: "Thank you for using our support service"
       });
       
-      // Clear session completely after user confirms end
+      // Clear messages and session completely after user confirms end
+      setSupportMessages([]);
       setCurrentSupportSession(null);
       setIsActiveSupportSession(false);
       

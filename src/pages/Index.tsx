@@ -133,6 +133,15 @@ const Index = () => {
             <div className="flex justify-between items-center max-w-[1400px] mx-auto">
               <NexusTitle />
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 border border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-amber-500/20"
+                  onClick={() => window.location.href = '/nexus-plus'}
+                >
+                  <Crown className="h-4 w-4 mr-1 text-yellow-400" />
+                  Get Nexus Plus
+                </Button>
                 
                 <Popover>
                   <PopoverTrigger asChild>

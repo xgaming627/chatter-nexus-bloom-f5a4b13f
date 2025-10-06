@@ -70,12 +70,24 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   // Close window when session ends
   useEffect(() => {
     if (currentSupportSession?.status === 'ended') {
-      // Close the support window after a short delay
+      // Close the support window and clear messages after a short delay
       setTimeout(() => {
         onOpenChange(false);
       }, 2000);
     }
   }, [currentSupportSession?.status, onOpenChange]);
+  
+  // Clear messages when dialog is closed
+  useEffect(() => {
+    if (!open) {
+      // Reset state when dialog is closed
+      setNewMessage('');
+      setHasFirstMessageSent(false);
+      setShowFeedback(false);
+      setRating(0);
+      setFeedback('');
+    }
+  }, [open]);
   
   useEffect(() => {
     // Add automated welcome message

@@ -71,9 +71,9 @@ const ModeratorLiveSupport: React.FC = () => {
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
-      // Open support session in a new window
+      // Open support session in a new window (fix route to /support/:sessionId)
       const newWindow = window.open(
-        `/support-chat/${session.id}`, 
+        `/support/${session.id}`, 
         `support-session-${session.id}`,
         'width=600,height=700,scrollbars=yes,resizable=yes'
       );

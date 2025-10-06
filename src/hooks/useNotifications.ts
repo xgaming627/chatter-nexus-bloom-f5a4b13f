@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { playMessageSound } from '@/utils/notificationSound';
 
 interface NotificationData {
   id: string;
@@ -14,43 +15,50 @@ interface NotificationData {
 export const useNotifications = () => {
   const { currentUser } = useAuth();
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const shownNotificationsRef = useRef<Set<string>>(new Set());
 
-  const showNotification = (data: NotificationData) => {
-    // Show browser notification if permission granted
-    if (Notification.permission === 'granted') {
+  const showNotification = useCallback((data: NotificationData) => {
+    // Skip if we've already shown this notification in this session
+    if (shownNotificationsRef.current.has(data.id)) {
+      return;
+    }
+
+    // Check if user is currently viewing the app
+    const isWindowFocused = document.hasFocus();
+    
+    // For messages, only show notification if window is not focused
+    if (data.type === 'message' && isWindowFocused) {
+      return;
+    }
+
+    if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(data.title, {
         body: data.message,
         icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: data.id, // Prevent duplicate notifications
         silent: !data.is_sound_enabled,
-        tag: data.type,
-        requireInteraction: data.type === 'mention' || data.type === 'warning'
+        requireInteraction: data.type === 'call' || data.type === 'mention'
       });
 
+      // Mark as shown
+      shownNotificationsRef.current.add(data.id);
+
       // Auto close after 8 seconds for non-critical notifications
-      if (data.type !== 'mention' && data.type !== 'warning') {
+      if (data.type !== 'call' && data.type !== 'mention' && data.type !== 'warning') {
         setTimeout(() => notification.close(), 8000);
       }
 
-      // Handle notification click
+      if (data.is_sound_enabled) {
+        playMessageSound();
+      }
+
       notification.onclick = () => {
         window.focus();
         notification.close();
       };
     }
-
-    // Play sound if enabled
-    if (data.is_sound_enabled) {
-      try {
-        const audio = new Audio('/notification-sound.mp3');
-        audio.volume = data.type === 'call' ? 0.5 : 0.3; // Louder for calls
-        audio.play().catch(() => {
-          // Ignore audio play errors (user interaction required)
-        });
-      } catch (error) {
-        // Ignore audio errors
-      }
-    }
-  };
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -75,49 +83,36 @@ export const useNotifications = () => {
       .subscribe();
 
     // Check for existing unread notifications
-    const checkUnreadNotifications = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', currentUser.uid)
-          .eq('is_read', false)
-          .limit(1);
+    const checkUnread = async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', currentUser.uid)
+        .eq('is_read', false);
 
-        if (!error && data && data.length > 0) {
-          setHasUnreadNotifications(true);
-        }
-      } catch (error) {
-        console.error('Error checking notifications:', error);
+      if (data && data.length > 0) {
+        setHasUnreadNotifications(true);
       }
     };
 
-    checkUnreadNotifications();
+    checkUnread();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser]);
+  }, [currentUser, showNotification]);
 
   const markAllAsRead = async () => {
     if (!currentUser) return;
 
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', currentUser.uid)
-        .eq('is_read', false);
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', currentUser.uid)
+      .eq('is_read', false);
 
-      setHasUnreadNotifications(false);
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
-    }
+    setHasUnreadNotifications(false);
   };
 
-  return {
-    hasUnreadNotifications,
-    markAllAsRead,
-    showNotification
-  };
+  return { hasUnreadNotifications, markAllAsRead, showNotification };
 };

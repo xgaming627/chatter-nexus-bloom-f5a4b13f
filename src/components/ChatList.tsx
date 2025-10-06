@@ -146,7 +146,13 @@ const ChatList: React.FC = () => {
       
       <div className="flex-1 overflow-y-auto">
         <ul>
-            {conversations.map((conversation) => {
+            {conversations
+              .sort((a, b) => {
+                const aTime = a.last_message?.timestamp ? new Date(a.last_message.timestamp).getTime() : new Date(a.created_at).getTime();
+                const bTime = b.last_message?.timestamp ? new Date(b.last_message.timestamp).getTime() : new Date(b.created_at).getTime();
+                return bTime - aTime; // Most recent first
+              })
+              .map((conversation) => {
             const { username, photoURL } = getAvatarInfo(conversation);
             const isActive = currentConversation?.id === conversation.id;
             
