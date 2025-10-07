@@ -13,6 +13,7 @@ import SearchUsers from "@/components/SearchUsers";
 import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
+import NewsButton from "@/components/NewsButton";
 import NexusTitle from "@/components/NexusTitle";
 import { ChatProvider, useChat } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";
@@ -223,6 +224,7 @@ const Index = () => {
               <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col">
                 <div className="p-4">
                   <NewChatButton />
+                  <NewsButton />
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
@@ -243,6 +245,7 @@ const Index = () => {
               <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col animate-fadeIn">
                 <div className="p-4">
                   <NewChatButton />
+                  <NewsButton />
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>

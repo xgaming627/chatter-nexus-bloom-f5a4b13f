@@ -176,7 +176,7 @@ const ChatList: React.FC = () => {
                         <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                           {getLastMessageTime(conversation)}
                         </div>
-                          {conversation.unread_count > 0 && (
+                          {!isActive && conversation.unread_count > 0 && (
                             <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse">
                               {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
                             </Badge>

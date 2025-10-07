@@ -190,18 +190,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </Button>
                 )}
 
-                <Button 
-                  onClick={() => {
-                    onOpenChange(false);
-                    navigate('/nexus-plus');
-                  }}
-                  variant="default"
-                  className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white"
-                >
-                  <Crown className="w-4 h-4 mr-2" />
-                  Get Nexus Plus
-                </Button>
-
                 <Button onClick={handleLogout} variant="destructive">
                   Log Out
                 </Button>

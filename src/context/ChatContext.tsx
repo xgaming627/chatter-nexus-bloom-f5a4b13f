@@ -566,10 +566,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentConversation(existingConversation);
       await fetchMessages(id);
       
-      // Reset unread count for this conversation
+      // Reset unread count in database and locally
       if (currentUser?.uid) {
         try {
-          await resetUnreadCount(id, currentUser.uid);
+          await supabase
+            .from('conversations')
+            .update({ unread_count: 0 })
+            .eq('id', id);
+          
+          // Update local state immediately
+          setConversations(prev => 
+            prev.map(conv => 
+              conv.id === id 
+                ? new Conversation({ ...conv, unread_count: 0 })
+                : conv
+            )
+          );
         } catch (error) {
           console.error('Failed to reset unread count:', error);
         }
@@ -595,10 +607,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentConversation(conversation);
       await fetchMessages(id);
       
-      // Reset unread count for this conversation
+      // Reset unread count in database and locally
       if (currentUser?.uid) {
         try {
-          await resetUnreadCount(id, currentUser.uid);
+          await supabase
+            .from('conversations')
+            .update({ unread_count: 0 })
+            .eq('id', id);
+          
+          setConversations(prev => 
+            prev.map(conv => 
+              conv.id === id 
+                ? new Conversation({ ...conv, unread_count: 0 })
+                : conv
+            )
+          );
         } catch (error) {
           console.error('Failed to reset unread count:', error);
         }

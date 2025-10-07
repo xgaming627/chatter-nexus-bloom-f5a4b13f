@@ -22,7 +22,6 @@ const NexusPlus: React.FC = () => {
   // Check user and Nexus Plus subscription
   useEffect(() => {
     if (!currentUser) {
-      navigate('/');
       return;
     }
 
@@ -98,7 +97,7 @@ const NexusPlus: React.FC = () => {
         toast.success('🎉 Nexus Plus activated successfully!');
         setLicenseKey('');
         setTimeout(() => {
-          window.location.reload();
+          navigate('/');
         }, 2000);
       } else {
         toast.error(data.error || 'Invalid license key');

@@ -496,9 +496,19 @@ const ModeratorPanel: React.FC = () => {
           <Shield className="h-6 w-6" />
           <h1 className="text-2xl font-bold">Moderator Panel</h1>
         </div>
-        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          {isOwnerCurrentUser ? 'Owner' : 'Moderator'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+            {isOwnerCurrentUser ? 'Owner' : 'Moderator'}
+          </Badge>
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Chat
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
