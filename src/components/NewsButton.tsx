@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 const NEWS_CONVERSATION_ID = '00000000-0000-0000-0000-000000000001'; // Special UUID for news
 
 const NewsButton: React.FC = () => {
-  const { setCurrentConversationId, conversations } = useChat();
+  const { setCurrentConversationId, refreshConversations } = useChat();
   const { currentUser } = useAuth();
 
   const handleOpenNews = async () => {
@@ -17,48 +17,63 @@ const NewsButton: React.FC = () => {
 
     try {
       // Check if news conversation exists
-      let newsConversation = conversations.find(c => c.id === NEWS_CONVERSATION_ID);
-      
-      if (!newsConversation) {
-        // Create news conversation if it doesn't exist
-        const { data: existingNews } = await supabase
+      const { data: existingNews, error: fetchError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', NEWS_CONVERSATION_ID)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (!existingNews) {
+        // Create the special news conversation
+        const { error: insertError } = await supabase
           .from('conversations')
-          .select('*')
-          .eq('id', NEWS_CONVERSATION_ID)
-          .maybeSingle();
+          .insert({
+            id: NEWS_CONVERSATION_ID,
+            participants: [currentUser.uid],
+            created_by: currentUser.uid,
+            is_group_chat: true,
+            group_name: '📰 News & Updates',
+            created_by_role: 'moderator'
+          });
 
-        if (!existingNews) {
-          // Create the special news conversation
-          const { error } = await supabase
+        if (insertError && insertError.code !== '23505') { // Ignore duplicate key error
+          throw insertError;
+        }
+      } else {
+        // Add current user to participants if not already there
+        const participants = existingNews.participants || [];
+        if (!participants.includes(currentUser.uid)) {
+          await supabase
             .from('conversations')
-            .insert({
-              id: NEWS_CONVERSATION_ID,
-              participants: [currentUser.uid],
-              created_by: currentUser.uid,
-              is_group_chat: true,
-              group_name: '📰 News & Updates',
-              created_by_role: 'moderator'
-            });
-
-          if (error) throw error;
-        } else {
-          // Add current user to participants if not already there
-          const participants = existingNews.participants || [];
-          if (!participants.includes(currentUser.uid)) {
-            await supabase
-              .from('conversations')
-              .update({
-                participants: [...participants, currentUser.uid]
-              })
-              .eq('id', NEWS_CONVERSATION_ID);
-          }
+            .update({
+              participants: [...participants, currentUser.uid]
+            })
+            .eq('id', NEWS_CONVERSATION_ID);
         }
       }
 
-      setCurrentConversationId(NEWS_CONVERSATION_ID);
-    } catch (error) {
+      // Refresh conversations to show the news channel
+      await refreshConversations();
+      
+      // Set current conversation after a short delay to ensure it's in the list
+      setTimeout(() => {
+        setCurrentConversationId(NEWS_CONVERSATION_ID);
+      }, 300);
+    } catch (error: any) {
       console.error('Error opening news:', error);
-      toast.error('Failed to open news channel');
+      if (error.code !== '23505') { // Don't show error for duplicate key
+        toast.error('Failed to open news channel');
+      } else {
+        // If duplicate, just try to open it
+        await refreshConversations();
+        setTimeout(() => {
+          setCurrentConversationId(NEWS_CONVERSATION_ID);
+        }, 300);
+      }
     }
   };
 

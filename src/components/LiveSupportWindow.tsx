@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
@@ -31,8 +30,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
     supportMessages,
     sendSupportMessage,
     createSupportSession,
-    requestEndSupport,
-    forceEndSupport,
+    confirmEndSupport,
     submitFeedback,
     isActiveSupportSession,
   } = useLiveSupport();
@@ -67,15 +65,15 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
     return () => window.removeEventListener('closeSupportWindow', handleClose);
   }, [onOpenChange]);
   
-  // Close window when session ends
+  // Handle session end and show feedback
   useEffect(() => {
-    if (currentSupportSession?.status === 'ended') {
-      // Close the support window and clear messages after a short delay
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 2000);
+    if (currentSupportSession?.status === 'ended' && open) {
+      // Show feedback dialog immediately when session ends
+      setShowFeedback(true);
+      // Close the support window
+      onOpenChange(false);
     }
-  }, [currentSupportSession?.status, onOpenChange]);
+  }, [currentSupportSession?.status, open, onOpenChange]);
   
   // Clear messages when dialog is closed
   useEffect(() => {
@@ -143,30 +141,37 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({
   };
   
   const handleEndSupport = () => {
-    if (currentSupportSession?.status === 'ended') {
-      onOpenChange(false);
-      setShowFeedback(true);
-    } else {
-      requestEndSupport();
-      toast({
-        title: "End request sent",
-        description: "Waiting for confirmation to end support session"
-      });
-    }
+    // Users should confirm end, not force it
+    confirmEndSupport();
   };
   
   const handleForceEnd = () => {
-    forceEndSupport();
+    // Just close the window without ending - user can reopen if needed
     onOpenChange(false);
-    setShowFeedback(true);
+    toast({
+      title: "Support window closed",
+      description: "You can reopen support anytime from your profile menu"
+    });
   };
   
-  const handleSubmitFeedback = () => {
-    submitFeedback(rating, feedback);
+  const handleSubmitFeedback = async () => {
+    if (rating === 0) {
+      toast({
+        title: "Rating required",
+        description: "Please select a rating before submitting",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    await submitFeedback(rating, feedback);
     setShowFeedback(false);
+    setRating(0);
+    setFeedback('');
+    
     toast({
       title: "Feedback submitted",
-      description: "Thank you for your feedback"
+      description: "Thank you for your feedback!"
     });
   };
   

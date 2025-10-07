@@ -71,24 +71,25 @@ const ModeratorLiveSupport: React.FC = () => {
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
-      // Set session immediately for faster response
-      setSelectedSession(session);
-      await setCurrentSupportSessionId(session.id);
+      // Open support session in a new window
+      const newWindow = window.open(
+        `/support/${session.id}`, 
+        `support-session-${session.id}`,
+        'width=700,height=800,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no'
+      );
       
-      // Load user stats in background
-      if (session.user_id) {
-        getUserSupportStats(session.user_id).then(stats => {
-          setUserStats(stats);
+      if (!newWindow || newWindow.closed) {
+        toast({
+          title: "Popup blocked",
+          description: "Please allow popups for this site to open support sessions in new windows",
+          variant: "destructive"
         });
       }
-      
-      setShowSupportChat(true);
-      setHasNewSessions(false);
     } catch (error) {
       console.error("Error selecting support session:", error);
       toast({
         title: "Error",
-        description: "Failed to load support session",
+        description: "Failed to open support session window",
         variant: "destructive"
       });
     }
