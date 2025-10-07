@@ -71,28 +71,26 @@ const ModeratorLiveSupport: React.FC = () => {
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
-      // Open support session in a new window (fix route to /support/:sessionId)
-      const newWindow = window.open(
-        `/support/${session.id}`, 
-        `support-session-${session.id}`,
-        'width=600,height=700,scrollbars=yes,resizable=yes'
-      );
+      // Set session immediately for faster response
+      setSelectedSession(session);
+      await setCurrentSupportSessionId(session.id);
       
-      if (!newWindow) {
-        // Fallback if popup is blocked - show in current view
-        setSelectedSession(session);
-        await setCurrentSupportSessionId(session.id);
-        
-        if (session.user_id) {
-          const stats = await getUserSupportStats(session.user_id);
+      // Load user stats in background
+      if (session.user_id) {
+        getUserSupportStats(session.user_id).then(stats => {
           setUserStats(stats);
-        }
-        
-        setShowSupportChat(true);
-        setHasNewSessions(false);
+        });
       }
+      
+      setShowSupportChat(true);
+      setHasNewSessions(false);
     } catch (error) {
       console.error("Error selecting support session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load support session",
+        variant: "destructive"
+      });
     }
   };
   
