@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,36 +19,41 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1, // Reduce retries to avoid extra Firebase calls
-      staleTime: 300000, // 5 minutes - keep data fresh longer
-      gcTime: 900000, // 15 minutes - keep data in cache longer (formerly cacheTime)
+      staleTime: 300000, // 5 minutes
+      gcTime: 900000, // 15 minutes
     },
   },
 });
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <AppInitializer />
-      <LiveSupportProvider>
+    {/* ✅ LiveSupportProvider moved OUTSIDE of AuthProvider */}
+    <LiveSupportProvider>
+      <AuthProvider>
         <TooltipProvider>
+          {/* ✅ AppInitializer can safely stay inside Auth context */}
+          <AppInitializer />
+
+          {/* ✅ Global UI Components */}
           <QuotaWarningBanner />
           <WarnUserNotification />
           <WarningNotificationModal />
           <Toaster />
           <Sonner />
+
+          {/* ✅ Routing */}
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/support/:sessionId" element={<SupportChat />} />
               <Route path="/nexus-plus" element={<NexusPlus />} />
               <Route path="/profile" element={<Profile />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </LiveSupportProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </LiveSupportProvider>
   </QueryClientProvider>
 );
 
