@@ -1,63 +1,61 @@
 import React from 'react';
-import { Megaphone } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { NEWS_CONVERSATION_ID } from '@/constants/conversations';
+import { COMMUNITY_CONVERSATION_ID } from '@/constants/conversations';
 
-const NewsButton: React.FC = () => {
+const CommunityButton: React.FC = () => {
   const { setCurrentConversationId, refreshConversations } = useChat();
   const { currentUser } = useAuth();
 
-  const handleOpenNews = async () => {
+  const handleOpenCommunity = async () => {
     if (!currentUser) return;
 
     try {
       // Always try to add user to participants
-      const { data: existingNews } = await supabase
+      const { data: existingCommunity } = await supabase
         .from('conversations')
         .select('participants')
-        .eq('id', NEWS_CONVERSATION_ID)
+        .eq('id', COMMUNITY_CONVERSATION_ID)
         .maybeSingle();
 
-      if (existingNews) {
-        const participants = existingNews.participants || [];
+      if (existingCommunity) {
+        const participants = existingCommunity.participants || [];
         if (!participants.includes(currentUser.uid)) {
-          // Add user to participants
           await supabase
             .from('conversations')
             .update({
               participants: [...participants, currentUser.uid]
             })
-            .eq('id', NEWS_CONVERSATION_ID);
+            .eq('id', COMMUNITY_CONVERSATION_ID);
         }
       }
 
       // Refresh and open
       await refreshConversations();
       setTimeout(() => {
-        setCurrentConversationId(NEWS_CONVERSATION_ID);
+        setCurrentConversationId(COMMUNITY_CONVERSATION_ID);
       }, 300);
     } catch (error: any) {
-      console.error('Error opening news:', error);
+      console.error('Error opening community:', error);
       // Try to open anyway
       await refreshConversations();
       setTimeout(() => {
-        setCurrentConversationId(NEWS_CONVERSATION_ID);
+        setCurrentConversationId(COMMUNITY_CONVERSATION_ID);
       }, 300);
     }
   };
 
   return (
     <Button 
-      className="w-full mb-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" 
-      onClick={handleOpenNews}
+      className="w-full mb-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700" 
+      onClick={handleOpenCommunity}
     >
-      <Megaphone className="mr-2 h-4 w-4" /> News
+      <Users className="mr-2 h-4 w-4" /> Community
     </Button>
   );
 };
 
-export default NewsButton;
+export default CommunityButton;

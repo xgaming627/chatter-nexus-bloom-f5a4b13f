@@ -19,7 +19,7 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import ModeratorLiveSupport from './ModeratorLiveSupport';
 import { useChat } from '@/context/ChatContext';
-import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle, Megaphone } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle, Megaphone, FileText } from 'lucide-react';
 import BannerManagement from './BannerManagement';
 import ChatWindow from './ChatWindow';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +37,7 @@ import { User as ChatUser } from "@/context/ChatContext";
 import UsernameEditDialog from './UsernameEditDialog';
 import TermsOfService from './TermsOfService';
 import MuteButton from './MuteButton';
+import AdminLogs from './AdminLogs';
 
 interface ModerationItem {
   id: string;
@@ -198,6 +199,7 @@ const ModeratorPanel: React.FC = () => {
         setSelectedUserId(userId);
       }
 
+      // Admin can search all messages regardless of conversation membership
       const { data: messages, error } = await supabase
         .from('messages')
         .select('*')
@@ -210,6 +212,16 @@ const ModeratorPanel: React.FC = () => {
 
       setSearchResults(messages || []);
       setSelectedMessages([]);
+      
+      // Log the message search action
+      await supabase
+        .from('moderation_logs')
+        .insert({
+          log_type: 'message_search',
+          moderator_id: currentUser?.uid,
+          target_user_id: userId,
+          details: { username: searchUsername, message_count: messages?.length || 0 }
+        });
       
       if (!messages || messages.length === 0) {
         toast({
@@ -286,6 +298,20 @@ const ModeratorPanel: React.FC = () => {
         .eq('user_id', userToAction.user_id);
 
       if (error) throw error;
+
+      // Log the ban action
+      await supabase
+        .from('moderation_logs')
+        .insert({
+          log_type: 'ban',
+          moderator_id: currentUser?.uid,
+          target_user_id: userToAction.user_id,
+          details: { 
+            duration: banDuration, 
+            reason: banReason || 'Violation of terms of service',
+            expiry: banExpiryDate.toISOString()
+          }
+        });
       
       toast({
         title: "User banned",
@@ -333,6 +359,19 @@ const ModeratorPanel: React.FC = () => {
         });
 
       if (error) throw error;
+
+      // Log the warning action
+      await supabase
+        .from('moderation_logs')
+        .insert({
+          log_type: 'warn',
+          moderator_id: currentUser?.uid,
+          target_user_id: userToAction.user_id,
+          details: { 
+            duration: warnDuration, 
+            reason: warnReason || 'Policy violation'
+          }
+        });
 
       // Send notification to the user
       await supabase
@@ -391,6 +430,19 @@ const ModeratorPanel: React.FC = () => {
         .eq('user_id', userToAction.user_id);
 
       if (error) throw error;
+
+      // Log the account deletion
+      await supabase
+        .from('moderation_logs')
+        .insert({
+          log_type: 'account_delete',
+          moderator_id: currentUser?.uid,
+          target_user_id: userToAction.user_id,
+          details: { 
+            reason: deleteAccountReason || 'Account deleted by moderator',
+            username: userToAction.username
+          }
+        });
       
       toast({
         title: "Account deleted",
@@ -512,12 +564,18 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="messages">Message Search</TabsTrigger>
           <TabsTrigger value="support">Live Support</TabsTrigger>
           <TabsTrigger value="banners">Banner Management</TabsTrigger>
           <TabsTrigger value="terms">Terms of Service</TabsTrigger>
+          {isOwnerCurrentUser && (
+            <TabsTrigger value="logs">
+              <FileText className="h-4 w-4 mr-1" />
+              Admin Logs
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
@@ -704,6 +762,12 @@ const ModeratorPanel: React.FC = () => {
         <TabsContent value="terms">
           <TermsOfService />
         </TabsContent>
+
+        {isOwnerCurrentUser && (
+          <TabsContent value="logs">
+            <AdminLogs />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Ban Dialog */}

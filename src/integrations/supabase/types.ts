@@ -386,6 +386,33 @@ export type Database = {
           },
         ]
       }
+      moderation_logs: {
+        Row: {
+          created_at: string
+          details: Json
+          id: string
+          log_type: string
+          moderator_id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          id?: string
+          log_type: string
+          moderator_id: string
+          target_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          id?: string
+          log_type?: string
+          moderator_id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

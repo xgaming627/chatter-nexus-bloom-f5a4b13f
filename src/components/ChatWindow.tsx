@@ -65,6 +65,7 @@ import { useRole } from '@/hooks/useRole';
 import AddMemberDialog from './AddMemberDialog';
 import RemoveMemberDialog from './RemoveMemberDialog';
 import { playMessageSound } from '@/utils/notificationSound';
+import { isSpecialConversation, isNewsConversation, isCommunityConversation } from '@/constants/conversations';
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -292,7 +293,7 @@ const ChatWindow: React.FC = () => {
     startTyping();
   };
   
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentConversation) {
       return;
@@ -328,11 +329,21 @@ const ChatWindow: React.FC = () => {
       return;
     }
     
-    const maxSizeInBytes = 5 * 1024 * 1024;
+    // Check user's Nexus Plus status for file size limit
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('nexus_plus_active')
+      .eq('user_id', currentUser?.uid)
+      .single();
+    
+    const isNexusPlus = profile?.nexus_plus_active || false;
+    const maxSizeInMB = isNexusPlus ? 50 : 15;
+    const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+    
     if (file.size > maxSizeInBytes) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 5MB",
+        description: `Maximum file size is ${maxSizeInMB}MB${!isNexusPlus ? ' (Upgrade to Nexus Plus for 50MB limit)' : ''}`,
         variant: "destructive"
       });
       e.target.value = '';
@@ -577,6 +588,9 @@ const ChatWindow: React.FC = () => {
   const otherUserIsModerator = !isGroup && 
     participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || '');
   
+  // Check if this is a special system conversation
+  const isSpecialChat = isSpecialConversation(currentConversation.id);
+  
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Banners */}
@@ -648,23 +662,25 @@ const ChatWindow: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
-                <User className="h-4 w-4 mr-2" /> Edit Profile
-              </DropdownMenuItem>
+              {!isSpecialChat && (
+                <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
+                  <User className="h-4 w-4 mr-2" /> Edit Profile
+                </DropdownMenuItem>
+              )}
               
-              {!isGroup && !isBlocked && participantsInfo.length > 0 && participantsInfo[0] && (
+              {!isGroup && !isBlocked && !isSpecialChat && participantsInfo.length > 0 && participantsInfo[0] && (
                 <DropdownMenuItem onClick={() => setShowBlockDialog(true)}>
                   <UserX className="h-4 w-4 mr-2" /> Block User
                 </DropdownMenuItem>
               )}
               
-              {!isGroup && isBlocked && (
+              {!isGroup && isBlocked && !isSpecialChat && (
                 <DropdownMenuItem onClick={handleUnblockUser}>
                   <UserCheck className="h-4 w-4 mr-2" /> Unblock User
                 </DropdownMenuItem>
               )}
               
-              {isGroup && (
+              {isGroup && !isSpecialChat && (
                 <>
                   <DropdownMenuItem onClick={() => setShowGroupSettingsDialog(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" /> Group Settings
@@ -686,40 +702,46 @@ const ChatWindow: React.FC = () => {
                 </>
               )}
               
-              <DropdownMenuSeparator />
+              {!isSpecialChat && <DropdownMenuSeparator />}
               
-              <DropdownMenuItem 
-                onClick={() => setShowDeleteChatDialog(true)}
-                className="text-red-500 focus:text-red-500"
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Delete Chat
-              </DropdownMenuItem>
+              {!isSpecialChat && (
+                <DropdownMenuItem 
+                  onClick={() => setShowDeleteChatDialog(true)}
+                  className="text-red-500 focus:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Chat
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <CallButton
-            roomName={currentConversation?.id || ''}
-            participantName={currentUser?.displayName || currentUser?.email || 'User'}
-            isVideoCall={false}
-            variant="ghost"
-            size="icon"
-            buttonText=""
-            className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
-            receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
-            receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
-            receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
-          />
-          <CallButton
-            roomName={currentConversation?.id || ''}
-            participantName={currentUser?.displayName || currentUser?.email || 'User'}
-            isVideoCall={true}
-            variant="ghost"
-            size="icon"
-            buttonText=""
-            className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
-            receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
-            receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
-            receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
-          />
+          {!isSpecialChat && (
+            <>
+              <CallButton
+                roomName={currentConversation?.id || ''}
+                participantName={currentUser?.displayName || currentUser?.email || 'User'}
+                isVideoCall={false}
+                variant="ghost"
+                size="icon"
+                buttonText=""
+                className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+                receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
+                receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
+                receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
+              />
+              <CallButton
+                roomName={currentConversation?.id || ''}
+                participantName={currentUser?.displayName || currentUser?.email || 'User'}
+                isVideoCall={true}
+                variant="ghost"
+                size="icon"
+                buttonText=""
+                className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+                receiverId={!isGroup && participantsInfo[0] ? participantsInfo[0].uid : undefined}
+                receiverName={!isGroup && participantsInfo[0] ? (participantsInfo[0].displayName || participantsInfo[0].username) : undefined}
+                receiverPhoto={!isGroup && participantsInfo[0] ? participantsInfo[0].photoURL : undefined}
+              />
+            </>
+          )}
         </div>
       </div>
       

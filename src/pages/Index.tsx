@@ -14,6 +14,7 @@ import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
 import NewsButton from "@/components/NewsButton";
+import CommunityButton from "@/components/CommunityButton";
 import NexusTitle from "@/components/NexusTitle";
 import { ChatProvider, useChat } from "@/context/ChatContext";
 import ModeratorPanel from "@/components/ModeratorPanel";

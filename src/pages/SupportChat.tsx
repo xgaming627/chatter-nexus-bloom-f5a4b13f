@@ -4,6 +4,7 @@ import { useLiveSupport } from '@/context/LiveSupportContext';
 import { useAuth } from '@/context/AuthContext';
 import LiveSupportChat from '@/components/LiveSupportChat';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/UserAvatar';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -56,17 +57,23 @@ const SupportChat: React.FC = () => {
     );
   }
 
-  if (!session) {
+  if (!sessionId || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-[400px]">
           <CardHeader>
             <CardTitle>Support Session Not Found</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              The requested support session could not be found.
+              The requested support session could not be found or may have been closed.
             </p>
+            <Button
+              className="mt-4 w-full"
+              onClick={() => window.close()}
+            >
+              Close Window
+            </Button>
           </CardContent>
         </Card>
       </div>

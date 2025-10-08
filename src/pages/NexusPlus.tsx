@@ -111,7 +111,7 @@ const NexusPlus: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen bg-background text-foreground p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -229,15 +229,17 @@ const NexusPlus: React.FC = () => {
         {/* Payhip Modal */}
         {showPurchase && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg max-w-md w-full">
-              <button
-                className="mb-2 text-sm text-gray-700 dark:text-gray-300"
-                onClick={() => setShowPurchase(false)}
-              >
-                ← Close
-              </button>
-
-              <div className="flex items-center p-4 pt-0">
+            <Card className="max-w-md w-full">
+              <CardHeader>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowPurchase(false)}
+                  className="w-fit"
+                >
+                  ← Close
+                </Button>
+              </CardHeader>
+              <CardContent>
                 <a
                   href="https://payhip.com/b/ck6Id"
                   className="payhip-buy-button w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -247,8 +249,8 @@ const NexusPlus: React.FC = () => {
                 >
                   Buy Now - $9.99
                 </a>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
