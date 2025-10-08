@@ -15,10 +15,11 @@ interface LiveSupportWindowProps {
 }
 
 const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChange }) => {
-  // ✅ Always call hooks at the top (no conditional hook calls)
+  // ✅ Always call hooks unconditionally (prevents hook order issues)
   const auth = useAuth();
   const liveSupport = useLiveSupport();
 
+  // Safely extract values after hooks are called
   const currentUser = auth?.currentUser;
   const {
     currentSupportSession,
@@ -27,8 +28,23 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     createSupportSession,
     confirmEndSupport,
     submitFeedback,
-  } = liveSupport;
+  } = liveSupport || {};
 
+  // Prevent crashes if context or auth not ready
+  if (!auth || !liveSupport) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Live Support</DialogTitle>
+          </DialogHeader>
+          <p className="text-center text-muted-foreground py-6">Loading support system...</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // UI state
   const [newMessage, setNewMessage] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [rating, setRating] = useState(0);
@@ -36,33 +52,33 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasFirstMessageSent, setHasFirstMessageSent] = useState(false);
 
-  // Scroll to bottom when messages change
+  // Scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [supportMessages]);
 
-  // Create new support session when window opens
+  // Create a new session on open (only if user is logged in)
   useEffect(() => {
     if (open && currentUser) {
       handleCreateSession();
     }
   }, [open, currentUser]);
 
-  // Listen for custom event to close window
+  // Listen for close event from system dialogs
   useEffect(() => {
     const handleClose = () => onOpenChange(false);
     window.addEventListener("closeSupportWindow", handleClose);
     return () => window.removeEventListener("closeSupportWindow", handleClose);
   }, [onOpenChange]);
 
-  // ✅ FIX: Show feedback modal without closing chat
+  // ✅ FIX: Don’t close chat when session ends — only show feedback
   useEffect(() => {
     if (currentSupportSession?.status === "ended" && open) {
       setShowFeedback(true);
     }
   }, [currentSupportSession?.status, open]);
 
-  // Reset state when closing support window
+  // Reset fields when window closes
   useEffect(() => {
     if (!open) {
       setNewMessage("");
@@ -73,11 +89,11 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     }
   }, [open]);
 
-  // Auto welcome message after first user message
+  // Auto-send welcome system message
   useEffect(() => {
     if (hasFirstMessageSent && supportMessages.length === 1) {
       const timer = setTimeout(() => {
-        sendSupportMessage(
+        sendSupportMessage?.(
           "Thanks for contacting support! One of our representatives will speak to you shortly!",
           "system",
         );
@@ -88,7 +104,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
 
   const handleCreateSession = async () => {
     try {
-      await createSupportSession();
+      await createSupportSession?.();
       console.log("Support session created");
     } catch (error) {
       console.error("Error creating support session:", error);
@@ -98,7 +114,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && currentSupportSession) {
-      sendSupportMessage(newMessage);
+      sendSupportMessage?.(newMessage);
       setNewMessage("");
       if (!hasFirstMessageSent) setHasFirstMessageSent(true);
     }
@@ -118,7 +134,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
   };
 
   const handleEndSupport = () => {
-    confirmEndSupport();
+    confirmEndSupport?.();
   };
 
   const handleForceEnd = () => {
@@ -129,7 +145,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     });
   };
 
-  // ✅ FIX: Feedback modal now stays open; reset only after submit
+  // ✅ FIX: Only reset after feedback submission
   const handleSubmitFeedback = async () => {
     if (rating === 0) {
       toast({
@@ -140,21 +156,20 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
       return;
     }
 
-    await submitFeedback(rating, feedback);
+    await submitFeedback?.(rating, feedback);
     setShowFeedback(false);
     setRating(0);
     setFeedback("");
-
     toast({
       title: "Feedback submitted",
       description: "Thank you for your feedback!",
     });
 
-    // Close and reset support window cleanly
+    // Clean close after feedback
     onOpenChange(false);
   };
 
-  // ✅ Instead of returning null, render fallback if not logged in
+  // Render login prompt if user missing
   if (!currentUser) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,7 +177,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
           <DialogHeader>
             <DialogTitle>Live Support</DialogTitle>
           </DialogHeader>
-          <p className="text-center text-muted-foreground py-6">Please log in to use live support.</p>
+          <p className="text-center text-muted-foreground py-6">Please log in to access live support.</p>
         </DialogContent>
       </Dialog>
     );
@@ -186,41 +201,39 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
             </DialogTitle>
           </DialogHeader>
 
-          {/* Messages */}
+          {/* Chat messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-4">
-            {supportMessages.length > 0 ? (
+            {supportMessages && supportMessages.length > 0 ? (
               supportMessages.map((message) => {
-                const isOwnMessage = message.sender_id === currentUser?.uid;
-                const isSystemMessage = message.sender_role === "system";
+                const isOwn = message.sender_id === currentUser?.uid;
+                const isSystem = message.sender_role === "system";
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${
-                      isSystemMessage ? "justify-center" : isOwnMessage ? "justify-end" : "justify-start"
-                    }`}
+                    className={`flex ${isSystem ? "justify-center" : isOwn ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`${
-                        isSystemMessage
+                        isSystem
                           ? "bg-muted text-muted-foreground text-center py-2 px-4 rounded-md text-sm w-full"
                           : "max-w-[80%] break-words"
                       }`}
                     >
-                      {!isOwnMessage && !isSystemMessage && (
+                      {!isOwn && !isSystem && (
                         <div className="flex items-center mb-1">
                           <UserAvatar username="Support" size="sm" />
                           <span className="text-xs font-medium ml-2">Support Agent</span>
                         </div>
                       )}
-                      {!isSystemMessage && (
-                        <div className={`chat-bubble ${isOwnMessage ? "chat-bubble-sent" : "chat-bubble-received"}`}>
+                      {!isSystem && (
+                        <div className={`chat-bubble ${isOwn ? "chat-bubble-sent" : "chat-bubble-received"}`}>
                           {message.content}
                           <div className="text-right">
                             <span className="message-time inline-block mt-1">{getMessageTime(message.timestamp)}</span>
                           </div>
                         </div>
                       )}
-                      {isSystemMessage && <div>{message.content}</div>}
+                      {isSystem && <div>{message.content}</div>}
                     </div>
                   </div>
                 );
@@ -252,7 +265,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Feedback Dialog (stays open until user submits) */}
+      {/* ✅ Feedback Modal */}
       <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
