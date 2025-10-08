@@ -1,3 +1,4 @@
+// App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,30 +19,26 @@ import WarningNotificationModal from "./components/WarningNotificationModal";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Reduce retries to avoid extra Firebase calls
-      staleTime: 300000, // 5 minutes
-      gcTime: 900000, // 15 minutes
+      retry: 1,
+      staleTime: 300000,
+      gcTime: 900000,
     },
   },
 });
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    {/* ✅ LiveSupportProvider moved OUTSIDE of AuthProvider */}
-    <LiveSupportProvider>
-      <AuthProvider>
+    {/* AuthProvider must wrap anything that uses useAuth */}
+    <AuthProvider>
+      {/* LiveSupportProvider can be inside AuthProvider so it can call useAuth */}
+      <LiveSupportProvider>
         <TooltipProvider>
-          {/* ✅ AppInitializer can safely stay inside Auth context */}
           <AppInitializer />
-
-          {/* ✅ Global UI Components */}
           <QuotaWarningBanner />
           <WarnUserNotification />
           <WarningNotificationModal />
           <Toaster />
           <Sonner />
-
-          {/* ✅ Routing */}
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -52,8 +49,8 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
-    </LiveSupportProvider>
+      </LiveSupportProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
