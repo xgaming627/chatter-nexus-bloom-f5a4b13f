@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Crown, Sparkles, Zap, TrendingUp, Video, Palette } from 'lucide-react';
@@ -17,7 +18,6 @@ const NexusPlus: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [nexusPlusActive, setNexusPlusActive] = useState(false);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
-  const [showPurchase, setShowPurchase] = useState(false);
 
   // Check user and Nexus Plus subscription
   useEffect(() => {
@@ -180,13 +180,25 @@ const NexusPlus: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Price */}
-        <Card className="text-center">
-          <CardContent className="py-6">
-            <div className="text-4xl font-bold text-primary mb-2">$9.99</div>
-            <div className="text-muted-foreground">for 3 months</div>
-          </CardContent>
-        </Card>
+        {/* Pricing Options */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card className="text-center border-2 border-primary">
+            <CardContent className="py-6">
+              <Badge className="mb-2">Most Popular</Badge>
+              <div className="text-4xl font-bold text-primary mb-2">$9.99</div>
+              <div className="text-muted-foreground">for 3 months</div>
+              <div className="text-sm text-muted-foreground mt-1">$3.33/month</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center bg-card dark:bg-card">
+            <CardContent className="py-6">
+              <Badge variant="outline" className="mb-2">Try It Out</Badge>
+              <div className="text-4xl font-bold mb-2">$3.33</div>
+              <div className="text-muted-foreground">for 1 month</div>
+              <div className="text-sm text-muted-foreground mt-1">Perfect for testing</div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* License Activation */}
         <Card>
@@ -214,45 +226,29 @@ const NexusPlus: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              variant="default"
-              className="w-full"
-              size="lg"
-              onClick={() => setShowPurchase(true)}
-            >
-              <Crown className="h-5 w-5 mr-2" />
-              Purchase Nexus Plus
-            </Button>
+            <div className="grid md:grid-cols-2 gap-3">
+              <Button
+                variant="default"
+                className="w-full"
+                size="lg"
+                onClick={() => window.open('https://payhip.com/b/ck6Id', '_blank')}
+              >
+                <Crown className="h-5 w-5 mr-2" />
+                Buy 3 Months - $9.99
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={() => window.open('https://payhip.com/b/gm2is', '_blank')}
+              >
+                <Crown className="h-5 w-5 mr-2" />
+                Buy 1 Month - $3.33
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Payhip Modal */}
-        {showPurchase && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full">
-              <CardHeader>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowPurchase(false)}
-                  className="w-fit"
-                >
-                  ← Close
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <a
-                  href="https://payhip.com/b/ck6Id"
-                  className="payhip-buy-button w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                  data-theme="none"
-                  data-product="ck6Id"
-                  data-initiated="true"
-                >
-                  Buy Now - $9.99
-                </a>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </div>
   );

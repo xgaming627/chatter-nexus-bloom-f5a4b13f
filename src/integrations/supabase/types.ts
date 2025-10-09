@@ -304,6 +304,35 @@ export type Database = {
         }
         Relationships: []
       }
+      message_read_receipts: {
+        Row: {
+          id: string
+          message_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_read_receipts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -311,6 +340,7 @@ export type Database = {
           deleted: boolean
           deleted_by: string | null
           delivered: boolean
+          delivered_at: string | null
           file_name: string | null
           file_type: string | null
           file_url: string | null
@@ -318,6 +348,7 @@ export type Database = {
           id: string
           is_system_message: boolean
           read: boolean
+          read_at: string | null
           reply_to_content: string | null
           reply_to_message_id: string | null
           reported: boolean
@@ -330,6 +361,7 @@ export type Database = {
           deleted?: boolean
           deleted_by?: string | null
           delivered?: boolean
+          delivered_at?: string | null
           file_name?: string | null
           file_type?: string | null
           file_url?: string | null
@@ -337,6 +369,7 @@ export type Database = {
           id?: string
           is_system_message?: boolean
           read?: boolean
+          read_at?: string | null
           reply_to_content?: string | null
           reply_to_message_id?: string | null
           reported?: boolean
@@ -349,6 +382,7 @@ export type Database = {
           deleted?: boolean
           deleted_by?: string | null
           delivered?: boolean
+          delivered_at?: string | null
           file_name?: string | null
           file_type?: string | null
           file_url?: string | null
@@ -356,6 +390,7 @@ export type Database = {
           id?: string
           is_system_message?: boolean
           read?: boolean
+          read_at?: string | null
           reply_to_content?: string | null
           reply_to_message_id?: string | null
           reported?: boolean
@@ -533,6 +568,7 @@ export type Database = {
           nexus_plus_reminder_shown: boolean | null
           online_status: string | null
           photo_url: string | null
+          read_receipts_enabled: boolean | null
           show_moderator_badge: boolean | null
           updated_at: string
           user_id: string
@@ -550,6 +586,7 @@ export type Database = {
           nexus_plus_reminder_shown?: boolean | null
           online_status?: string | null
           photo_url?: string | null
+          read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
           updated_at?: string
           user_id: string
@@ -567,6 +604,7 @@ export type Database = {
           nexus_plus_reminder_shown?: boolean | null
           online_status?: string | null
           photo_url?: string | null
+          read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
           updated_at?: string
           user_id?: string
@@ -663,6 +701,8 @@ export type Database = {
           ipv6_address: string | null
           last_activity: string | null
           last_read_by_moderator: boolean
+          last_warning_at: string | null
+          message_count: number | null
           rating: number | null
           status: string
           updated_at: string
@@ -670,6 +710,7 @@ export type Database = {
           user_email: string | null
           user_id: string
           vpn_detected: boolean | null
+          warnings_count: number | null
         }
         Insert: {
           city?: string | null
@@ -681,6 +722,8 @@ export type Database = {
           ipv6_address?: string | null
           last_activity?: string | null
           last_read_by_moderator?: boolean
+          last_warning_at?: string | null
+          message_count?: number | null
           rating?: number | null
           status?: string
           updated_at?: string
@@ -688,6 +731,7 @@ export type Database = {
           user_email?: string | null
           user_id: string
           vpn_detected?: boolean | null
+          warnings_count?: number | null
         }
         Update: {
           city?: string | null
@@ -699,6 +743,8 @@ export type Database = {
           ipv6_address?: string | null
           last_activity?: string | null
           last_read_by_moderator?: boolean
+          last_warning_at?: string | null
+          message_count?: number | null
           rating?: number | null
           status?: string
           updated_at?: string
@@ -706,6 +752,7 @@ export type Database = {
           user_email?: string | null
           user_id?: string
           vpn_detected?: boolean | null
+          warnings_count?: number | null
         }
         Relationships: [
           {

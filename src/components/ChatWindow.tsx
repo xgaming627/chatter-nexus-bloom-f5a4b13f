@@ -70,6 +70,8 @@ import { isSpecialConversation, isNewsConversation, isCommunityConversation } fr
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
+  const { currentUser } = useAuth();
+  const { isModerator } = useRole();
   const { 
     currentConversation, 
     messages, 
@@ -91,9 +93,27 @@ const ChatWindow: React.FC = () => {
     isRateLimited,
     markMessageAsDeletedForUser,
     refreshConversations,
+    conversations
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  useEffect(() => {
+    // Fetch user profile to check Nexus Plus status
+    const fetchProfile = async () => {
+      if (currentUser) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('nexus_plus_active')
+          .eq('user_id', currentUser.uid)
+          .single();
+        setUserProfile(data);
+      }
+    };
+    fetchProfile();
+  }, [currentUser]);
+  
   const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -296,6 +316,21 @@ const ChatWindow: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentConversation) {
+      return;
+    }
+
+    // Check file size limits
+    const maxSize = userProfile?.nexus_plus_active ? 50 * 1024 * 1024 : 15 * 1024 * 1024; // 50MB for Plus, 15MB for free
+    if (file.size > maxSize) {
+      const maxSizeMB = userProfile?.nexus_plus_active ? 50 : 15;
+      toast({
+        title: "File too large",
+        description: `Maximum file size is ${maxSizeMB}MB. ${userProfile?.nexus_plus_active ? '' : 'Upgrade to Nexus Plus for 50MB uploads!'}`,
+        variant: "destructive",
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
     

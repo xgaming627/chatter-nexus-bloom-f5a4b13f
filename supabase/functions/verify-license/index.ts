@@ -30,8 +30,8 @@ serve(async (req) => {
       );
     }
 
-    // Verify with Payhip API
-    const payhipResponse = await fetch('https://payhip.com/api/v1/license/verify', {
+    // Try verifying with 3-month product first (ck6Id)
+    let payhipResponse = await fetch('https://payhip.com/api/v1/license/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +40,27 @@ serve(async (req) => {
       body: JSON.stringify({ product_link: 'ck6Id', license_key: licenseKey }),
     });
 
-    const payhipData = await payhipResponse.json();
+    let payhipData = await payhipResponse.json();
+    let durationMonths = 3;
+    let productType = '3-month';
+
+    // If 3-month verification fails, try 1-month product (gm2is)
+    if (!payhipData.success || payhipData.status !== 'valid') {
+      console.log('Trying 1-month product verification...');
+      payhipResponse = await fetch('https://payhip.com/api/v1/license/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'payhip-secret-key': payhipKey,
+        },
+        body: JSON.stringify({ product_link: 'gm2is', license_key: licenseKey }),
+      });
+
+      payhipData = await payhipResponse.json();
+      durationMonths = 1;
+      productType = '1-month';
+    }
+
     console.log('Payhip verification response:', payhipData);
 
     if (!payhipData.success || payhipData.status !== 'valid') {
@@ -96,16 +116,18 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    // Calculate expiry (3 months from now or from existing expiry if active)
-    let expiresAt = new Date();
+    // Calculate expiry - FIX: Use proper date arithmetic to avoid month boundary issues
+    let expiresAt: Date;
     if (profile?.nexus_plus_active && profile.nexus_plus_expires_at) {
-      // Stack license - add 3 months to existing expiry
+      // Stack license - add months to existing expiry
       expiresAt = new Date(profile.nexus_plus_expires_at);
-      expiresAt.setMonth(expiresAt.getMonth() + 3);
-      console.log('Stacking license: extending from', profile.nexus_plus_expires_at, 'to', expiresAt.toISOString());
+      // Add days instead of months to avoid month boundary issues
+      expiresAt.setDate(expiresAt.getDate() + (durationMonths * 30));
+      console.log(`Stacking ${productType} license: extending from`, profile.nexus_plus_expires_at, 'to', expiresAt.toISOString());
     } else {
-      // New license - 3 months from now
-      expiresAt.setMonth(expiresAt.getMonth() + 3);
+      // New license - add months from now
+      expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (durationMonths * 30));
     }
 
     // Store license key
@@ -144,7 +166,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Nexus Plus activated successfully!',
+        message: `Nexus Plus ${productType} activated successfully!`,
         expiresAt: expiresAt.toISOString(),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

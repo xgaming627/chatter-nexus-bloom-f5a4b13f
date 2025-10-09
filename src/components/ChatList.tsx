@@ -9,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/context/AuthContext';
 
 const ChatList: React.FC = () => {
   const { conversations, currentConversation, setCurrentConversationId, refreshConversations } = useChat();
+  const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -176,7 +178,8 @@ const ChatList: React.FC = () => {
                         <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                           {getLastMessageTime(conversation)}
                         </div>
-                          {!isActive && conversation.unread_count > 0 && (
+                          {/* Only show unread badge if the last message was NOT sent by the current user */}
+                          {!isActive && conversation.unread_count > 0 && conversation.last_message?.sender_id !== currentUser?.uid && (
                             <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse">
                               {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
                             </Badge>
