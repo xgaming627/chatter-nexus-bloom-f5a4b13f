@@ -1,14 +1,7 @@
-import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Crown, Sparkles } from "lucide-react";
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Crown, Sparkles } from 'lucide-react';
 
 interface FreeTrialModalProps {
   open: boolean;
@@ -32,13 +25,15 @@ export const FreeTrialModal: React.FC<FreeTrialModalProps> = ({ open, onClose })
                   You've been given a <strong>3-day free trial</strong> of Nexus Plus as a welcome gift!
                 </span>
               </p>
-              <p>Enjoy all premium features including:</p>
+              <p>
+                Enjoy all premium features including:
+              </p>
               <ul className="list-disc list-inside space-y-1 ml-4">
                 <li>1080p HD Screen Sharing</li>
                 <li>Golden Username Badge</li>
-                <li>50MB File Uploads (vs 15MB)</li>
-                <li>Special Call Effects & Filters</li>
-                <li>Priority Support</li>
+                <li>50MB file uploads (vs 15MB)</li>
+                <li>Special call effects & filters</li>
+                <li>Priority support</li>
               </ul>
               <p className="text-sm text-muted-foreground mt-4">
                 Your trial will expire in 3 days. We'll remind you before it ends!
