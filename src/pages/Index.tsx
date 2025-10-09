@@ -4,14 +4,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { useFreeTrialModals } from "@/hooks/useFreeTrialModals";
 import { FreeTrialModal, TrialExpiringModal } from "@/components/FreeTrialModal";
-import { Settings, Bell, Crown } from "lucide-react";
+import { Settings, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
 import ChatList from "@/components/ChatList";
 import ChatWindow from "@/components/ChatWindow";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import SearchUsers from "@/components/SearchUsers";
 import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
 import NewChatButton from "@/components/NewChatButton";
@@ -24,12 +23,10 @@ import WarningReloadHandler from "@/components/WarningReloadHandler";
 import ModeratorNotifications from "@/components/ModeratorNotifications";
 import NotificationDisplay from "@/components/NotificationDisplay";
 import { BrowserNotificationPermission } from "@/components/BrowserNotificationPermission";
-import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import { CallNotificationsManager } from "@/components/CallNotification";
 import { LiveKitRoom } from "@/components/LiveKitRoom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
@@ -49,6 +46,7 @@ const Index = () => {
     isVideoCall: boolean;
   } | null>(null);
 
+  // Show welcome modal once per user
   useEffect(() => {
     if (currentUser) {
       const hasSeenWelcome = localStorage.getItem("hasSeenWelcome");
@@ -70,7 +68,7 @@ const Index = () => {
   };
 
   return (
-    <LiveSupportProvider>
+    <>
       {!currentUser ? (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
           <div className="w-full max-w-md">
@@ -97,7 +95,9 @@ const Index = () => {
             />
           )}
 
+          {/* Main Layout */}
           <div className="flex flex-col h-screen bg-background">
+            {/* Header */}
             <header className="bg-teams-purple text-white py-2 px-4 shadow-md dark:bg-gray-800">
               <div className="flex justify-between items-center">
                 <NexusTitle />
@@ -124,7 +124,9 @@ const Index = () => {
               </div>
             </header>
 
+            {/* Main Content */}
             <div className="flex flex-1 overflow-hidden">
+              {/* Sidebar */}
               <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col">
                 <div className="p-4">
                   <NewChatButton />
@@ -140,12 +142,14 @@ const Index = () => {
                 </div>
               </div>
 
+              {/* Chat or Mod Panel */}
               <div className="flex-1 flex flex-col overflow-hidden">
                 {showModeratorPanel && isModerator ? <ModeratorPanel /> : <ChatWindow />}
               </div>
             </div>
           </div>
 
+          {/* Settings */}
           <SettingsModal
             open={showSettings}
             onOpenChange={setShowSettings}
@@ -159,13 +163,14 @@ const Index = () => {
             }
           />
 
+          {/* Welcome Dialog */}
           <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Welcome to Nexus Chat!</DialogTitle>
               </DialogHeader>
               <ScrollArea className="max-h-[400px] pr-4">
-                <p>Welcome to Nexus Chat — powered by Quibly Inc. 🚀</p>
+                <p>Welcome to Nexus Chat — proudly built by Quibly Inc. 🚀</p>
               </ScrollArea>
               <DialogFooter>
                 <Button onClick={handleAcceptTerms}>I Accept</Button>
@@ -173,6 +178,7 @@ const Index = () => {
             </DialogContent>
           </Dialog>
 
+          {/* Trial Modals */}
           <FreeTrialModal open={showFreeTrialModal} onClose={() => setShowFreeTrialModal(false)} />
           <TrialExpiringModal
             open={showExpiringModal}
@@ -181,7 +187,7 @@ const Index = () => {
           />
         </ChatProvider>
       )}
-    </LiveSupportProvider>
+    </>
   );
 };
 
