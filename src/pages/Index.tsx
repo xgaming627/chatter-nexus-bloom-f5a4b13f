@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { useNavigate } from "react-router-dom";
 import { useFreeTrialModals } from "@/hooks/useFreeTrialModals";
 import { FreeTrialModal, TrialExpiringModal } from "@/components/FreeTrialModal";
 import { Settings, Bell, Crown } from "lucide-react";
