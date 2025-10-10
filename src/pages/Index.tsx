@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { useNavigate } from "react-router-dom";
 import { Settings, Bell, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,6 @@ import { format } from "date-fns";
 const Index = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
-  const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const [showModeratorPanel, setShowModeratorPanel] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
