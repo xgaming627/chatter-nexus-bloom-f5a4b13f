@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
+import { useNavigate } from "react-router-dom";
 import { Settings, Bell, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,6 @@ const Index = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
   const navigate = useNavigate();
-  const { showFreeTrialModal, setShowFreeTrialModal, showExpiringModal, setShowExpiringModal } = useFreeTrialModals();
   const [showSettings, setShowSettings] = useState(false);
   const [showModeratorPanel, setShowModeratorPanel] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -228,6 +228,7 @@ const Index = () => {
                 <div className="p-4">
                   <NewChatButton />
                   <NewsButton />
+                  <CommunityButton />
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
@@ -249,6 +250,7 @@ const Index = () => {
                 <div className="p-4">
                   <NewChatButton />
                   <NewsButton />
+                  <CommunityButton />
                   <div className="md:hidden mb-4">
                     <SearchUsers />
                   </div>
@@ -328,20 +330,6 @@ const Index = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
-        <FreeTrialModal 
-          open={showFreeTrialModal}
-          onClose={() => setShowFreeTrialModal(false)}
-        />
-        
-        <TrialExpiringModal 
-          open={showExpiringModal}
-          onClose={() => setShowExpiringModal(false)}
-          onViewPricing={() => {
-            setShowExpiringModal(false);
-            navigate('/nexus-plus');
-          }}
-        />
       </ChatProvider>
       )}
     </LiveSupportProvider>

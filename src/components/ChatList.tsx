@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/context/AuthContext';
+import { NEWS_CONVERSATION_ID, COMMUNITY_CONVERSATION_ID } from '@/constants/conversations';
 
 const ChatList: React.FC = () => {
   const { conversations, currentConversation, setCurrentConversationId, refreshConversations } = useChat();
@@ -150,6 +151,20 @@ const ChatList: React.FC = () => {
         <ul>
             {conversations
               .sort((a, b) => {
+                // Prioritize special conversations (News and Community) at the top
+                const aIsSpecial = a.id === NEWS_CONVERSATION_ID || a.id === COMMUNITY_CONVERSATION_ID;
+                const bIsSpecial = b.id === NEWS_CONVERSATION_ID || b.id === COMMUNITY_CONVERSATION_ID;
+                
+                if (aIsSpecial && !bIsSpecial) return -1;
+                if (!aIsSpecial && bIsSpecial) return 1;
+                
+                // Within special conversations, News comes first
+                if (aIsSpecial && bIsSpecial) {
+                  if (a.id === NEWS_CONVERSATION_ID) return -1;
+                  if (b.id === NEWS_CONVERSATION_ID) return 1;
+                }
+                
+                // For regular conversations, sort by most recent activity
                 const aTime = a.last_message?.timestamp ? new Date(a.last_message.timestamp).getTime() : new Date(a.created_at).getTime();
                 const bTime = b.last_message?.timestamp ? new Date(b.last_message.timestamp).getTime() : new Date(b.created_at).getTime();
                 return bTime - aTime; // Most recent first

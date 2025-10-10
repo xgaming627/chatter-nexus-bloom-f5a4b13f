@@ -153,6 +153,9 @@ const ChatWindow: React.FC = () => {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
   const prevMessagesLengthRef = useRef(messages.length);
+  
+  // Check if current conversation is special (News or Community)
+  const isSpecialChat = currentConversation ? isSpecialConversation(currentConversation.id) : false;
 
   useEffect(() => {
     // Play sound for new messages from others
@@ -532,6 +535,22 @@ const ChatWindow: React.FC = () => {
     if (!currentConversation) return;
 
     try {
+      // Log conversation deletion if user is moderator
+      if (isModerator() && currentUser) {
+        await supabase
+          .from('moderation_logs')
+          .insert({
+            log_type: 'conversation_delete',
+            moderator_id: currentUser.uid,
+            details: { 
+              conversation_id: currentConversation.id,
+              conversation_name: currentConversation.isGroupChat ? currentConversation.groupName : conversationName,
+              is_group: currentConversation.isGroupChat,
+              participant_count: currentConversation.participants?.length || 0
+            }
+          });
+      }
+      
       await deleteChat(currentConversation.id);
       setShowDeleteChatDialog(false);
     } catch (error) {
@@ -621,9 +640,6 @@ const ChatWindow: React.FC = () => {
 
   const otherUserIsModerator =
     !isGroup && participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || "");
-
-  // Check if this is a special system conversation
-  const isSpecialChat = isSpecialConversation(currentConversation.id);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

@@ -111,6 +111,8 @@ const ModeratorPanel: React.FC = () => {
   const [userToEditUsername, setUserToEditUsername] = useState<User | null>(null);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const [deleteAccountReason, setDeleteAccountReason] = useState('');
+  const [lastSearchTime, setLastSearchTime] = useState<number>(0);
+  const SEARCH_COOLDOWN = 3000; // 3 seconds cooldown between searches
 
   // Check if user is moderator or admin
   const isModeratorCurrentUser = checkIsModerator();
@@ -175,6 +177,19 @@ const ModeratorPanel: React.FC = () => {
   
   const searchUserMessages = async () => {
     if (!searchUsername.trim() && !selectedUserId) return;
+    
+    // Prevent spam searching
+    const now = Date.now();
+    if (now - lastSearchTime < SEARCH_COOLDOWN) {
+      toast({
+        title: "Please wait",
+        description: `Please wait ${Math.ceil((SEARCH_COOLDOWN - (now - lastSearchTime)) / 1000)} seconds before searching again`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLastSearchTime(now);
     
     try {
       let userId = selectedUserId;
