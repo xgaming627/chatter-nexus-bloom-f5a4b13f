@@ -185,21 +185,19 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       try {
         const chanName = `support-messages-changes-${currentSupportSession.id}`;
-        const channel = supabase
-          .channel(chanName)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "support_messages",
-              filter: `session_id=eq.${currentSupportSession.id}`,
-            },
-            (payload) => {
-              console.log("Support message change:", payload);
-              fetchSupportMessages(currentSupportSession.id);
-            },
-          );
+        const channel = supabase.channel(chanName).on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "support_messages",
+            filter: `session_id=eq.${currentSupportSession.id}`,
+          },
+          (payload) => {
+            console.log("Support message change:", payload);
+            fetchSupportMessages(currentSupportSession.id);
+          },
+        );
 
         messagesChannelRef.current = channel;
         await channel.subscribe();
