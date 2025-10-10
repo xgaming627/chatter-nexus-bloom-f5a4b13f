@@ -3,48 +3,20 @@ import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { COMMUNITY_CONVERSATION_ID } from '@/constants/conversations';
 
 const CommunityButton: React.FC = () => {
-  const { setCurrentConversationId, refreshConversations } = useChat();
+  const { setCurrentConversationId } = useChat();
   const { currentUser } = useAuth();
 
   const handleOpenCommunity = async () => {
     if (!currentUser) return;
 
     try {
-      // Always try to add user to participants
-      const { data: existingCommunity } = await supabase
-        .from('conversations')
-        .select('participants')
-        .eq('id', COMMUNITY_CONVERSATION_ID)
-        .maybeSingle();
-
-      if (existingCommunity) {
-        const participants = existingCommunity.participants || [];
-        if (!participants.includes(currentUser.uid)) {
-          await supabase
-            .from('conversations')
-            .update({
-              participants: [...participants, currentUser.uid]
-            })
-            .eq('id', COMMUNITY_CONVERSATION_ID);
-        }
-      }
-
-      // Refresh and open
-      await refreshConversations();
-      setTimeout(() => {
-        setCurrentConversationId(COMMUNITY_CONVERSATION_ID);
-      }, 300);
+      // Just open the conversation directly
+      setCurrentConversationId(COMMUNITY_CONVERSATION_ID);
     } catch (error: any) {
       console.error('Error opening community:', error);
-      // Try to open anyway
-      await refreshConversations();
-      setTimeout(() => {
-        setCurrentConversationId(COMMUNITY_CONVERSATION_ID);
-      }, 300);
     }
   };
 

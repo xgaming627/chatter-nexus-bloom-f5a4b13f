@@ -3,50 +3,20 @@ import { Megaphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/context/ChatContext';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { NEWS_CONVERSATION_ID } from '@/constants/conversations';
 
 const NewsButton: React.FC = () => {
-  const { setCurrentConversationId, refreshConversations } = useChat();
+  const { setCurrentConversationId } = useChat();
   const { currentUser } = useAuth();
 
   const handleOpenNews = async () => {
     if (!currentUser) return;
 
     try {
-      // Always try to add user to participants
-      const { data: existingNews } = await supabase
-        .from('conversations')
-        .select('participants')
-        .eq('id', NEWS_CONVERSATION_ID)
-        .maybeSingle();
-
-      if (existingNews) {
-        const participants = existingNews.participants || [];
-        if (!participants.includes(currentUser.uid)) {
-          // Add user to participants
-          await supabase
-            .from('conversations')
-            .update({
-              participants: [...participants, currentUser.uid]
-            })
-            .eq('id', NEWS_CONVERSATION_ID);
-        }
-      }
-
-      // Refresh and open
-      await refreshConversations();
-      setTimeout(() => {
-        setCurrentConversationId(NEWS_CONVERSATION_ID);
-      }, 300);
+      // Just open the conversation directly
+      setCurrentConversationId(NEWS_CONVERSATION_ID);
     } catch (error: any) {
       console.error('Error opening news:', error);
-      // Try to open anyway
-      await refreshConversations();
-      setTimeout(() => {
-        setCurrentConversationId(NEWS_CONVERSATION_ID);
-      }, 300);
     }
   };
 
