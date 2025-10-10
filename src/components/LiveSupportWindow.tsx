@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import UserAvatar from "./UserAvatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom"; // ✅ React Router navigation
 
 interface LiveSupportWindowProps {
   open: boolean;
@@ -15,11 +16,10 @@ interface LiveSupportWindowProps {
 }
 
 const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChange }) => {
-  // ✅ Always call hooks unconditionally (prevents hook order issues)
   const auth = useAuth();
   const liveSupport = useLiveSupport();
+  const navigate = useNavigate(); // ✅ Hook to handle safe navigation
 
-  // Safely extract values after hooks are called
   const currentUser = auth?.currentUser;
   const {
     currentSupportSession,
@@ -30,7 +30,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     submitFeedback,
   } = liveSupport || {};
 
-  // Prevent crashes if context or auth not ready
+  // Guard for missing contexts
   if (!auth || !liveSupport) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,41 +44,35 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     );
   }
 
-  // UI state
   const [newMessage, setNewMessage] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasFirstMessageSent, setHasFirstMessageSent] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [supportMessages]);
 
-  // Create a new session on open (only if user is logged in)
   useEffect(() => {
     if (open && currentUser) {
       handleCreateSession();
     }
   }, [open, currentUser]);
 
-  // Listen for close event from system dialogs
   useEffect(() => {
     const handleClose = () => onOpenChange(false);
     window.addEventListener("closeSupportWindow", handleClose);
     return () => window.removeEventListener("closeSupportWindow", handleClose);
   }, [onOpenChange]);
 
-  // ✅ FIX: Don’t close chat when session ends — only show feedback
   useEffect(() => {
     if (currentSupportSession?.status === "ended" && open) {
       setShowFeedback(true);
     }
   }, [currentSupportSession?.status, open]);
 
-  // Reset fields when window closes
   useEffect(() => {
     if (!open) {
       setNewMessage("");
@@ -89,7 +83,6 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     }
   }, [open]);
 
-  // Auto-send welcome system message
   useEffect(() => {
     if (hasFirstMessageSent && supportMessages.length === 1) {
       const timer = setTimeout(() => {
@@ -104,8 +97,8 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
 
   const handleCreateSession = async () => {
     try {
-      await createSupportSession?.();
-      console.log("Support session created");
+      const session = await createSupportSession?.();
+      console.log("Support session created:", session);
     } catch (error) {
       console.error("Error creating support session:", error);
     }
@@ -145,7 +138,6 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
     });
   };
 
-  // ✅ FIX: Only reset after feedback submission
   const handleSubmitFeedback = async () => {
     if (rating === 0) {
       toast({
@@ -165,11 +157,22 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
       description: "Thank you for your feedback!",
     });
 
-    // Clean close after feedback
     onOpenChange(false);
   };
 
-  // Render login prompt if user missing
+  const handleViewFullSession = () => {
+    // ✅ Router-safe navigation (acts like 301 redirect in SPA)
+    if (currentSupportSession?.id) {
+      navigate(`/support/${currentSupportSession.id}`);
+    } else {
+      toast({
+        title: "No session found",
+        description: "You need an active session before viewing details.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!currentUser) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -191,6 +194,9 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
             <DialogTitle className="flex justify-between items-center">
               <span>Live Support</span>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleViewFullSession}>
+                  Open in Full View
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleEndSupport}>
                   Request to End
                 </Button>
@@ -265,7 +271,7 @@ const LiveSupportWindow: React.FC<LiveSupportWindowProps> = ({ open, onOpenChang
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Feedback Modal */}
+      {/* Feedback Modal */}
       <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
