@@ -1,7 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLiveSupport, SupportSession } from '@/context/LiveSupportContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import UserAvatar from './UserAvatar';
@@ -10,7 +8,7 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LiveSupportChat from './LiveSupportChat';
 import { toast } from '@/hooks/use-toast';
-import { Archive, Bell, Shield } from 'lucide-react';
+import { Archive, Shield } from 'lucide-react';
 import ArchivedSupportSessions from './ArchivedSupportSessions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -19,55 +17,51 @@ const ModeratorLiveSupport: React.FC = () => {
     supportSessions, 
     setCurrentSupportSessionId,
     currentSupportSession,
-    getUserSupportStats
   } = useLiveSupport();
   
-  const [showSupportChat, setShowSupportChat] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SupportSession | null>(null);
-  const [feedbackData, setFeedbackData] = useState<any[]>([]);
-  const [userStats, setUserStats] = useState<any>(null);
-  const [hasNewSessions, setHasNewSessions] = useState(false);
+  const prevSessionCountRef = useRef(0);
   
-  useEffect(() => {
-    // Generate feedback data or fetch it from the database
-    const ratings = supportSessions
+  // Memoize feedback data calculation
+  const feedbackData = useMemo(() => {
+    const ratingCounts = [0, 0, 0, 0, 0];
+    
+    supportSessions
       .filter(session => session.rating)
-      .map(session => ({ rating: session.rating, feedback: session.feedback }));
+      .forEach(session => {
+        if (session.rating && session.rating > 0 && session.rating <= 5) {
+          ratingCounts[session.rating - 1]++;
+        }
+      });
     
-    const ratingCounts = [0, 0, 0, 0, 0]; // For ratings 1-5
-    
-    ratings.forEach(item => {
-      if (item.rating && item.rating > 0 && item.rating <= 5) {
-        ratingCounts[item.rating - 1]++;
-      }
-    });
-    
-    const chartData = [
+    return [
       { rating: 1, count: ratingCounts[0] },
       { rating: 2, count: ratingCounts[1] },
       { rating: 3, count: ratingCounts[2] },
       { rating: 4, count: ratingCounts[3] },
       { rating: 5, count: ratingCounts[4] }
     ];
-    
-    setFeedbackData(chartData);
   }, [supportSessions]);
 
-  // Check for new support sessions
+  // Check for NEW sessions only (not on every render)
   useEffect(() => {
-    const unreadSessions = supportSessions.filter(session => 
-      session.status === 'active' && 
-      session.last_read_by_moderator === false
+    const activeSessions = supportSessions.filter(s => 
+      s.status === 'active' || s.status === 'requested-end'
     );
     
-    if (unreadSessions.length > 0) {
-      setHasNewSessions(true);
-      toast({
-        title: "New support request",
-        description: `${unreadSessions.length} support ${unreadSessions.length === 1 ? 'session' : 'sessions'} waiting for assistance`,
-      });
+    // Only toast if sessions INCREASED
+    if (activeSessions.length > prevSessionCountRef.current && prevSessionCountRef.current > 0) {
+      const unreadCount = activeSessions.filter(s => !s.last_read_by_moderator).length;
+      if (unreadCount > 0) {
+        toast({
+          title: "New support request",
+          description: `${unreadCount} new support ${unreadCount === 1 ? 'session' : 'sessions'}`,
+        });
+      }
     }
-  }, [supportSessions]);
+    
+    prevSessionCountRef.current = activeSessions.length;
+  }, [supportSessions.length]);
   
   const handleSelectSession = async (session: SupportSession) => {
     try {
@@ -98,13 +92,8 @@ const ModeratorLiveSupport: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="col-span-1 border rounded-lg overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center">
+        <div className="p-4 border-b">
           <h3 className="font-medium">Active Support Sessions</h3>
-          {hasNewSessions && (
-            <Badge variant="destructive" className="animate-pulse">
-              <Bell className="h-3 w-3 mr-1" /> New
-            </Badge>
-          )}
         </div>
         <ScrollArea className="h-[500px]">
           {supportSessions.filter(s => s.status !== 'ended' && s.user_id).length > 0 ? (

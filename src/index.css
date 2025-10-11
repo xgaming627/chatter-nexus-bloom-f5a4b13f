@@ -3,6 +3,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global 80% scaling */
+html {
+  zoom: 0.8;
+  -moz-transform: scale(0.8);
+  -moz-transform-origin: 0 0;
+}
+
 /* Google AdSense styles */
 .adsbygoogle {
   display: block;
