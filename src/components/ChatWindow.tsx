@@ -523,11 +523,11 @@ const ChatWindow: React.FC = () => {
     if (message.deleted) {
       return null;
     } else if (message.read) {
-      return <CheckCheck className="w-3 h-3 text-blue-500 ml-1" />;
+      return <span className="text-xs text-blue-500 ml-2">Read</span>;
     } else if (message.delivered) {
-      return <Check className="w-3 h-3 text-gray-400 ml-1" />;
+      return <span className="text-xs text-muted-foreground ml-2">Delivered</span>;
     } else {
-      return <Clock className="w-3 h-3 text-gray-300 ml-1" />;
+      return <span className="text-xs text-muted-foreground ml-2">Sent</span>;
     }
   };
 
@@ -846,19 +846,28 @@ const ChatWindow: React.FC = () => {
                           photoURL={senderProfile?.photo_url}
                           size="sm"
                           isNexusPlus={senderProfile?.nexus_plus_active || false}
+                          userRole={senderRoles.some((r: any) => r.role === 'admin') ? 'admin' : 
+                                   senderRoles.some((r: any) => r.role === 'moderator') ? 'moderator' : 'user'}
+                          showRoleBadge={true}
                         />
                         <span
                           className={cn(
                             "text-xs font-medium ml-2 flex items-center",
                             senderProfile?.nexus_plus_active &&
                               "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500",
+                            senderRoles.some((r: any) => r.role === 'admin') &&
+                              "text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500",
                           )}
                         >
                           {senderProfile?.display_name || senderProfile?.username || "User"}
-                          {senderProfile?.nexus_plus_active && <Crown className="h-3 w-3 ml-1 text-yellow-500" />}
-                          {isModeratorMessage && (
+                          {senderRoles.some((r: any) => r.role === 'admin') && (
+                            <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                              Owner
+                            </Badge>
+                          )}
+                          {senderRoles.some((r: any) => r.role === 'moderator') && !senderRoles.some((r: any) => r.role === 'admin') && (
                             <Badge className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                              <Shield className="h-3 w-3" />
+                              Moderator
                             </Badge>
                           )}
                         </span>
