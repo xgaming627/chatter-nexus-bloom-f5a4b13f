@@ -217,6 +217,30 @@ export type Database = {
         }
         Relationships: []
       }
+      friends: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ice_candidates: {
         Row: {
           candidate: Json
@@ -241,10 +265,32 @@ export type Database = {
         }
         Relationships: []
       }
+      ignored_users: {
+        Row: {
+          created_at: string
+          id: string
+          ignored_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ignored_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ignored_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       license_keys: {
         Row: {
           activated_at: string | null
           created_at: string | null
+          duration_months: number | null
           expires_at: string | null
           id: string
           is_active: boolean | null
@@ -254,6 +300,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           created_at?: string | null
+          duration_months?: number | null
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -263,6 +310,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           created_at?: string | null
+          duration_months?: number | null
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -303,6 +351,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_read_receipts: {
         Row: {
@@ -353,6 +433,7 @@ export type Database = {
           reply_to_message_id: string | null
           reported: boolean
           sender_id: string
+          system_message_type: string | null
           timestamp: string
         }
         Insert: {
@@ -374,6 +455,7 @@ export type Database = {
           reply_to_message_id?: string | null
           reported?: boolean
           sender_id: string
+          system_message_type?: string | null
           timestamp?: string
         }
         Update: {
@@ -395,6 +477,7 @@ export type Database = {
           reply_to_message_id?: string | null
           reported?: boolean
           sender_id?: string
+          system_message_type?: string | null
           timestamp?: string
         }
         Relationships: [
@@ -557,7 +640,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          banner_color: string | null
+          banner_image_url: string | null
           created_at: string
+          custom_name_color: string | null
           description: string | null
           display_name: string | null
           do_not_disturb: boolean | null
@@ -575,7 +661,10 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          banner_color?: string | null
+          banner_image_url?: string | null
           created_at?: string
+          custom_name_color?: string | null
           description?: string | null
           display_name?: string | null
           do_not_disturb?: boolean | null
@@ -593,7 +682,10 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          banner_color?: string | null
+          banner_image_url?: string | null
           created_at?: string
+          custom_name_color?: string | null
           description?: string | null
           display_name?: string | null
           do_not_disturb?: boolean | null
@@ -641,6 +733,57 @@ export type Database = {
           reported_by?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      reported_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reported_by: string
+          reported_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          saved_banner_color: string | null
+          saved_banner_image_url: string | null
+          saved_description: string | null
+          saved_display_name: string | null
+          saved_photo_url: string | null
+          saved_username: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          reported_by: string
+          reported_user_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          saved_banner_color?: string | null
+          saved_banner_image_url?: string | null
+          saved_description?: string | null
+          saved_display_name?: string | null
+          saved_photo_url?: string | null
+          saved_username?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_by?: string
+          reported_user_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          saved_banner_color?: string | null
+          saved_banner_image_url?: string | null
+          saved_description?: string | null
+          saved_display_name?: string | null
+          saved_photo_url?: string | null
+          saved_username?: string | null
           status?: string
         }
         Relationships: []

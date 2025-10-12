@@ -52,13 +52,22 @@ const BannersDisplay: React.FC<BannersDisplayProps> = ({ conversationId, onJoinC
       )}
       <AdBanner />
       {activeBanners.map((banner) => (
-        <div key={banner.id} className={`p-3 rounded-md ${
+        <div key={banner.id} className={`p-3 rounded-md relative ${
           banner.type === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-900 dark:text-red-100' :
           banner.type === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100' :
           banner.type === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-900 dark:text-green-100' :
           'bg-blue-100 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100'
         }`}>
-          <h4 className="font-semibold">{banner.title}</h4>
+          <button
+            onClick={async () => {
+              await supabase.from('banners').update({ is_active: false }).eq('id', banner.id);
+              fetchActiveBanners();
+            }}
+            className="absolute top-2 right-2 hover:opacity-70"
+          >
+            ✕
+          </button>
+          <h4 className="font-semibold pr-6">{banner.title}</h4>
           <p className="text-sm">{banner.message}</p>
         </div>
       ))}
