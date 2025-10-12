@@ -38,6 +38,7 @@ import UsernameEditDialog from './UsernameEditDialog';
 import TermsOfService from './TermsOfService';
 import MuteButton from './MuteButton';
 import AdminLogs from './AdminLogs';
+import ReportedProfiles from './ReportedProfiles';
 
 interface ModerationItem {
   id: string;
@@ -579,16 +580,17 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="messages">Message Search</TabsTrigger>
+          <TabsTrigger value="reports">Profile Reports</TabsTrigger>
           <TabsTrigger value="support">Live Support</TabsTrigger>
-          <TabsTrigger value="banners">Banner Management</TabsTrigger>
-          <TabsTrigger value="terms">Terms of Service</TabsTrigger>
+          <TabsTrigger value="banners">Banners</TabsTrigger>
+          <TabsTrigger value="terms">Terms</TabsTrigger>
           {isOwnerCurrentUser && (
             <TabsTrigger value="logs">
               <FileText className="h-4 w-4 mr-1" />
-              Admin Logs
+              Logs
             </TabsTrigger>
           )}
         </TabsList>
@@ -764,6 +766,10 @@ const ModeratorPanel: React.FC = () => {
               </ScrollArea>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <ReportedProfiles />
         </TabsContent>
 
         <TabsContent value="support">

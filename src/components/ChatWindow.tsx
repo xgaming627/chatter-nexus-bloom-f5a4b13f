@@ -73,6 +73,8 @@ import AddMemberDialog from "./AddMemberDialog";
 import RemoveMemberDialog from "./RemoveMemberDialog";
 import { playMessageSound } from "@/utils/notificationSound";
 import { isSpecialConversation, isNewsConversation, isCommunityConversation } from "@/constants/conversations";
+import MessageReactions from "./MessageReactions";
+import UserProfileCard from "./UserProfileCard";
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -153,6 +155,8 @@ const ChatWindow: React.FC = () => {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
   const prevMessagesLengthRef = useRef(messages.length);
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   
   // Check if current conversation is special (News or Community)
   const isSpecialChat = currentConversation ? isSpecialConversation(currentConversation.id) : false;
@@ -514,7 +518,12 @@ const ChatWindow: React.FC = () => {
       return;
     }
 
-    setShowUserInfoDialog(true);
+    // Open the new Discord-style profile card
+    const otherUserId = participantsInfo[0]?.uid;
+    if (otherUserId) {
+      setProfileCardUserId(otherUserId);
+      setShowProfileCard(true);
+    }
   };
 
   const getMessageStatus = (message: Message) => {
@@ -995,6 +1004,9 @@ const ChatWindow: React.FC = () => {
                         )}
                       </div>
                     </div>
+                    
+                    {/* Message Reactions */}
+                    {!message.deleted && <MessageReactions messageId={message.id} />}
                   </div>
                 </div>
               );
@@ -1450,6 +1462,45 @@ const ChatWindow: React.FC = () => {
         conversationId={currentConversation?.id || ""}
         participants={currentConversation?.participantsInfo || []}
       />
+      
+      {/* User Profile Card */}
+      {profileCardUserId && (
+        <UserProfileCard
+          userId={profileCardUserId}
+          open={showProfileCard}
+          onOpenChange={setShowProfileCard}
+          onBlock={() => {
+            if (currentConversation && !currentConversation.isGroupChat) {
+              const userId = currentConversation.participantsInfo[0]?.uid;
+              if (userId) {
+                blockUser(userId).then(() => {
+                  setIsBlocked(true);
+                  setShowProfileCard(false);
+                  toast({
+                    title: "User blocked",
+                    description: "You will no longer receive messages from this user",
+                  });
+                });
+              }
+            }
+          }}
+          onUnblock={() => {
+            if (currentConversation && !currentConversation.isGroupChat) {
+              const userId = currentConversation.participantsInfo[0]?.uid;
+              if (userId) {
+                unblockUser(userId).then(() => {
+                  setIsBlocked(false);
+                  toast({
+                    title: "User unblocked",
+                    description: "You can now exchange messages with this user",
+                  });
+                });
+              }
+            }
+          }}
+          isBlocked={isBlocked}
+        />
+      )}
     </div>
   );
 };
