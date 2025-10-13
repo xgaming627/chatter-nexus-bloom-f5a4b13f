@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      badge_definitions: {
+        Row: {
+          color: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          description: string
+          icon: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           created_at: string
@@ -656,6 +683,7 @@ export type Database = {
           photo_url: string | null
           read_receipts_enabled: boolean | null
           show_moderator_badge: boolean | null
+          status: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -677,6 +705,7 @@ export type Database = {
           photo_url?: string | null
           read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
+          status?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -698,11 +727,106 @@ export type Database = {
           photo_url?: string | null
           read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
+          status?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
         }
         Relationships: []
+      }
+      purchased_items: {
+        Row: {
+          id: string
+          is_active: boolean
+          purchased_at: string
+          shop_item_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          purchased_at?: string
+          shop_item_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          purchased_at?: string
+          shop_item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchased_items_shop_item_id_fkey"
+            columns: ["shop_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          user_id: string
+          uses: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          user_id: string
+          uses?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          uses?: number
+        }
+        Relationships: []
+      }
+      referral_uses: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          points_awarded: number
+          referral_code_id: string
+          referred_user_id: string
+          referrer_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          points_awarded?: number
+          referral_code_id: string
+          referred_user_id: string
+          referrer_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          points_awarded?: number
+          referral_code_id?: string
+          referred_user_id?: string
+          referrer_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_uses_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reported_messages: {
         Row: {
@@ -785,6 +909,39 @@ export type Database = {
           saved_photo_url?: string | null
           saved_username?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      shop_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          item_data: Json
+          item_type: string
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean
+          item_data: Json
+          item_type: string
+          name: string
+          price: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          item_data?: Json
+          item_type?: string
+          name?: string
+          price?: number
         }
         Relationships: []
       }
@@ -924,6 +1081,62 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          awarded_at: string
+          awarded_by: string | null
+          badge_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badge_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_points: {
+        Row: {
+          created_at: string
+          id: string
+          points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          points?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
