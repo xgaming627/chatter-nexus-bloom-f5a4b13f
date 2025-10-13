@@ -10,6 +10,7 @@ import AppInitializer from "./components/AppInitializer";
 import Index from "./pages/Index";
 import SupportChat from "./pages/SupportChat";
 import NexusPlus from "./pages/NexusPlus";
+import NexusShop from "./pages/NexusShop";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import QuotaWarningBanner from "./components/QuotaWarningBanner";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/support/:sessionId" element={<SupportChat />} />
               <Route path="/nexus-plus" element={<NexusPlus />} />
+              <Route path="/nexus-shop" element={<NexusShop />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

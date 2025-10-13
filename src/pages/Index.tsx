@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { Settings, Bell, Crown } from "lucide-react";
+import { Settings, Bell, Crown, Users as UsersIcon, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
@@ -26,6 +26,8 @@ import { BrowserNotificationPermission } from "@/components/BrowserNotificationP
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import { CallNotificationsManager } from "@/components/CallNotification";
 import { LiveKitRoom } from "@/components/LiveKitRoom";
+import FriendsTab from "@/components/FriendsTab";
+import { ReferralSystem } from "@/components/ReferralSystem";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -46,6 +48,8 @@ const Index = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{roomName: string; isVideoCall: boolean} | null>(null);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showReferrals, setShowReferrals] = useState(false);
 
   // Set dark mode preference
   useEffect(() => {
@@ -137,12 +141,41 @@ const Index = () => {
               <div className="flex items-center gap-2">
                 <Button 
                   variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => setShowFriends(true)}
+                  title="Friends"
+                >
+                  <UsersIcon className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => window.location.href = '/nexus-shop'}
+                  title="Nexus Shop"
+                >
+                  <ShoppingBag className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
                   size="sm"
                   className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 border border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-amber-500/20"
                   onClick={() => window.location.href = '/nexus-plus'}
                 >
                   <Crown className="h-4 w-4 mr-1 text-yellow-400" />
-                  Get Nexus Plus
+                  Nexus Plus
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => setShowReferrals(true)}
+                >
+                  Invite Friends
                 </Button>
                 
                 <Popover>
@@ -283,6 +316,9 @@ const Index = () => {
             setShowSettings(false);
           } : undefined}
         />
+        
+        <FriendsTab open={showFriends} onOpenChange={setShowFriends} />
+        <ReferralSystem open={showReferrals} onOpenChange={setShowReferrals} />
 
         {/* Welcome Dialog */}
         <Dialog open={showWelcome} onOpenChange={setShowWelcome}>

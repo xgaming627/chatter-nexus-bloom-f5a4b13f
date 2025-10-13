@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import UserAvatar from './UserAvatar';
 import { UserCheck, UserX, Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -17,7 +18,12 @@ interface Friend {
   userRoles?: any[];
 }
 
-const FriendsTab: React.FC = () => {
+interface FriendsTabProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
   const { currentUser } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friend[]>([]);
@@ -134,10 +140,13 @@ const FriendsTab: React.FC = () => {
   };
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-2xl font-bold">Friends</h2>
-
-      <Tabs defaultValue="all">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Friends</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">
             All Friends {friends.length > 0 && <Badge className="ml-2">{friends.length}</Badge>}
@@ -245,7 +254,9 @@ const FriendsTab: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
