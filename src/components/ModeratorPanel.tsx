@@ -19,7 +19,7 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import ModeratorLiveSupport from './ModeratorLiveSupport';
 import { useChat } from '@/context/ChatContext';
-import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle, Megaphone, FileText } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Ban, Shield, AlertTriangle, Megaphone, FileText, Award } from 'lucide-react';
 import BannerManagement from './BannerManagement';
 import ChatWindow from './ChatWindow';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +39,8 @@ import TermsOfService from './TermsOfService';
 import MuteButton from './MuteButton';
 import AdminLogs from './AdminLogs';
 import ReportedProfiles from './ReportedProfiles';
+import ReportedMessages from './ReportedMessages';
+import BadgeManagement from './BadgeManagement';
 
 interface ModerationItem {
   id: string;
@@ -580,18 +582,25 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="messages">Message Search</TabsTrigger>
-          <TabsTrigger value="reports">Profile Reports</TabsTrigger>
-          <TabsTrigger value="support">Live Support</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="reports">Profiles</TabsTrigger>
+          <TabsTrigger value="reported-messages">Reported Msgs</TabsTrigger>
+          <TabsTrigger value="support">Support</TabsTrigger>
           <TabsTrigger value="banners">Banners</TabsTrigger>
           <TabsTrigger value="terms">Terms</TabsTrigger>
           {isOwnerCurrentUser && (
-            <TabsTrigger value="logs">
-              <FileText className="h-4 w-4 mr-1" />
-              Logs
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="badges">
+                <Award className="h-4 w-4 mr-1" />
+                Badges
+              </TabsTrigger>
+              <TabsTrigger value="logs">
+                <FileText className="h-4 w-4 mr-1" />
+                Logs
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
 
@@ -772,6 +781,10 @@ const ModeratorPanel: React.FC = () => {
           <ReportedProfiles />
         </TabsContent>
 
+        <TabsContent value="reported-messages">
+          <ReportedMessages />
+        </TabsContent>
+
         <TabsContent value="support">
           <ModeratorLiveSupport />
         </TabsContent>
@@ -785,9 +798,14 @@ const ModeratorPanel: React.FC = () => {
         </TabsContent>
 
         {isOwnerCurrentUser && (
-          <TabsContent value="logs">
-            <AdminLogs />
-          </TabsContent>
+          <>
+            <TabsContent value="badges">
+              <BadgeManagement />
+            </TabsContent>
+            <TabsContent value="logs">
+              <AdminLogs />
+            </TabsContent>
+          </>
         )}
       </Tabs>
 

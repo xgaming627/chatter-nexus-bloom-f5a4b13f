@@ -59,8 +59,14 @@ const ProfileDropdown = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      window.location.href = '/';
     } catch (error) {
       console.error("Error logging out:", error);
+      toast({
+        title: "Logout failed",
+        description: "Please try again",
+        variant: "destructive"
+      });
     }
   };
   

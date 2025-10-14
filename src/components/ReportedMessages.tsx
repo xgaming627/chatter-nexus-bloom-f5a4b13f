@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useChat } from '@/context/ChatContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 interface ReportedMessage {
   id: string;
@@ -14,142 +15,191 @@ interface ReportedMessage {
   reason: string;
   status: string;
   created_at: string;
-  messages: {
-    id: string;
+  message?: {
     content: string;
-    timestamp: string;
     sender_id: string;
-    profiles: {
-      username: string;
-      display_name: string;
-    };
+  };
+  reporter?: {
+    username: string;
+    display_name: string;
   };
 }
 
 const ReportedMessages: React.FC = () => {
-  const { getReportedMessages, markReportAsReviewed } = useChat();
+  const { currentUser } = useAuth();
   const [reports, setReports] = useState<ReportedMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadReports();
+    fetchReports();
   }, []);
 
-  const loadReports = async () => {
+  const fetchReports = async () => {
     try {
-      const data = await getReportedMessages();
-      setReports(data);
+      const { data, error } = await supabase
+        .from('reported_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch messages and reporter profiles manually
+      const enrichedData = await Promise.all(
+        (data || []).map(async (report) => {
+          const { data: message } = await supabase
+            .from('messages')
+            .select('content, sender_id')
+            .eq('id', report.message_id)
+            .maybeSingle();
+
+          const { data: reporter } = await supabase
+            .from('profiles')
+            .select('username, display_name')
+            .eq('user_id', report.reported_by)
+            .maybeSingle();
+
+          return {
+            ...report,
+            message: message || undefined,
+            reporter: reporter || undefined,
+          };
+        })
+      );
+
+      setReports(enrichedData);
     } catch (error) {
-      console.error('Error loading reports:', error);
-      toast({
-        title: "Error loading reports",
-        description: "Please try again later",
-        variant: "destructive"
-      });
+      console.error('Error fetching reported messages:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkAsReviewed = async (reportId: string) => {
+  const handleUpdateStatus = async (reportId: string, status: string) => {
     try {
-      await markReportAsReviewed(reportId);
-      await loadReports(); // Refresh the list
+      const { error } = await supabase
+        .from('reported_messages')
+        .update({ 
+          status, 
+          reviewed_by: currentUser?.uid,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Report updated',
+        description: `Report marked as ${status}`,
+      });
+
+      fetchReports();
     } catch (error) {
-      console.error('Error marking as reviewed:', error);
+      console.error('Error updating report:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update report',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string, reportId: string) => {
+    try {
+      // Delete the actual message
+      const { error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
+
+      if (deleteError) throw deleteError;
+
+      // Update report status
+      await handleUpdateStatus(reportId, 'resolved');
+
+      toast({
+        title: 'Message deleted',
+        description: 'The reported message has been removed',
+      });
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete message',
+        variant: 'destructive',
+      });
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-      </div>
-    );
+    return <div>Loading reported messages...</div>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Reported Messages</h2>
-        <Badge variant="secondary">
-          {reports.filter(r => r.status === 'pending').length} Pending
-        </Badge>
-      </div>
-
+      <h3 className="text-lg font-semibold">Reported Messages</h3>
       {reports.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center p-8">
-            <div className="text-center">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Reports</h3>
-              <p className="text-muted-foreground">
-                There are currently no reported messages to review.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-muted-foreground">No reported messages</p>
       ) : (
-        <div className="space-y-4">
-          {reports.map((report) => (
-            <Card key={report.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    Message Report
-                  </CardTitle>
-                  <Badge 
-                    variant={report.status === 'pending' ? 'destructive' : 'secondary'}
+        reports.map((report) => (
+          <Card key={report.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Report from {report.reporter?.display_name || report.reporter?.username || 'Unknown'}
+                </CardTitle>
+                <Badge variant={
+                  report.status === 'resolved' ? 'default' :
+                  report.status === 'dismissed' ? 'secondary' : 'destructive'
+                }>
+                  {report.status}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Message Content:</p>
+                <p className="text-sm text-muted-foreground bg-muted p-2 rounded mt-1">
+                  {report.message?.content || '[Message deleted]'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Reason:</p>
+                <p className="text-sm text-muted-foreground">{report.reason}</p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Reported on {format(new Date(report.created_at), 'PPp')}
+              </div>
+              {report.status === 'pending' && (
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteMessage(report.message_id, report.id)}
                   >
-                    {report.status}
-                  </Badge>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Delete Message
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleUpdateStatus(report.id, 'dismissed')}
+                  >
+                    Dismiss Report
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleUpdateStatus(report.id, 'resolved')}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark Resolved
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-2">Reported Message:</h4>
-                  <div className="bg-muted p-3 rounded-md">
-                    <p className="text-sm">{report.messages.content}</p>
-                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                      <span>
-                        By: {report.messages.profiles?.display_name || report.messages.profiles?.username || 'Unknown User'}
-                      </span>
-                      <span>
-                        {format(new Date(report.messages.timestamp), 'PPp')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Report Details:</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm">
-                        <strong>Reason:</strong> {report.reason}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Reported on {format(new Date(report.created_at), 'PPp')}
-                    </p>
-                  </div>
-                </div>
-
-                {report.status === 'pending' && (
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleMarkAsReviewed(report.id)}
-                    >
-                      Mark as Reviewed
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              )}
+            </CardContent>
+          </Card>
+        ))
       )}
     </div>
   );
