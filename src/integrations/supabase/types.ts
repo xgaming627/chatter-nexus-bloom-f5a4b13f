@@ -736,6 +736,7 @@ export type Database = {
       }
       purchased_items: {
         Row: {
+          equipped_at: string | null
           id: string
           is_active: boolean
           purchased_at: string
@@ -743,6 +744,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          equipped_at?: string | null
           id?: string
           is_active?: boolean
           purchased_at?: string
@@ -750,6 +752,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          equipped_at?: string | null
           id?: string
           is_active?: boolean
           purchased_at?: string

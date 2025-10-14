@@ -75,6 +75,7 @@ import { playMessageSound } from "@/utils/notificationSound";
 import { isSpecialConversation, isNewsConversation, isCommunityConversation } from "@/constants/conversations";
 import MessageReactions from "./MessageReactions";
 import UserProfileCard from "./UserProfileCard";
+import { RightSidebarProfile } from "./RightSidebarProfile";
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -157,6 +158,7 @@ const ChatWindow: React.FC = () => {
   const prevMessagesLengthRef = useRef(messages.length);
   const [showProfileCard, setShowProfileCard] = useState(false);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
+  const [rightSidebarUserId, setRightSidebarUserId] = useState<string | null>(null);
   
   // Check if current conversation is special (News or Community)
   const isSpecialChat = currentConversation ? isSpecialConversation(currentConversation.id) : false;
@@ -235,7 +237,10 @@ const ChatWindow: React.FC = () => {
 
   useEffect(() => {
     const checkIfBlocked = async () => {
-      if (!currentConversation || !currentConversation.participantsInfo || currentConversation.isGroupChat) return;
+      if (!currentConversation || !currentConversation.participantsInfo || currentConversation.isGroupChat) {
+        setRightSidebarUserId(null);
+        return;
+      }
 
       try {
         const blockedUsers = await getBlockedUsers();
@@ -243,6 +248,11 @@ const ChatWindow: React.FC = () => {
           const blockedEntry = blockedUsers.find((user) => user.uid === currentConversation.participantsInfo[0]?.uid);
           setIsBlocked(!!blockedEntry);
           setBlockedReason(blockedEntry?.reason || "");
+          
+          // Set right sidebar user for DMs only
+          if (!currentConversation.isGroupChat && currentConversation.participantsInfo[0]) {
+            setRightSidebarUserId(currentConversation.participantsInfo[0].uid);
+          }
         }
       } catch (error) {
         console.error("Error checking blocked status:", error);
@@ -651,7 +661,8 @@ const ChatWindow: React.FC = () => {
     !isGroup && participantsInfo.length > 0 && participantsInfo[0] && isModeratorUser(participantsInfo[0]?.uid || "");
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden">
       {/* Banners */}
       <BannersDisplay
         conversationId={currentConversation?.id}
@@ -1500,6 +1511,12 @@ const ChatWindow: React.FC = () => {
           }}
           isBlocked={isBlocked}
         />
+      )}
+      </div>
+      
+      {/* Right Sidebar Profile - Discord Style */}
+      {rightSidebarUserId && !currentConversation?.isGroupChat && (
+        <RightSidebarProfile userId={rightSidebarUserId} />
       )}
     </div>
   );

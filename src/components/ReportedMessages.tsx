@@ -18,6 +18,7 @@ interface ReportedMessage {
   message?: {
     content: string;
     sender_id: string;
+    deleted: boolean;
   };
   reporter?: {
     username: string;
@@ -48,7 +49,7 @@ const ReportedMessages: React.FC = () => {
         (data || []).map(async (report) => {
           const { data: message } = await supabase
             .from('messages')
-            .select('content, sender_id')
+            .select('content, sender_id, deleted')
             .eq('id', report.message_id)
             .maybeSingle();
 
@@ -160,7 +161,7 @@ const ReportedMessages: React.FC = () => {
               <div>
                 <p className="text-sm font-medium">Message Content:</p>
                 <p className="text-sm text-muted-foreground bg-muted p-2 rounded mt-1">
-                  {report.message?.content || '[Message deleted]'}
+                  {report.message?.deleted ? '[Message already deleted]' : (report.message?.content || '[Message not found]')}
                 </p>
               </div>
               <div>
@@ -172,14 +173,16 @@ const ReportedMessages: React.FC = () => {
               </div>
               {report.status === 'pending' && (
                 <div className="flex gap-2 mt-4">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteMessage(report.message_id, report.id)}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Delete Message
-                  </Button>
+                  {!report.message?.deleted && report.message && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteMessage(report.message_id, report.id)}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Delete Message
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
