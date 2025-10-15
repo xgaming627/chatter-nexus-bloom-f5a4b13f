@@ -46,7 +46,11 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
       return;
     }
 
-    fetchProfile();
+    const fetchProfileData = async () => {
+      await fetchProfile();
+    };
+    
+    fetchProfileData();
   }, [userId]);
 
   const fetchProfile = async () => {
@@ -62,10 +66,13 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
         .single();
 
       if (profileError) throw profileError;
+      
+      // Show sparkles for Nexus Plus users ONLY on initial load
+      const shouldShowSparkles = profileData.nexus_plus_active && !profile;
+      
       setProfile(profileData);
-
-      // Show sparkles for Nexus Plus users ONLY on initial load, not on scroll
-      if (profileData.nexus_plus_active && !profile) {
+      
+      if (shouldShowSparkles) {
         setShowSparkles(true);
         setTimeout(() => setShowSparkles(false), 3000);
       }

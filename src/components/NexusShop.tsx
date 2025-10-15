@@ -28,6 +28,7 @@ export const NexusShop = () => {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
   const [purchased, setPurchased] = useState<Set<string>>(new Set());
+  const [equipped, setEquipped] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,10 +59,11 @@ export const NexusShop = () => {
 
       const { data: purchasedData } = await supabase
         .from('purchased_items')
-        .select('shop_item_id')
+        .select('shop_item_id, is_active')
         .eq('user_id', currentUser.uid);
 
       setPurchased(new Set(purchasedData?.map(p => p.shop_item_id) || []));
+      setEquipped(new Set(purchasedData?.filter(p => p.is_active).map(p => p.shop_item_id) || []));
     } catch (error) {
       console.error('Error fetching shop data:', error);
     } finally {
@@ -181,6 +183,7 @@ export const NexusShop = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {items.map((item) => {
           const isPurchased = purchased.has(item.id);
+          const isEquipped = equipped.has(item.id);
           const canAfford = (userPoints?.points || 0) >= item.price;
 
           return (
@@ -209,10 +212,11 @@ export const NexusShop = () => {
                   <Button
                     size="sm"
                     onClick={() => handleEquip(item)}
-                    variant="default"
+                    variant={isEquipped ? "secondary" : "default"}
                     className="gap-2"
+                    disabled={isEquipped}
                   >
-                    Equip
+                    {isEquipped ? "Equipped" : "Equip"}
                   </Button>
                 ) : (
                   <Button

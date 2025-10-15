@@ -41,6 +41,8 @@ import AdminLogs from './AdminLogs';
 import ReportedProfiles from './ReportedProfiles';
 import ReportedMessages from './ReportedMessages';
 import BadgeManagement from './BadgeManagement';
+import NexusGiftPanel from './NexusGiftPanel';
+import CustomBadgeCreator from './CustomBadgeCreator';
 
 interface ModerationItem {
   id: string;
@@ -582,7 +584,7 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="reports">Profiles</TabsTrigger>
@@ -590,11 +592,15 @@ const ModeratorPanel: React.FC = () => {
           <TabsTrigger value="support">Support</TabsTrigger>
           <TabsTrigger value="banners">Banners</TabsTrigger>
           <TabsTrigger value="terms">Terms</TabsTrigger>
+          <TabsTrigger value="gift">Gift Nexus+</TabsTrigger>
           {isOwnerCurrentUser && (
             <>
               <TabsTrigger value="badges">
                 <Award className="h-4 w-4 mr-1" />
                 Badges
+              </TabsTrigger>
+              <TabsTrigger value="custom-badges">
+                Custom Badges
               </TabsTrigger>
               <TabsTrigger value="logs">
                 <FileText className="h-4 w-4 mr-1" />
@@ -797,10 +803,17 @@ const ModeratorPanel: React.FC = () => {
           <TermsOfService />
         </TabsContent>
 
+        <TabsContent value="gift">
+          <NexusGiftPanel />
+        </TabsContent>
+
         {isOwnerCurrentUser && (
           <>
             <TabsContent value="badges">
               <BadgeManagement />
+            </TabsContent>
+            <TabsContent value="custom-badges">
+              <CustomBadgeCreator />
             </TabsContent>
             <TabsContent value="logs">
               <AdminLogs />

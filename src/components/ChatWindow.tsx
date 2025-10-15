@@ -76,6 +76,7 @@ import { isSpecialConversation, isNewsConversation, isCommunityConversation } fr
 import MessageReactions from "./MessageReactions";
 import UserProfileCard from "./UserProfileCard";
 import { RightSidebarProfile } from "./RightSidebarProfile";
+import LinkifyText from "./LinkifyText";
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -1002,7 +1003,7 @@ const ChatWindow: React.FC = () => {
                             })()}
                           </div>
                         ) : (
-                          message.content
+                          <LinkifyText text={message.content} />
                         )}
 
                         {!message.deleted && (
