@@ -177,6 +177,7 @@ export type Database = {
           group_photo_url: string | null
           id: string
           is_group_chat: boolean
+          is_system_conversation: boolean | null
           max_participants: number | null
           participants: string[]
           unread_count: number | null
@@ -191,6 +192,7 @@ export type Database = {
           group_photo_url?: string | null
           id?: string
           is_group_chat?: boolean
+          is_system_conversation?: boolean | null
           max_participants?: number | null
           participants: string[]
           unread_count?: number | null
@@ -205,6 +207,7 @@ export type Database = {
           group_photo_url?: string | null
           id?: string
           is_group_chat?: boolean
+          is_system_conversation?: boolean | null
           max_participants?: number | null
           participants?: string[]
           unread_count?: number | null
@@ -737,6 +740,7 @@ export type Database = {
       purchased_items: {
         Row: {
           equipped_at: string | null
+          equipped_slot: string | null
           id: string
           is_active: boolean
           purchased_at: string
@@ -745,6 +749,7 @@ export type Database = {
         }
         Insert: {
           equipped_at?: string | null
+          equipped_slot?: string | null
           id?: string
           is_active?: boolean
           purchased_at?: string
@@ -753,6 +758,7 @@ export type Database = {
         }
         Update: {
           equipped_at?: string | null
+          equipped_slot?: string | null
           id?: string
           is_active?: boolean
           purchased_at?: string

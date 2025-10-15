@@ -96,14 +96,15 @@ export const NexusShop = () => {
         .insert({
           user_id: currentUser.uid,
           shop_item_id: item.id,
-          is_active: true
+          is_active: false,
+          equipped_slot: item.item_type
         });
 
       if (purchaseError) throw purchaseError;
 
       toast({
         title: 'Purchase Successful!',
-        description: `You purchased ${item.name}`,
+        description: `You purchased ${item.name}. Click "Equip" to activate it!`,
       });
 
       fetchShopData();
@@ -117,12 +118,50 @@ export const NexusShop = () => {
     }
   };
 
+  const handleEquip = async (item: ShopItem) => {
+    if (!currentUser) return;
+
+    try {
+      // Unequip all other items of the same type first
+      const { error: unequipError } = await supabase
+        .from('purchased_items')
+        .update({ is_active: false, equipped_at: null })
+        .eq('user_id', currentUser.uid)
+        .eq('equipped_slot', item.item_type);
+
+      if (unequipError) throw unequipError;
+
+      // Equip this item
+      const { error: equipError } = await supabase
+        .from('purchased_items')
+        .update({ is_active: true, equipped_at: new Date().toISOString() })
+        .eq('user_id', currentUser.uid)
+        .eq('shop_item_id', item.id);
+
+      if (equipError) throw equipError;
+
+      toast({
+        title: 'Item Equipped!',
+        description: `${item.name} is now active on your profile.`,
+      });
+
+      fetchShopData();
+    } catch (error) {
+      console.error('Equip error:', error);
+      toast({
+        title: 'Equip Failed',
+        description: 'There was an error equipping this item.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-96">Loading shop...</div>;
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl dark">
+    <div className="container mx-auto p-6 max-w-7xl bg-background min-h-screen dark">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -167,7 +206,14 @@ export const NexusShop = () => {
                 </div>
 
                 {isPurchased ? (
-                  <Badge variant="secondary">Owned</Badge>
+                  <Button
+                    size="sm"
+                    onClick={() => handleEquip(item)}
+                    variant="default"
+                    className="gap-2"
+                  >
+                    Equip
+                  </Button>
                 ) : (
                   <Button
                     size="sm"

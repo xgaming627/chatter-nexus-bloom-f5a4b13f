@@ -64,8 +64,8 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // Show sparkles for Nexus Plus users
-      if (profileData.nexus_plus_active) {
+      // Show sparkles for Nexus Plus users ONLY on initial load, not on scroll
+      if (profileData.nexus_plus_active && !profile) {
         setShowSparkles(true);
         setTimeout(() => setShowSparkles(false), 3000);
       }

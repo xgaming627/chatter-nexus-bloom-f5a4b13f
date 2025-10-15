@@ -10,7 +10,7 @@ interface MessageReactionsProps {
   messageId: string;
 }
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥'];
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '💯', '⭐', '✨', '🙏', '👏', '💪', '🔥', '🎊', '🎈', '💎', '🌟', '👑'];
 
 interface Reaction {
   emoji: string;

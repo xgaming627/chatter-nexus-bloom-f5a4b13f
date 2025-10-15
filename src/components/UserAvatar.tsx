@@ -67,6 +67,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
         </AvatarFallback>
       </Avatar>
       <div className="absolute -bottom-1 -right-1 flex gap-0.5">
+        {/* Only show crown for Nexus Plus users */}
         {isNexusPlus && (
           <div className={cn(
             "bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg",
@@ -75,6 +76,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
             <Crown className={cn("text-white", badgeIconSizes[size])} />
           </div>
         )}
+        {/* Show shield for admin/mod regardless of Nexus Plus status */}
         {shouldShowRoleBadge && (
           <div className={cn(
             "rounded-full flex items-center justify-center shadow-lg",
