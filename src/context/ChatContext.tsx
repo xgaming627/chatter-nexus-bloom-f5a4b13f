@@ -12,7 +12,7 @@ interface ChatContextType {
   conversations: Conversation[];
   currentConversation: Conversation | null;
   messages: Message[];
-  sendMessage: (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string) => Promise<void>;
+  sendMessage: (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string, senderId?: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
   createConversation: (participants: string[], isGroup?: boolean, groupName?: string) => Promise<string>;
   createGroupChat: (groupName: string, participants: string[]) => Promise<string>;
@@ -385,10 +385,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const sendMessage = async (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string) => {
+  const sendMessage = async (content: string, conversationId: string, replyToMessageId?: string, replyToContent?: string, senderId?: string) => {
     if (!currentUser || !content.trim()) return;
     
-    if (isRateLimited) {
+    // Skip rate limit check for bot messages
+    if (!senderId && isRateLimited) {
       toast({
         title: "Rate limited",
         description: "Please wait 2 seconds between messages",
@@ -397,7 +398,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    if (checkRateLimit()) {
+    if (!senderId && checkRateLimit()) {
       toast({
         title: "Slow down",
         description: "Please wait 2 seconds between messages",
@@ -409,7 +410,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const messageData: any = {
         conversation_id: conversationId,
-        sender_id: currentUser.uid,
+        sender_id: senderId || currentUser.uid, // Use provided senderId or current user
         content: content.trim(),
       };
 
@@ -434,55 +435,56 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Don't mark has new messages for sender - reset the flag when sending
       setHasNewMessages(false);
 
-      // Process @ mentions
-      const mentionRegex = /@(\w+)/g;
-      const mentions = Array.from(content.matchAll(mentionRegex));
+      // Process @ mentions (only for user messages, not bot messages)
+      if (!senderId) {
+        const mentionRegex = /@(\w+)/g;
+        const mentions = Array.from(content.matchAll(mentionRegex));
       
-      if (mentions.length > 0) {
-        // Get conversation participants to check if mentioned users are in the chat
-        const { data: conversation } = await supabase
-          .from('conversations')
-          .select('participants')
-          .eq('id', conversationId)
-          .single();
-        
-        if (conversation) {
-          // Get profiles of participants to match usernames
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, username, display_name')
-            .in('user_id', conversation.participants);
+        if (mentions.length > 0) {
+          // Get conversation participants to check if mentioned users are in the chat
+          const { data: conversation } = await supabase
+            .from('conversations')
+            .select('participants')
+            .eq('id', conversationId)
+            .single();
           
-          if (profiles) {
-            for (const mention of mentions) {
-              const mentionedUsername = mention[1];
-              const mentionedUser = profiles.find(p => 
-                p.username?.toLowerCase() === mentionedUsername.toLowerCase()
-              );
-              
-              if (mentionedUser && mentionedUser.user_id !== currentUser.uid) {
-                // Get current user profile for sender name
-                const { data: senderProfile } = await supabase
-                  .from('profiles')
-                  .select('display_name, username')
-                  .eq('user_id', currentUser.uid)
-                  .single();
+          if (conversation) {
+            // Get profiles of participants to match usernames
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('user_id, username, display_name')
+              .in('user_id', conversation.participants);
+            
+            if (profiles) {
+              for (const mention of mentions) {
+                const mentionedUsername = mention[1];
+                const mentionedUser = profiles.find(p => 
+                  p.username?.toLowerCase() === mentionedUsername.toLowerCase()
+                );
                 
-                const senderName = senderProfile?.display_name || senderProfile?.username || 'Someone';
-                
-                // Send mention notification
-                await supabase.rpc('send_mention_notification', {
-                  target_user_id: mentionedUser.user_id,
-                  sender_name: senderName,
-                  message_content: content.trim(),
-                  conversation_id: conversationId
-                });
+                if (mentionedUser && mentionedUser.user_id !== currentUser.uid) {
+                  // Get current user profile for sender name
+                  const { data: senderProfile } = await supabase
+                    .from('profiles')
+                    .select('display_name, username')
+                    .eq('user_id', currentUser.uid)
+                    .single();
+                  
+                  const senderName = senderProfile?.display_name || senderProfile?.username || 'Someone';
+                  
+                  // Send mention notification
+                  await supabase.rpc('send_mention_notification', {
+                    target_user_id: mentionedUser.user_id,
+                    sender_name: senderName,
+                    message_content: content.trim(),
+                    conversation_id: conversationId
+                  });
+                }
               }
             }
           }
         }
       }
-
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

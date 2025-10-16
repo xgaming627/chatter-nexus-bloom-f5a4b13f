@@ -282,7 +282,7 @@ const ChatWindow: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isBlocked) {
@@ -310,7 +310,51 @@ const ChatWindow: React.FC = () => {
       const processedContent = processMessageContent(newMessage);
 
       // Include reply information if replying
-      sendMessage(processedContent, currentConversation.id, replyToMessage?.id, replyToMessage?.content);
+      await sendMessage(processedContent, currentConversation.id, replyToMessage?.id, replyToMessage?.content);
+      
+      // Check if this is a Gemini bot conversation
+      const GEMINI_BOT_ID = '00000000-0000-0000-0000-000000000003';
+      const isGeminiChat = currentConversation.participants.includes(GEMINI_BOT_ID);
+      
+      if (isGeminiChat) {
+        // Check if user has Nexus Plus
+        if (!userProfile?.nexus_plus_active) {
+          toast({
+            title: "Nexus Plus Required",
+            description: "Gemini AI chat is a Nexus Plus feature. Upgrade to continue!",
+            variant: "destructive",
+          });
+          setNewMessage("");
+          setReplyToMessage(null);
+          setEmojiSearch("");
+          return;
+        }
+
+        // Call Gemini API
+        try {
+          const { data, error } = await supabase.functions.invoke('gemini-chat', {
+            body: { 
+              message: processedContent,
+              conversationHistory: messages.slice(-10) // Send last 10 messages for context
+            }
+          });
+
+          if (error) throw error;
+
+          if (data?.response) {
+            // Send Gemini's response
+            await sendMessage(data.response, currentConversation.id, undefined, undefined, GEMINI_BOT_ID);
+          }
+        } catch (error) {
+          console.error('Error calling Gemini:', error);
+          toast({
+            title: "Gemini Error",
+            description: "Failed to get response from Gemini. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
+      
       setNewMessage("");
       setReplyToMessage(null); // Clear reply after sending
       setEmojiSearch(""); // Clear emoji search

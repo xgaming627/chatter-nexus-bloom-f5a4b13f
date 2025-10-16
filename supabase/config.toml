@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-livekit-token]
 verify_jwt = true
+
+[functions.gemini-chat]
+verify_jwt = true
