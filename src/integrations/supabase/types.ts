@@ -687,6 +687,9 @@ export type Database = {
           read_receipts_enabled: boolean | null
           show_moderator_badge: boolean | null
           status: string | null
+          theme_accent_color: string | null
+          theme_background_color: string | null
+          theme_primary_color: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -709,6 +712,9 @@ export type Database = {
           read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
           status?: string | null
+          theme_accent_color?: string | null
+          theme_background_color?: string | null
+          theme_primary_color?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -731,6 +737,9 @@ export type Database = {
           read_receipts_enabled?: boolean | null
           show_moderator_badge?: boolean | null
           status?: string | null
+          theme_accent_color?: string | null
+          theme_background_color?: string | null
+          theme_primary_color?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
