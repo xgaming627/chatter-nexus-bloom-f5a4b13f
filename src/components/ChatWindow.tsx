@@ -282,6 +282,8 @@ const ChatWindow: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const [pastedImage, setPastedImage] = useState<string | null>(null);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -303,14 +305,55 @@ const ChatWindow: React.FC = () => {
       return;
     }
 
-    if (newMessage.trim() && currentConversation) {
+    if ((newMessage.trim() || pastedImage) && currentConversation) {
       console.log("Sending message to conversation:", currentConversation.id);
 
       // Process message content for GIFs and other special content
-      const processedContent = processMessageContent(newMessage);
+      const processedContent = newMessage.trim() ? processMessageContent(newMessage) : "📷 Image";
 
-      // Include reply information if replying
-      await sendMessage(processedContent, currentConversation.id, replyToMessage?.id, replyToMessage?.content);
+      // If there's a pasted image, upload it first
+      let uploadedImageUrl: string | undefined;
+      if (pastedImage) {
+        try {
+          // Convert data URL to blob
+          const response = await fetch(pastedImage);
+          const blob = await response.blob();
+          
+          // Create file from blob
+          const file = new File([blob], `pasted-image-${Date.now()}.png`, { type: 'image/png' });
+          
+          // Upload using the uploadFile function (which will send a message)
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${currentUser?.uid}/${Date.now()}.${fileExt}`;
+          
+          const { data, error } = await supabase.storage
+            .from('Images')
+            .upload(fileName, file);
+          
+          if (error) throw error;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('Images')
+            .getPublicUrl(data.path);
+          
+          uploadedImageUrl = publicUrl;
+          
+          // Send the image message
+          await sendMessage(`[IMAGE] ${publicUrl}|${file.name}`, currentConversation.id);
+        } catch (error) {
+          console.error('Error uploading pasted image:', error);
+          toast({
+            title: "Upload failed",
+            description: "Failed to upload pasted image",
+            variant: "destructive",
+          });
+        }
+      }
+
+      // Include reply information if replying and there's text
+      if (newMessage.trim()) {
+        await sendMessage(processedContent, currentConversation.id, replyToMessage?.id, replyToMessage?.content);
+      }
       
       // Check if this is a Gemini bot conversation
       const GEMINI_BOT_ID = '00000000-0000-0000-0000-000000000003';
@@ -327,16 +370,29 @@ const ChatWindow: React.FC = () => {
           setNewMessage("");
           setReplyToMessage(null);
           setEmojiSearch("");
+          setPastedImage(null);
           return;
         }
 
-        // Call Gemini API
+        // Call Gemini API with optional image
         try {
+          const requestBody: any = { 
+            message: newMessage.trim() || "What's in this image?",
+            conversationHistory: messages.slice(-10).map(msg => ({
+              sender_id: msg.senderId,
+              content: msg.content,
+              file_url: msg.fileURL,
+              file_type: msg.fileType
+            }))
+          };
+          
+          // Add uploaded image URL if available
+          if (uploadedImageUrl) {
+            requestBody.imageUrl = uploadedImageUrl;
+          }
+
           const { data, error } = await supabase.functions.invoke('gemini-chat', {
-            body: { 
-              message: processedContent,
-              conversationHistory: messages.slice(-10) // Send last 10 messages for context
-            }
+            body: requestBody
           });
 
           if (error) throw error;
@@ -356,8 +412,9 @@ const ChatWindow: React.FC = () => {
       }
       
       setNewMessage("");
-      setReplyToMessage(null); // Clear reply after sending
-      setEmojiSearch(""); // Clear emoji search
+      setReplyToMessage(null);
+      setEmojiSearch("");
+      setPastedImage(null);
     }
   };
 
@@ -373,6 +430,55 @@ const ChatWindow: React.FC = () => {
     startTyping();
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file || !currentConversation) return;
+
+        // Check file size limits
+        const maxSize = userProfile?.nexus_plus_active ? 50 * 1024 * 1024 : 15 * 1024 * 1024;
+        if (file.size > maxSize) {
+          const maxSizeMB = userProfile?.nexus_plus_active ? 50 : 15;
+          toast({
+            title: "Image too large",
+            description: `Maximum size is ${maxSizeMB}MB. ${userProfile?.nexus_plus_active ? "" : "Upgrade to Nexus Plus for 50MB!"}`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (isBlocked) {
+          toast({
+            title: "Cannot send images",
+            description: "You have blocked this user.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Upload the pasted image
+        console.log("Uploading pasted image");
+        
+        // Create a data URL for preview and Gemini
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const dataUrl = event.target?.result as string;
+          setPastedImage(dataUrl);
+          
+          // Also upload to storage for message
+          uploadFile(file, currentConversation.id);
+        };
+        reader.readAsDataURL(file);
+        
+        break;
+      }
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentConversation) {
@@ -380,7 +486,7 @@ const ChatWindow: React.FC = () => {
     }
 
     // Check file size limits
-    const maxSize = userProfile?.nexus_plus_active ? 50 * 1024 * 1024 : 15 * 1024 * 1024; // 50MB for Plus, 15MB for free
+    const maxSize = userProfile?.nexus_plus_active ? 50 * 1024 * 1024 : 15 * 1024 * 1024;
     if (file.size > maxSize) {
       const maxSizeMB = userProfile?.nexus_plus_active ? 50 : 15;
       toast({
@@ -1110,6 +1216,26 @@ const ChatWindow: React.FC = () => {
           </div>
         )}
 
+        {pastedImage && (
+          <div className="mb-2 p-3 bg-muted rounded-md border-l-4 border-primary">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <p className="text-xs text-muted-foreground">Image pasted - ready to send</p>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setPastedImage(null)}
+                className="h-6 w-6"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <ImageUpload onImageSelect={handleImageSelect} />
 
@@ -1119,7 +1245,7 @@ const ChatWindow: React.FC = () => {
                 ? "Please wait 2 seconds between messages..."
                 : isBlocked
                   ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}`
-                  : "Type a message..."
+                  : "Type a message or paste an image..."
             }
             value={newMessage}
             onChange={(e) => {
@@ -1130,6 +1256,7 @@ const ChatWindow: React.FC = () => {
             }}
             onKeyDown={handleKeyDown}
             onBlur={stopTyping}
+            onPaste={handlePaste}
             className="flex-1 min-h-0 search-input bg-background text-foreground"
             rows={1}
             disabled={isBlocked || isRateLimited}
@@ -1139,7 +1266,7 @@ const ChatWindow: React.FC = () => {
 
           <GifPicker onGifSelect={handleGifSelect} />
 
-          <Button type="submit" size="icon" disabled={!newMessage.trim() || isBlocked || isRateLimited}>
+          <Button type="submit" size="icon" disabled={(!newMessage.trim() && !pastedImage) || isBlocked || isRateLimited}>
             <Send className="h-5 w-5" />
           </Button>
         </form>

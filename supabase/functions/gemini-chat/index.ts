@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory } = await req.json();
+    const { message, conversationHistory, imageUrl } = await req.json();
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
     if (!GEMINI_API_KEY) {
@@ -20,18 +20,62 @@ serve(async (req) => {
     }
 
     // Build conversation history for Gemini
-    const contents = conversationHistory?.map((msg: any) => ({
-      role: msg.sender_id === '00000000-0000-0000-0000-000000000003' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    })) || [];
+    const contents = conversationHistory?.map((msg: any) => {
+      const parts: any[] = [{ text: msg.content }];
+      
+      // Add image if present in message
+      if (msg.file_url && msg.file_type?.startsWith('image/')) {
+        parts.push({
+          inlineData: {
+            mimeType: msg.file_type,
+            data: msg.file_url.split(',')[1] || msg.file_url // Extract base64 if data URL
+          }
+        });
+      }
+      
+      return {
+        role: msg.sender_id === '00000000-0000-0000-0000-000000000003' ? 'model' : 'user',
+        parts
+      };
+    }) || [];
+
+    // Build current message parts
+    const currentParts: any[] = [{ text: message }];
+    
+    // Add image if provided in current message
+    if (imageUrl) {
+      try {
+        // Fetch the image and convert to base64
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          throw new Error('Failed to fetch image');
+        }
+        
+        const imageBlob = await imageResponse.blob();
+        const arrayBuffer = await imageBlob.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        
+        currentParts.push({
+          inlineData: {
+            mimeType: imageBlob.type || 'image/jpeg',
+            data: base64
+          }
+        });
+        
+        console.log('Image added to request');
+      } catch (imageError) {
+        console.error('Error processing image:', imageError);
+        // Continue without the image
+      }
+    }
 
     // Add current message
     contents.push({
       role: 'user',
-      parts: [{ text: message }]
+      parts: currentParts
     });
 
-    console.log('Sending request to Gemini API...');
+    console.log('Sending request to Gemini API with', contents.length, 'messages...');
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
@@ -46,7 +90,7 @@ serve(async (req) => {
             temperature: 0.9,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 2048,
           },
         }),
       }
