@@ -163,6 +163,8 @@ const ChatWindow: React.FC = () => {
   
   // Check if current conversation is special (News or Community)
   const isSpecialChat = currentConversation ? isSpecialConversation(currentConversation.id) : false;
+  const isNewsChat = currentConversation ? isNewsConversation(currentConversation.id) : false;
+  const canPostInNews = isNewsChat ? isModerator() : true;
 
   useEffect(() => {
     // Play sound for new messages from others
@@ -1346,7 +1348,9 @@ const ChatWindow: React.FC = () => {
                 ? "Please wait 2 seconds between messages..."
                 : isBlocked
                   ? `You have blocked this user${blockedReason ? ": " + blockedReason : ""}`
-                  : "Type a message or paste an image..."
+                  : isNewsChat && !canPostInNews
+                    ? "Only moderators can post in News..."
+                    : "Type a message or paste an image..."
             }
             value={newMessage}
             onChange={(e) => {
@@ -1360,17 +1364,24 @@ const ChatWindow: React.FC = () => {
             onPaste={handlePaste}
             className="flex-1 min-h-0 search-input bg-background text-foreground"
             rows={1}
-            disabled={isBlocked || isRateLimited}
+            disabled={isBlocked || isRateLimited || (isNewsChat && !canPostInNews)}
           />
 
           <EmojiPicker onEmojiSelect={handleEmojiSelect} searchQuery={emojiSearch} onSearchChange={setEmojiSearch} />
 
           <GifPicker onGifSelect={handleGifSelect} />
 
-          <Button type="submit" size="icon" disabled={(!newMessage.trim() && !pastedImage) || isBlocked || isRateLimited}>
+          <Button type="submit" size="icon" disabled={(!newMessage.trim() && !pastedImage) || isBlocked || isRateLimited || (isNewsChat && !canPostInNews)}>
             <Send className="h-5 w-5" />
           </Button>
         </form>
+
+        {isNewsChat && !canPostInNews && (
+          <div className="text-center mt-2 text-sm text-muted-foreground">
+            <Shield className="inline-block h-4 w-4 mr-1" />
+            Only moderators can post announcements in News
+          </div>
+        )}
 
         {isBlocked && (
           <div className="text-center mt-2 text-sm text-destructive">
