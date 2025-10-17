@@ -283,6 +283,9 @@ const ChatWindow: React.FC = () => {
   };
 
   const [pastedImage, setPastedImage] = useState<string | null>(null);
+  const [isGeminiTyping, setIsGeminiTyping] = useState(false);
+  const [lastGeminiMessageTime, setLastGeminiMessageTime] = useState(0);
+  const GEMINI_USER_ID = '00000000-0000-0000-0000-000000000003';
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,16 +310,94 @@ const ChatWindow: React.FC = () => {
 
     if ((newMessage.trim() || pastedImage) && currentConversation) {
       console.log("Sending message to conversation:", currentConversation.id);
+      
+      // Store message text and clear input immediately
+      const messageText = newMessage.trim();
+      const imageToPaste = pastedImage;
+      setNewMessage("");
+      setPastedImage(null);
+      setReplyToMessage(null);
+      setEmojiSearch("");
+
+      // Check for /gemini command
+      if (messageText.startsWith('/gemini ')) {
+        const prompt = messageText.substring(8).trim();
+        if (!prompt) {
+          toast({
+            title: "Invalid command",
+            description: "Please provide a prompt after /gemini",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!userProfile?.nexus_plus_active) {
+          toast({
+            title: "Nexus Plus Required",
+            description: "Gemini AI commands require a Nexus Plus subscription.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Check rate limit (5 seconds)
+        const now = Date.now();
+        if (now - lastGeminiMessageTime < 5000) {
+          const remaining = Math.ceil((5000 - (now - lastGeminiMessageTime)) / 1000);
+          toast({
+            title: "Please wait",
+            description: `Wait ${remaining} seconds between Gemini messages`,
+            variant: "destructive",
+          });
+          return;
+        }
+        setLastGeminiMessageTime(now);
+
+        // Send user message
+        await sendMessage(messageText, currentConversation.id);
+        
+        // Show typing indicator
+        setIsGeminiTyping(true);
+
+        try {
+          const { data, error } = await supabase.functions.invoke('gemini-chat', {
+            body: { 
+              message: prompt,
+              conversationHistory: messages.slice(-10).map(msg => ({
+                sender_id: msg.senderId,
+                content: msg.content
+              }))
+            }
+          });
+
+          setIsGeminiTyping(false);
+
+          if (error) throw error;
+
+          if (data?.response) {
+            await sendMessage(`🤖 ${data.response}`, currentConversation.id, undefined, undefined, GEMINI_USER_ID);
+          }
+        } catch (error) {
+          console.error('Error calling Gemini:', error);
+          setIsGeminiTyping(false);
+          toast({
+            title: "Gemini Error",
+            description: "Failed to get response from Gemini.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
 
       // Process message content for GIFs and other special content
-      const processedContent = newMessage.trim() ? processMessageContent(newMessage) : "📷 Image";
+      const processedContent = messageText ? processMessageContent(messageText) : "📷 Image";
 
       // If there's a pasted image, upload it first
       let uploadedImageUrl: string | undefined;
-      if (pastedImage) {
+      if (imageToPaste) {
         try {
           // Convert data URL to blob
-          const response = await fetch(pastedImage);
+          const response = await fetch(imageToPaste);
           const blob = await response.blob();
           
           // Create file from blob
@@ -351,15 +432,14 @@ const ChatWindow: React.FC = () => {
       }
 
       // Include reply information if replying and there's text
-      if (newMessage.trim()) {
+      if (messageText) {
         await sendMessage(processedContent, currentConversation.id, replyToMessage?.id, replyToMessage?.content);
       }
       
       // Check if this is a Gemini bot conversation
-      const GEMINI_BOT_ID = '00000000-0000-0000-0000-000000000003';
-      const isGeminiChat = currentConversation.participants.includes(GEMINI_BOT_ID);
+      const isGeminiChat = currentConversation.participants.includes(GEMINI_USER_ID);
       
-      if (isGeminiChat) {
+      if (isGeminiChat && messageText) {
         // Check if user has Nexus Plus
         if (!userProfile?.nexus_plus_active) {
           toast({
@@ -367,17 +447,29 @@ const ChatWindow: React.FC = () => {
             description: "Gemini AI chat is a Nexus Plus feature. Upgrade to continue!",
             variant: "destructive",
           });
-          setNewMessage("");
-          setReplyToMessage(null);
-          setEmojiSearch("");
-          setPastedImage(null);
           return;
         }
+
+        // Check rate limit (5 seconds)
+        const now = Date.now();
+        if (now - lastGeminiMessageTime < 5000) {
+          const remaining = Math.ceil((5000 - (now - lastGeminiMessageTime)) / 1000);
+          toast({
+            title: "Please wait",
+            description: `Wait ${remaining} seconds between Gemini messages`,
+            variant: "destructive",
+          });
+          return;
+        }
+        setLastGeminiMessageTime(now);
+        
+        // Show typing indicator
+        setIsGeminiTyping(true);
 
         // Call Gemini API with optional image
         try {
           const requestBody: any = { 
-            message: newMessage.trim() || "What's in this image?",
+            message: messageText || "What's in this image?",
             conversationHistory: messages.slice(-10).map(msg => ({
               sender_id: msg.senderId,
               content: msg.content,
@@ -395,14 +487,17 @@ const ChatWindow: React.FC = () => {
             body: requestBody
           });
 
+          setIsGeminiTyping(false);
+
           if (error) throw error;
 
           if (data?.response) {
             // Send Gemini's response
-            await sendMessage(data.response, currentConversation.id, undefined, undefined, GEMINI_BOT_ID);
+            await sendMessage(data.response, currentConversation.id, undefined, undefined, GEMINI_USER_ID);
           }
         } catch (error) {
           console.error('Error calling Gemini:', error);
+          setIsGeminiTyping(false);
           toast({
             title: "Gemini Error",
             description: "Failed to get response from Gemini. Please try again.",
@@ -410,11 +505,6 @@ const ChatWindow: React.FC = () => {
           });
         }
       }
-      
-      setNewMessage("");
-      setReplyToMessage(null);
-      setEmojiSearch("");
-      setPastedImage(null);
     }
   };
 
@@ -1187,6 +1277,17 @@ const ChatWindow: React.FC = () => {
       )}
 
       <div className="p-4 border-t">
+        {isGeminiTyping && (
+          <div className="mb-2 py-2 px-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 text-sm rounded-md flex items-center gap-2">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" />
+            </div>
+            <span>🤖 Gemini is thinking...</span>
+          </div>
+        )}
+        
         <TypingIndicator users={typingUsers} />
 
         {isRateLimited && (

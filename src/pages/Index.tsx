@@ -100,6 +100,15 @@ const Index = () => {
     setIncomingCall(null);
   };
   
+  // Prevent flash of auth forms during initial load
+  if (currentUser === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <LiveSupportProvider>
       {/* If user is not logged in, show auth forms */}
