@@ -12,29 +12,41 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory, imageUrl } = await req.json();
+    const { message, conversationHistory, imageUrl, currentUserId, userProfiles } = await req.json();
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    // Build conversation history for Gemini
+    // Build conversation history for Gemini with proper attribution
     const contents = conversationHistory?.map((msg: any) => {
-      const parts: any[] = [{ text: msg.content }];
+      // Get sender name from profiles
+      const senderProfile = userProfiles?.find((p: any) => p.user_id === msg.sender_id);
+      const senderName = senderProfile?.display_name || senderProfile?.username || 'Unknown User';
+      const isCurrentUser = msg.sender_id === currentUserId;
+      const isGemini = msg.sender_id === '00000000-0000-0000-0000-000000000003';
+      
+      // Format message with attribution
+      let textContent = msg.content;
+      if (!isGemini) {
+        textContent = `${isCurrentUser ? '[You]' : `[${senderName}]`}: ${msg.content}`;
+      }
+      
+      const parts: any[] = [{ text: textContent }];
       
       // Add image if present in message
       if (msg.file_url && msg.file_type?.startsWith('image/')) {
         parts.push({
           inlineData: {
             mimeType: msg.file_type,
-            data: msg.file_url.split(',')[1] || msg.file_url // Extract base64 if data URL
+            data: msg.file_url.split(',')[1] || msg.file_url
           }
         });
       }
       
       return {
-        role: msg.sender_id === '00000000-0000-0000-0000-000000000003' ? 'model' : 'user',
+        role: isGemini ? 'model' : 'user',
         parts
       };
     }) || [];

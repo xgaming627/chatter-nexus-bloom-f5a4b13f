@@ -362,12 +362,23 @@ const ChatWindow: React.FC = () => {
         setIsGeminiTyping(true);
 
         try {
+          // Fetch user profiles for message attribution
+          const userIds = [...new Set(messages.slice(-10).map(msg => msg.senderId))];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, display_name, username')
+            .in('user_id', userIds);
+
           const { data, error } = await supabase.functions.invoke('gemini-chat', {
             body: { 
               message: prompt,
+              currentUserId: currentUser?.uid,
+              userProfiles: profiles || [],
               conversationHistory: messages.slice(-10).map(msg => ({
                 sender_id: msg.senderId,
-                content: msg.content
+                content: msg.content,
+                file_url: msg.fileURL,
+                file_type: msg.fileType
               }))
             }
           });

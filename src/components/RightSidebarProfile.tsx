@@ -15,6 +15,7 @@ interface ProfileData {
   banner_image_url: string;
   nexus_plus_active: boolean;
   created_at: string;
+  messages_sent: number;
 }
 
 interface BadgeData {
@@ -178,9 +179,16 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
           </div>
         )}
 
-        <div className="mt-4 p-3 bg-muted rounded-md">
-          <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">Member Since</p>
-          <p className="text-sm">{new Date(profile.created_at).toLocaleDateString()}</p>
+        <div className="mt-4 space-y-2">
+          <div className="p-3 bg-muted rounded-md">
+            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Messages Sent</p>
+            <p className="text-lg font-bold">{profile.messages_sent || 0}</p>
+          </div>
+          
+          <div className="p-3 bg-muted rounded-md">
+            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Member Since</p>
+            <p className="text-sm">{new Date(profile.created_at).toLocaleDateString()}</p>
+          </div>
         </div>
 
         {badges.length > 0 && (
