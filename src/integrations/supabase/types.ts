@@ -74,6 +74,27 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_words: {
+        Row: {
+          added_by: string | null
+          created_at: string | null
+          id: string
+          word: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string | null
+          id?: string
+          word: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string | null
+          id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       call_notifications: {
         Row: {
           caller_id: string
@@ -167,6 +188,118 @@ export type Database = {
         }
         Relationships: []
       }
+      challenges: {
+        Row: {
+          challenge_type: string | null
+          created_at: string | null
+          description: string
+          ends_at: string
+          id: string
+          requirement: Json
+          reward: Json
+          starts_at: string | null
+          title: string
+        }
+        Insert: {
+          challenge_type?: string | null
+          created_at?: string | null
+          description: string
+          ends_at: string
+          id?: string
+          requirement: Json
+          reward: Json
+          starts_at?: string | null
+          title: string
+        }
+        Update: {
+          challenge_type?: string | null
+          created_at?: string | null
+          description?: string
+          ends_at?: string
+          id?: string
+          requirement?: Json
+          reward?: Json
+          starts_at?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      communities: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          custom_link: string
+          description: string | null
+          id: string
+          is_nexus_plus_exclusive: boolean | null
+          name: string
+          owner_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          custom_link: string
+          description?: string | null
+          id?: string
+          is_nexus_plus_exclusive?: boolean | null
+          name: string
+          owner_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          custom_link?: string
+          description?: string | null
+          id?: string
+          is_nexus_plus_exclusive?: boolean | null
+          name?: string
+          owner_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communities_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_members: {
+        Row: {
+          community_id: string
+          id: string
+          joined_at: string | null
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          community_id: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          community_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_members_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           auto_delete_after: string | null
@@ -244,6 +377,107 @@ export type Database = {
           gif_url?: string
           id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      feed_interactions: {
+        Row: {
+          comment_text: string | null
+          created_at: string | null
+          id: string
+          interaction_type: string | null
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          comment_text?: string | null
+          created_at?: string | null
+          id?: string
+          interaction_type?: string | null
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string | null
+          created_at?: string | null
+          id?: string
+          interaction_type?: string | null
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_interactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "feed_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feed_posts: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      friend_requests: {
+        Row: {
+          created_at: string | null
+          id: string
+          receiver_id: string
+          sender_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          receiver_id: string
+          sender_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -437,6 +671,51 @@ export type Database = {
           {
             foreignKeyName: "message_read_receipts_message_id_fkey"
             columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_threads: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          created_by: string
+          id: string
+          name: string | null
+          parent_message_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          name?: string | null
+          parent_message_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          name?: string | null
+          parent_message_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_threads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_parent_message_id_fkey"
+            columns: ["parent_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
@@ -668,6 +947,47 @@ export type Database = {
           },
         ]
       }
+      polls: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          creator_id: string
+          expires_at: string | null
+          id: string
+          options: Json
+          question: string
+          votes: Json | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          creator_id: string
+          expires_at?: string | null
+          id?: string
+          options: Json
+          question: string
+          votes?: Json | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          creator_id?: string
+          expires_at?: string | null
+          id?: string
+          options?: Json
+          question?: string
+          votes?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           banner_color: string | null
@@ -679,6 +999,7 @@ export type Database = {
           do_not_disturb: boolean | null
           free_trial_claimed: boolean | null
           id: string
+          messages_sent: number | null
           nexus_plus_active: boolean | null
           nexus_plus_expires_at: string | null
           nexus_plus_reminder_shown: boolean | null
@@ -704,6 +1025,7 @@ export type Database = {
           do_not_disturb?: boolean | null
           free_trial_claimed?: boolean | null
           id?: string
+          messages_sent?: number | null
           nexus_plus_active?: boolean | null
           nexus_plus_expires_at?: string | null
           nexus_plus_reminder_shown?: boolean | null
@@ -729,6 +1051,7 @@ export type Database = {
           do_not_disturb?: boolean | null
           free_trial_claimed?: boolean | null
           id?: string
+          messages_sent?: number | null
           nexus_plus_active?: boolean | null
           nexus_plus_expires_at?: string | null
           nexus_plus_reminder_shown?: boolean | null
@@ -1082,6 +1405,38 @@ export type Database = {
           },
         ]
       }
+      thread_messages: {
+        Row: {
+          content: string
+          id: string
+          sender_id: string
+          thread_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          content: string
+          id?: string
+          sender_id: string
+          thread_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          content?: string
+          id?: string
+          sender_id?: string
+          thread_id?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       typing_indicators: {
         Row: {
           conversation_id: string
@@ -1135,6 +1490,104 @@ export type Database = {
           },
         ]
       }
+      user_challenges: {
+        Row: {
+          challenge_id: string
+          completed: boolean | null
+          completed_at: string | null
+          id: string
+          progress: number | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          progress?: number | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          progress?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_inventory: {
+        Row: {
+          acquired_at: string | null
+          equipped: boolean | null
+          id: string
+          item_data: Json
+          item_type: string | null
+          user_id: string
+        }
+        Insert: {
+          acquired_at?: string | null
+          equipped?: boolean | null
+          id?: string
+          item_data: Json
+          item_type?: string | null
+          user_id: string
+        }
+        Update: {
+          acquired_at?: string | null
+          equipped?: boolean | null
+          id?: string
+          item_data?: Json
+          item_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_levels: {
+        Row: {
+          created_at: string | null
+          equipped_title: string | null
+          id: string
+          level: number | null
+          titles: Json | null
+          total_xp: number | null
+          updated_at: string | null
+          user_id: string
+          xp: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          equipped_title?: string | null
+          id?: string
+          level?: number | null
+          titles?: Json | null
+          total_xp?: number | null
+          updated_at?: string | null
+          user_id: string
+          xp?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          equipped_title?: string | null
+          id?: string
+          level?: number | null
+          titles?: Json | null
+          total_xp?: number | null
+          updated_at?: string | null
+          user_id?: string
+          xp?: number | null
+        }
+        Relationships: []
+      }
       user_points: {
         Row: {
           created_at: string
@@ -1178,6 +1631,39 @@ export type Database = {
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_streaks: {
+        Row: {
+          created_at: string | null
+          current_streak: number | null
+          id: string
+          last_login_date: string | null
+          longest_streak: number | null
+          streak_rewards: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_login_date?: string | null
+          longest_streak?: number | null
+          streak_rewards?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_login_date?: string | null
+          longest_streak?: number | null
+          streak_rewards?: Json | null
           updated_at?: string | null
           user_id?: string
         }
@@ -1231,6 +1717,10 @@ export type Database = {
       auto_delete_old_conversations: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      calculate_xp_for_level: {
+        Args: { level: number }
+        Returns: number
       }
       can_view_profile_for_search: {
         Args: { target_user_id: string }
