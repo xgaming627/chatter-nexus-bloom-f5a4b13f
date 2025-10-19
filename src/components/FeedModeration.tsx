@@ -36,7 +36,7 @@ export const FeedModeration = () => {
       .from('feed_posts')
       .select(`
         *,
-        profiles:user_id (
+        profiles!feed_posts_user_id_fkey (
           username,
           display_name
         )

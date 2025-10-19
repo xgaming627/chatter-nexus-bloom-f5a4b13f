@@ -34,7 +34,7 @@ export const FeedPanel: React.FC<FeedPanelProps> = ({ open, onOpenChange }) => {
       .from('feed_posts')
       .select(`
         *,
-        profiles:user_id (display_name, username, photo_url)
+        profiles!feed_posts_user_id_fkey (display_name, username, photo_url)
       `)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
@@ -117,9 +117,10 @@ export const FeedPanel: React.FC<FeedPanelProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className="max-w-3xl max-h-[90vh]" aria-describedby="feed-description">
         <DialogHeader>
           <DialogTitle>Feed</DialogTitle>
+          <p id="feed-description" className="sr-only">Share and view posts from the community</p>
         </DialogHeader>
 
         <div className="space-y-4">

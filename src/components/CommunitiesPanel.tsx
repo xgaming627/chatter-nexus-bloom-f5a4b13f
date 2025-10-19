@@ -151,13 +151,14 @@ export const CommunitiesPanel: React.FC<CommunitiesPanelProps> = ({ open, onOpen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-w-2xl max-h-[80vh]" aria-describedby="communities-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Communities
             {hasNexusPlus && <Badge variant="secondary">Nexus Plus</Badge>}
           </DialogTitle>
+          <p id="communities-description" className="sr-only">Manage and view your communities</p>
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
@@ -215,9 +216,10 @@ export const CommunitiesPanel: React.FC<CommunitiesPanelProps> = ({ open, onOpen
 
       {/* Create Community Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+        <DialogContent aria-describedby="create-community-description">
           <DialogHeader>
             <DialogTitle>Create New Community</DialogTitle>
+            <p id="create-community-description" className="sr-only">Create a new community with custom name and link</p>
           </DialogHeader>
           
           <div className="space-y-4">

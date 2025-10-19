@@ -141,9 +141,10 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" aria-describedby="friends-description">
         <DialogHeader>
           <DialogTitle>Friends</DialogTitle>
+          <p id="friends-description" className="sr-only">Manage your friends, pending requests, and blocked users</p>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto">
           <Tabs defaultValue="all">

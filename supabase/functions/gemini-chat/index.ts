@@ -21,16 +21,16 @@ serve(async (req) => {
 
     // Build conversation history for Gemini with proper attribution
     const contents = conversationHistory?.map((msg: any) => {
-      // Get sender name from profiles
+      // Get sender name from profiles (use username for clarity)
       const senderProfile = userProfiles?.find((p: any) => p.user_id === msg.sender_id);
-      const senderName = senderProfile?.display_name || senderProfile?.username || 'Unknown User';
+      const senderName = senderProfile?.username || 'unknown';
       const isCurrentUser = msg.sender_id === currentUserId;
       const isGemini = msg.sender_id === '00000000-0000-0000-0000-000000000003';
       
-      // Format message with attribution
+      // Format message with attribution using @username format
       let textContent = msg.content;
       if (!isGemini) {
-        textContent = `${isCurrentUser ? '[You]' : `[${senderName}]`}: ${msg.content}`;
+        textContent = `${isCurrentUser ? '[You]' : `@${senderName}`}: ${msg.content}`;
       }
       
       const parts: any[] = [{ text: textContent }];

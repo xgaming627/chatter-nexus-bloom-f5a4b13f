@@ -31,6 +31,8 @@ import { ReferralSystem } from "@/components/ReferralSystem";
 import { CommunitiesPanel } from "@/components/CommunitiesPanel";
 import { FeedPanel } from "@/components/FeedPanel";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { LevelDisplay } from "@/components/LevelDisplay";
+import { RecommendedFriends } from "@/components/RecommendedFriends";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -357,6 +359,10 @@ const Index = () => {
         <CommunitiesPanel open={showCommunities} onOpenChange={setShowCommunities} />
         <FeedPanel open={showFeed} onOpenChange={setShowFeed} />
         <InventoryPanel open={showInventory} onOpenChange={setShowInventory} />
+        
+        <div className="fixed bottom-4 right-4 w-80 max-h-96 z-50">
+          <RecommendedFriends />
+        </div>
 
         {/* Welcome Dialog */}
         <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
