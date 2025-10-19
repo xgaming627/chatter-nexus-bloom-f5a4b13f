@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import UserAvatar from './UserAvatar';
 import { Badge } from './ui/badge';
-import { Sparkles } from 'lucide-react';
+import { Button } from './ui/button';
+import { Sparkles, UserPlus, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 interface ProfileData {
   user_id: string;
@@ -34,11 +37,13 @@ interface RightSidebarProfileProps {
 }
 
 export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
+  const { currentUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [badges, setBadges] = useState<BadgeData[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSparkles, setShowSparkles] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'friends'>('none');
 
   useEffect(() => {
     if (!userId) {
@@ -49,6 +54,7 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
 
     const fetchProfileData = async () => {
       await fetchProfile();
+      await checkFriendStatus();
     };
     
     fetchProfileData();
@@ -104,6 +110,55 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkFriendStatus = async () => {
+    if (!userId || !currentUser || userId === currentUser.uid) {
+      setFriendStatus('none');
+      return;
+    }
+
+    const { data } = await supabase
+      .from('friends')
+      .select('status')
+      .or(`user_id.eq.${currentUser.uid},friend_id.eq.${currentUser.uid}`)
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+      .single();
+
+    if (data) {
+      setFriendStatus(data.status === 'accepted' ? 'friends' : 'pending');
+    } else {
+      setFriendStatus('none');
+    }
+  };
+
+  const handleSendFriendRequest = async () => {
+    if (!currentUser || !userId) return;
+
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: currentUser.uid,
+          friend_id: userId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      setFriendStatus('pending');
+      toast({
+        title: "Friend request sent!",
+        description: "Your friend request has been sent."
+      });
+    } catch (error: any) {
+      console.error('Error sending friend request:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send friend request.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -171,6 +226,33 @@ export const RightSidebarProfile = ({ userId }: RightSidebarProfileProps) => {
             )}
           </div>
           <p className="text-sm text-muted-foreground">@{profile.username || 'user'}</p>
+          
+          {currentUser && userId !== currentUser.uid && (
+            <div className="mt-3">
+              {friendStatus === 'none' && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={handleSendFriendRequest}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Friend
+                </Button>
+              )}
+              {friendStatus === 'pending' && (
+                <Button size="sm" variant="outline" className="w-full" disabled>
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Request Pending
+                </Button>
+              )}
+              {friendStatus === 'friends' && (
+                <Button size="sm" variant="outline" className="w-full" disabled>
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Friends
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {profile.description && (

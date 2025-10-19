@@ -43,6 +43,7 @@ import ReportedMessages from './ReportedMessages';
 import BadgeManagement from './BadgeManagement';
 import NexusGiftPanel from './NexusGiftPanel';
 import CustomBadgeCreator from './CustomBadgeCreator';
+import { FeedModeration } from './FeedModeration';
 
 interface ModerationItem {
   id: string;
@@ -584,12 +585,13 @@ const ModeratorPanel: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-11">
+        <TabsList className="grid w-full grid-cols-12">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="reports">Profiles</TabsTrigger>
           <TabsTrigger value="reported-messages">Reported Msgs</TabsTrigger>
           <TabsTrigger value="support">Support</TabsTrigger>
+          <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="banners">Banners</TabsTrigger>
           <TabsTrigger value="terms">Terms</TabsTrigger>
           <TabsTrigger value="gift">Gift Nexus+</TabsTrigger>
@@ -797,6 +799,10 @@ const ModeratorPanel: React.FC = () => {
 
         <TabsContent value="banners">
           <BannerManagement />
+        </TabsContent>
+
+        <TabsContent value="feed">
+          <FeedModeration />
         </TabsContent>
 
         <TabsContent value="terms">

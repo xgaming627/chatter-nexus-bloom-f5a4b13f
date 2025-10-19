@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { Settings, Bell, Crown, Users as UsersIcon, ShoppingBag } from "lucide-react";
+import { Settings, Bell, Crown, Users as UsersIcon, ShoppingBag, Rss, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
@@ -28,6 +28,9 @@ import { CallNotificationsManager } from "@/components/CallNotification";
 import { LiveKitRoom } from "@/components/LiveKitRoom";
 import FriendsTab from "@/components/FriendsTab";
 import { ReferralSystem } from "@/components/ReferralSystem";
+import { CommunitiesPanel } from "@/components/CommunitiesPanel";
+import { FeedPanel } from "@/components/FeedPanel";
+import { InventoryPanel } from "@/components/InventoryPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -50,6 +53,9 @@ const Index = () => {
   const [incomingCall, setIncomingCall] = useState<{roomName: string; isVideoCall: boolean} | null>(null);
   const [showFriends, setShowFriends] = useState(false);
   const [showReferrals, setShowReferrals] = useState(false);
+  const [showCommunities, setShowCommunities] = useState(false);
+  const [showFeed, setShowFeed] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
 
   // Set dark mode preference
   useEffect(() => {
@@ -162,10 +168,30 @@ const Index = () => {
                   variant="ghost" 
                   size="icon"
                   className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => window.location.href = '/nexus-shop'}
-                  title="Nexus Shop"
+                  onClick={() => setShowCommunities(true)}
+                  title="Communities"
                 >
-                  <ShoppingBag className="h-5 w-5" />
+                  <UsersIcon className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => setShowFeed(true)}
+                  title="Feed"
+                >
+                  <Rss className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => setShowInventory(true)}
+                  title="Inventory"
+                >
+                  <Package className="h-5 w-5" />
                 </Button>
                 
                 <Button 
@@ -328,6 +354,9 @@ const Index = () => {
         
         <FriendsTab open={showFriends} onOpenChange={setShowFriends} />
         <ReferralSystem open={showReferrals} onOpenChange={setShowReferrals} />
+        <CommunitiesPanel open={showCommunities} onOpenChange={setShowCommunities} />
+        <FeedPanel open={showFeed} onOpenChange={setShowFeed} />
+        <InventoryPanel open={showInventory} onOpenChange={setShowInventory} />
 
         {/* Welcome Dialog */}
         <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
