@@ -34,10 +34,7 @@ export const FeedModeration = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('feed_posts')
-      .select(`
-        *,
-        profiles!feed_posts_user_id_fkey(username, display_name)
-      `)
+      .select('*, profiles(username, display_name)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 

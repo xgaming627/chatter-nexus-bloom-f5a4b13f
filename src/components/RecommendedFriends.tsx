@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import UserAvatar from './UserAvatar';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface RecommendedUser {
   user_id: string;
@@ -22,6 +23,7 @@ export const RecommendedFriends = () => {
   const { currentUser } = useAuth();
   const [recommendations, setRecommendations] = useState<RecommendedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -129,37 +131,55 @@ export const RecommendedFriends = () => {
   return (
     <Card className="border-none shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Users className="h-4 w-4" />
-          Recommended
-        </CardTitle>
+        <Button
+          variant="ghost"
+          className="flex items-center justify-between w-full p-0 h-auto hover:bg-transparent"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Users className="h-4 w-4" />
+            Recommended
+          </CardTitle>
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 transition-transform" />
+          ) : (
+            <ChevronRight className="h-4 w-4 transition-transform" />
+          )}
+        </Button>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-2 max-h-[200px] overflow-y-auto">
-          {recommendations.slice(0, 3).map((user) => (
-            <div key={user.user_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <UserAvatar
-                  username={user.username}
-                  photoURL={user.photo_url}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-xs truncate">{user.display_name || user.username}</p>
-                  <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          isExpanded ? "opacity-100 max-h-[300px]" : "opacity-0 max-h-0"
+        )}
+      >
+        <CardContent className="pt-0">
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {recommendations.slice(0, 3).map((user) => (
+              <div key={user.user_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <UserAvatar
+                    username={user.username}
+                    photoURL={user.photo_url}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-xs truncate">{user.display_name || user.username}</p>
+                    <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                  </div>
                 </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleSendRequest(user.user_id)}
+                  className="h-7 w-7 p-0 shrink-0"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleSendRequest(user.user_id)}
-                className="h-7 w-7 p-0 shrink-0"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </CardContent>
+            ))}
+          </div>
+        </CardContent>
+      </div>
     </Card>
   );
 };
