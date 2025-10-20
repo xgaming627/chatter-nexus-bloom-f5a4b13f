@@ -33,6 +33,8 @@ import { FeedPanel } from "@/components/FeedPanel";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { LevelDisplay } from "@/components/LevelDisplay";
 import { RecommendedFriends } from "@/components/RecommendedFriends";
+import { NexusShop } from "@/components/NexusShop";
+import NexusPlusModal from "@/components/NexusPlusModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -58,6 +60,8 @@ const Index = () => {
   const [showCommunities, setShowCommunities] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showNexusShop, setShowNexusShop] = useState(false);
+  const [showNexusPlus, setShowNexusPlus] = useState(false);
 
   // Set dark mode preference
   useEffect(() => {
@@ -198,9 +202,19 @@ const Index = () => {
                 
                 <Button 
                   variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
+                  onClick={() => setShowNexusShop(true)}
+                  title="Shop"
+                >
+                  <ShoppingBag className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
                   size="sm"
                   className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 border border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-amber-500/20"
-                  onClick={() => window.location.href = '/nexus-plus'}
+                  onClick={() => setShowNexusPlus(true)}
                 >
                   <Crown className="h-4 w-4 mr-1 text-yellow-400" />
                   Nexus Plus
@@ -359,6 +373,12 @@ const Index = () => {
         <CommunitiesPanel open={showCommunities} onOpenChange={setShowCommunities} />
         <FeedPanel open={showFeed} onOpenChange={setShowFeed} />
         <InventoryPanel open={showInventory} onOpenChange={setShowInventory} />
+        <Dialog open={showNexusShop} onOpenChange={setShowNexusShop}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <NexusShop />
+          </DialogContent>
+        </Dialog>
+        <NexusPlusModal open={showNexusPlus} onOpenChange={setShowNexusPlus} />
         
         <div className="fixed bottom-4 right-4 w-80 max-h-96 z-50">
           <RecommendedFriends />

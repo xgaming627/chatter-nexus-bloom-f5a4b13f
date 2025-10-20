@@ -127,44 +127,38 @@ export const RecommendedFriends = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5" />
-          Recommended Friends
+    <Card className="border-none shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Users className="h-4 w-4" />
+          Recommended
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[300px]">
-          <div className="space-y-3">
-            {recommendations.map((user) => (
-              <div key={user.user_id} className="flex items-center justify-between p-2 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <UserAvatar
-                    username={user.username}
-                    photoURL={user.photo_url}
-                  />
-                  <div>
-                    <p className="font-medium text-sm">{user.display_name || user.username}</p>
-                    <p className="text-xs text-muted-foreground">@{user.username}</p>
-                    {user.mutual_friends > 0 && (
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {user.mutual_friends} mutual {user.mutual_friends === 1 ? 'friend' : 'friends'}
-                      </Badge>
-                    )}
-                  </div>
+      <CardContent className="pt-0">
+        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+          {recommendations.slice(0, 3).map((user) => (
+            <div key={user.user_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <UserAvatar
+                  username={user.username}
+                  photoURL={user.photo_url}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-xs truncate">{user.display_name || user.username}</p>
+                  <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleSendRequest(user.user_id)}
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleSendRequest(user.user_id)}
+                className="h-7 w-7 p-0 shrink-0"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

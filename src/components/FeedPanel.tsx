@@ -34,7 +34,7 @@ export const FeedPanel: React.FC<FeedPanelProps> = ({ open, onOpenChange }) => {
       .from('feed_posts')
       .select(`
         *,
-        profiles!feed_posts_user_id_fkey (display_name, username, photo_url)
+        profiles!feed_posts_user_id_fkey(display_name, username, photo_url)
       `)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
