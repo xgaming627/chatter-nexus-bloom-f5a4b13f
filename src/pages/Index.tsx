@@ -32,7 +32,7 @@ import { CommunitiesPanel } from "@/components/CommunitiesPanel";
 import { FeedPanel } from "@/components/FeedPanel";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { LevelDisplay } from "@/components/LevelDisplay";
-import { RecommendedFriends } from "@/components/RecommendedFriends";
+
 import { NexusShop } from "@/components/NexusShop";
 import NexusPlusModal from "@/components/NexusPlusModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -379,10 +379,6 @@ const Index = () => {
           </DialogContent>
         </Dialog>
         <NexusPlusModal open={showNexusPlus} onOpenChange={setShowNexusPlus} />
-        
-        <div className="fixed bottom-4 right-4 w-80 max-h-96 z-50">
-          <RecommendedFriends />
-        </div>
 
         {/* Welcome Dialog */}
         <Dialog open={showWelcome} onOpenChange={setShowWelcome}>

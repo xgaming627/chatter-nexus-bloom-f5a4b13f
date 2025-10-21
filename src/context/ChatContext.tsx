@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { resetUnreadCount } from '@/utils/chatCleanup';
+import { initializeSpecialChats } from '@/utils/initializeSpecialChats';
 import { Message, Conversation, ExtendedUser, User } from "@/types/supabase";
 
 // Re-export the types for consumers to use
@@ -193,6 +194,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
 
     try {
+      // Initialize special chats (News & Community) if they don't exist
+      await initializeSpecialChats(currentUser.uid);
+
       // Limit initial fetch to 20 conversations for better performance
       const { data, error } = await supabase
         .from('conversations')
