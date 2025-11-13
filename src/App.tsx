@@ -12,6 +12,7 @@ import SupportChat from "./pages/SupportChat";
 import NexusPlus from "./pages/nexus-plus";
 import NexusShop from "./pages/nexus-shop";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import JoinCommunity from "./pages/JoinCommunity";
 import QuotaWarningBanner from "./components/QuotaWarningBanner";
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/support/:sessionId" element={<SupportChat />} />
               <Route path="/join/:customLink" element={<JoinCommunity />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
