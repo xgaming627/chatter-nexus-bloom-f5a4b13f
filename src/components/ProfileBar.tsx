@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Settings, Mic, MicOff, Headphones, HeadphoneOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UserAvatar from './UserAvatar';
 import { toast } from '@/hooks/use-toast';
+import { ProfileDropdownMenu } from './ProfileDropdownMenu';
 
 interface ProfileBarProps {
   onSettingsClick: () => void;
@@ -15,6 +16,8 @@ export const ProfileBar: React.FC<ProfileBarProps> = ({ onSettingsClick }) => {
   const { profile } = useProfile();
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // When deafened, also mute
@@ -22,6 +25,22 @@ export const ProfileBar: React.FC<ProfileBarProps> = ({ onSettingsClick }) => {
       setIsMuted(true);
     }
   }, [isDeafened]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
@@ -52,15 +71,18 @@ export const ProfileBar: React.FC<ProfileBarProps> = ({ onSettingsClick }) => {
   if (!currentUser) return null;
 
   return (
-    <div className="h-14 bg-muted/30 border-t flex items-center justify-between px-2">
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className="relative h-14 bg-muted/30 border-t flex items-center justify-between px-2" ref={menuRef}>
+      <button 
+        className="flex items-center gap-2 flex-1 min-w-0 hover:bg-accent rounded p-1 transition-colors"
+        onClick={() => setShowProfileMenu(!showProfileMenu)}
+      >
         <UserAvatar
           photoURL={profile.photoURL}
           username={profile.displayName || profile.username}
           size="sm"
           className="flex-shrink-0"
         />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 text-left">
           <p className="text-sm font-medium truncate">
             {profile.displayName || profile.username || 'User'}
           </p>
@@ -68,7 +90,11 @@ export const ProfileBar: React.FC<ProfileBarProps> = ({ onSettingsClick }) => {
             {profile.username ? `@${profile.username}` : currentUser.email}
           </p>
         </div>
-      </div>
+      </button>
+      
+      {showProfileMenu && (
+        <ProfileDropdownMenu onClose={() => setShowProfileMenu(false)} />
+      )}
       
       <div className="flex items-center gap-1">
         <Button

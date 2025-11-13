@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useAutoStatus } from '@/hooks/useAutoStatus';
+import { useRealTimeStatus } from '@/hooks/useRealTimeStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,7 +13,7 @@ const AppInitializer: React.FC = () => {
   }, []);
   
   // Initialize auto status management and notifications
-  useAutoStatus();
+  useRealTimeStatus();
   useNotifications();
 
   // Grant 3-day free trial on first login
