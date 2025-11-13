@@ -7,6 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 const AppInitializer: React.FC = () => {
   const { currentUser } = useAuth();
   
+  // Force dark mode
+  React.useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+  
   // Initialize activity tracker and notifications only after auth is ready
   useActivityTracker();
   useNotifications();

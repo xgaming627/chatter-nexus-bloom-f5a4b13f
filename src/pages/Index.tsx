@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Users as UsersIcon } from "lucide-react";
+import { useRole } from "@/hooks/useRole";
+import { Users as UsersIcon, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
@@ -16,11 +17,13 @@ import { ProfileBar } from "@/components/ProfileBar";
 import { FriendsList } from "@/components/FriendsList";
 import { MessagesSection } from "@/components/MessagesSection";
 import SearchUsers from "@/components/SearchUsers";
+import ModeratorPanel from "@/components/ModeratorPanel";
 
 const IndexContent = () => {
   const { currentUser } = useAuth();
+  const { isModerator } = useRole();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search'>('friends');
+  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search' | 'moderator'>('friends');
 
   const handleSettingsClick = () => navigate('/settings');
 
@@ -54,7 +57,7 @@ const IndexContent = () => {
             </Button>
           </div>
 
-          <div className="overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             <Button
               variant="ghost"
               className={`w-full justify-start px-4 py-2 rounded-none hover:bg-muted ${activeView === 'friends' ? 'bg-muted' : ''}`}
@@ -63,6 +66,16 @@ const IndexContent = () => {
               <UsersIcon className="mr-2 h-4 w-4" />
               Friends
             </Button>
+            {isModerator && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-amber-500"
+                onClick={() => setActiveView('moderator')}
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                Moderator Panel
+              </Button>
+            )}
           </div>
 
           <div className="px-4 pt-4 pb-2 border-t">
@@ -84,7 +97,7 @@ const IndexContent = () => {
             <div className="flex items-center gap-2">
               <UsersIcon className="h-5 w-5" />
               <h1 className="font-semibold">
-                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : 'Messages'}
+                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : activeView === 'moderator' ? 'Moderator Panel' : 'Messages'}
               </h1>
             </div>
             <NotificationInbox />
@@ -97,6 +110,8 @@ const IndexContent = () => {
               <div className="p-4">
                 <SearchUsers />
               </div>
+            ) : activeView === 'moderator' ? (
+              <ModeratorPanel />
             ) : (
               <MessagesSection />
             )}
