@@ -179,18 +179,41 @@ const Settings = () => {
               <h1 className="text-2xl font-bold mb-6">Privacy & Safety</h1>
               
               <Card className="p-6 mb-6">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Do Not Disturb</Label>
+                      <Label>Online Status</Label>
                       <p className="text-xs text-muted-foreground">
-                        Mute all notifications
+                        Control your online visibility
                       </p>
                     </div>
                     <Switch
                       checked={doNotDisturb}
                       onCheckedChange={setDoNotDisturb}
                     />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {doNotDisturb ? 'Do Not Disturb mode is ON - You will not receive notifications' : 'You are Online - You will receive all notifications'}
+                  </p>
+                  
+                  <div className="pt-4 border-t">
+                    <Label className="text-sm font-semibold">Legal</Label>
+                    <div className="mt-2 space-y-2">
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start"
+                        onClick={() => window.open('/terms', '_blank')}
+                      >
+                        Terms of Service
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start"
+                        onClick={() => window.open('/privacy', '_blank')}
+                      >
+                        Privacy Policy
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
