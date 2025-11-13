@@ -62,7 +62,7 @@ export const ProfileBar: React.FC<ProfileBarProps> = ({ onSettingsClick }) => {
         />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">
-            {isDeafened ? 'Invisible' : profile.displayName || profile.username || 'User'}
+            {profile.displayName || profile.username || 'User'}
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {profile.username ? `@${profile.username}` : currentUser.email}

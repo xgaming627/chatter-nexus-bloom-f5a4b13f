@@ -66,6 +66,14 @@ const IndexContent = () => {
               <UsersIcon className="mr-2 h-4 w-4" />
               Friends
             </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-primary"
+              onClick={() => navigate('/nexus-plus')}
+            >
+              <span className="mr-2">✨</span>
+              Nexus Plus
+            </Button>
             {isModerator && (
               <Button
                 variant="ghost"
@@ -76,16 +84,19 @@ const IndexContent = () => {
                 Moderator Panel
               </Button>
             )}
-          </div>
-
-          <div className="px-4 pt-4 pb-2 border-t">
-            <Button
-              variant="ghost"
-              className={`w-full justify-start text-sm ${activeView === 'messages' ? 'bg-muted' : ''}`}
-              onClick={() => setActiveView('messages')}
-            >
-              Messages
-            </Button>
+            
+            <div className="px-4 pt-4 pb-2 border-t mt-4">
+              <div className="text-xs text-muted-foreground uppercase font-semibold mb-2">
+                Direct Messages
+              </div>
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-sm ${activeView === 'messages' ? 'bg-muted' : ''}`}
+                onClick={() => setActiveView('messages')}
+              >
+                Messages
+              </Button>
+            </div>
           </div>
 
           <ProfileBar onSettingsClick={handleSettingsClick} />
@@ -118,8 +129,8 @@ const IndexContent = () => {
           </div>
         </div>
 
-        {/* Right Sidebar - Active Now */}
-        <ActiveNowPanel />
+        {/* Right Sidebar - Active Now (hidden in messages view) */}
+        {activeView !== 'messages' && <ActiveNowPanel />}
       </div>
     </>
   );

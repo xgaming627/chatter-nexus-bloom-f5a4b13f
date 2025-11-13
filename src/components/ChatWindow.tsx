@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useChat, Message } from "@/context/ChatContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import {
   AlertTriangle,
   ChevronDown,
@@ -77,6 +77,7 @@ import MessageReactions from "./MessageReactions";
 import UserProfileCard from "./UserProfileCard";
 import { RightSidebarProfile } from "./RightSidebarProfile";
 import LinkifyText from "./LinkifyText";
+import { MessageDateSeparator } from "./MessageDateSeparator";
 
 const ChatWindow: React.FC = () => {
   const { currentUser } = useAuth();
@@ -305,6 +306,16 @@ const ChatWindow: React.FC = () => {
       toast({
         title: "Slow down",
         description: "Please wait 2 seconds between messages.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Character limit check
+    if (newMessage.trim().length > 500) {
+      toast({
+        title: "Message too long",
+        description: "Messages cannot exceed 500 characters.",
         variant: "destructive",
       });
       return;
@@ -1011,10 +1022,14 @@ const ChatWindow: React.FC = () => {
         </div>
       </div>
 
-      <ScrollArea ref={messageContainerRef} className="flex-1">
+        <ScrollArea ref={messageContainerRef} className="flex-1">
         <div className="p-4 space-y-4">
           {messages.length > 0 ? (
-            messages.map((message) => {
+            messages.map((message, index) => {
+              const previousMessage = index > 0 ? messages[index - 1] : undefined;
+              const showDateSeparator = !previousMessage || 
+                !isSameDay(new Date(message.timestamp), new Date(previousMessage.timestamp));
+              
               const isOwnMessage = message.senderId === currentUser?.uid;
               const senderProfile = message.senderProfile || {};
               const senderRoles = message.senderRoles || [];
@@ -1027,17 +1042,19 @@ const ChatWindow: React.FC = () => {
                 markAsRead(message.id);
               }
 
-              if (isSystemMessage) {
-                return (
-                  <div key={message.id} className="flex justify-center animate-fadeIn">
-                    <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full text-xs text-center text-gray-600 dark:text-gray-300">
-                      {message.content}
-                    </div>
-                  </div>
-                );
-              }
-
               return (
+                <React.Fragment key={message.id}>
+                  {showDateSeparator && (
+                    <MessageDateSeparator date={new Date(message.timestamp)} />
+                  )}
+                  
+                  {isSystemMessage ? (
+                    <div className="flex justify-center animate-fadeIn">
+                      <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full text-xs text-center text-gray-600 dark:text-gray-300">
+                        {message.content}
+                      </div>
+                    </div>
+                  ) : (
                 <div
                   key={message.id}
                   className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} group animate-fadeIn`}
@@ -1204,6 +1221,8 @@ const ChatWindow: React.FC = () => {
                     {!message.deleted && <MessageReactions messageId={message.id} />}
                   </div>
                 </div>
+                  )}
+                </React.Fragment>
               );
             })
           ) : (

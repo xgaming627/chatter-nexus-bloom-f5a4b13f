@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { useAutoStatus } from '@/hooks/useAutoStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,8 +12,8 @@ const AppInitializer: React.FC = () => {
     document.documentElement.classList.add('dark');
   }, []);
   
-  // Initialize activity tracker and notifications only after auth is ready
-  useActivityTracker();
+  // Initialize auto status management and notifications
+  useAutoStatus();
   useNotifications();
 
   // Grant 3-day free trial on first login
