@@ -59,6 +59,14 @@ ins.adsbygoogle[data-ad-status="unfilled"] {
     --input: 217 32% 17%;
     --ring: 262.1 83.3% 57.8%;
   }
+  
+  html {
+    color-scheme: dark;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
 }
  
 @layer base {
