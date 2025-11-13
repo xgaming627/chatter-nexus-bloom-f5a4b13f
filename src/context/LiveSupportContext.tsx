@@ -36,10 +36,15 @@ export interface SupportSession {
   };
   created_at: string;
   last_message?: { content: string; timestamp: string; sender_id?: string };
-  status: "active" | "ended" | "requested-end";
+  status: "bot_greeting" | "bot_asking_name" | "bot_asking_username" | "bot_asking_email" | "bot_asking_issue" | "waiting_for_agent" | "active" | "ended" | "requested-end";
   rating?: number | null;
   feedback?: string | null;
   last_read_by_moderator: boolean;
+  user_name?: string | null;
+  user_username?: string | null;
+  user_email?: string | null;
+  issue?: string | null;
+  is_nexus_plus?: boolean;
 }
 
 interface LiveSupportContextType {
@@ -227,9 +232,9 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .select("*, profiles!support_sessions_user_id_fkey(user_id, username, display_name, photo_url, created_at)");
 
       if (isModerator) {
-        query = query.in("status", ["active", "requested-end"]);
+        query = query.in("status", ["bot_greeting", "bot_asking_name", "bot_asking_username", "bot_asking_email", "bot_asking_issue", "waiting_for_agent", "active", "requested-end"]);
       } else if (currentUser) {
-        query = query.eq("user_id", currentUser.uid).in("status", ["active", "requested-end"]);
+        query = query.eq("user_id", currentUser.uid).in("status", ["bot_greeting", "bot_asking_name", "bot_asking_username", "bot_asking_email", "bot_asking_issue", "waiting_for_agent", "active", "requested-end"]);
       } else {
         // no user and not moderator -> clear and return
         setSupportSessions([]);
@@ -366,7 +371,7 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .from("support_sessions")
         .select("*")
         .eq("user_id", currentUser.uid)
-        .eq("status", "active");
+        .in("status", ["bot_greeting", "bot_asking_name", "bot_asking_username", "bot_asking_email", "bot_asking_issue", "waiting_for_agent", "active"]);
 
       if (existing && existing.length > 0) {
         const active = existing[0];
@@ -376,24 +381,24 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const { data: sessionData, error: sessionError } = await supabase
         .from("support_sessions")
-        .insert({ user_id: currentUser.uid, status: "active", last_read_by_moderator: false })
+        .insert({ user_id: currentUser.uid, status: "bot_greeting", last_read_by_moderator: false })
         .select()
         .single();
       if (sessionError) throw sessionError;
 
-      // Create initial system message
+      // Create initial bot greeting
       const { error: messageError } = await supabase.from("support_messages").insert({
         session_id: sessionData.id,
         sender_id: null,
         sender_role: "system",
-        content: "Thanks for contacting support! One of our representatives will speak to you shortly!",
+        content: 'Hello! Thank you for contacting live support. Please type "live agent" to talk to an agent.',
       });
       if (messageError) throw messageError;
 
       setIsActiveSupportSession(true);
       await setCurrentSupportSessionId(sessionData.id);
 
-      toast?.({ title: "Support session created", description: "A support representative will be with you shortly." });
+      toast?.({ title: "Support session created", description: "Please follow the bot instructions to connect with an agent." });
       return sessionData.id;
     } catch (error) {
       console.error("Error creating support session:", error);
@@ -420,11 +425,91 @@ export const LiveSupportProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       if (error) throw error;
 
+      // Bot flow logic (only for user messages, not moderator)
+      if (role === "user" && currentSupportSession) {
+        const status = currentSupportSession.status;
+        
+        if (status === "bot_greeting") {
+          if (content.toLowerCase().includes("live agent")) {
+            // Move to next step
+            await supabase
+              .from("support_sessions")
+              .update({ status: "bot_asking_name" })
+              .eq("id", currentSupportSession.id);
+            
+            await supabase.from("support_messages").insert({
+              session_id: currentSupportSession.id,
+              sender_id: null,
+              sender_role: "system",
+              content: "What is your name?",
+            });
+          }
+        } else if (status === "bot_asking_name") {
+          await supabase
+            .from("support_sessions")
+            .update({ status: "bot_asking_username", user_name: content })
+            .eq("id", currentSupportSession.id);
+          
+          await supabase.from("support_messages").insert({
+            session_id: currentSupportSession.id,
+            sender_id: null,
+            sender_role: "system",
+            content: "What is your username?",
+          });
+        } else if (status === "bot_asking_username") {
+          await supabase
+            .from("support_sessions")
+            .update({ status: "bot_asking_email", user_username: content })
+            .eq("id", currentSupportSession.id);
+          
+          await supabase.from("support_messages").insert({
+            session_id: currentSupportSession.id,
+            sender_id: null,
+            sender_role: "system",
+            content: "What is your email?",
+          });
+        } else if (status === "bot_asking_email") {
+          await supabase
+            .from("support_sessions")
+            .update({ status: "bot_asking_issue", user_email: content })
+            .eq("id", currentSupportSession.id);
+          
+          await supabase.from("support_messages").insert({
+            session_id: currentSupportSession.id,
+            sender_id: null,
+            sender_role: "system",
+            content: "Please specify your issue.",
+          });
+        } else if (status === "bot_asking_issue") {
+          await supabase
+            .from("support_sessions")
+            .update({ status: "waiting_for_agent", issue: content })
+            .eq("id", currentSupportSession.id);
+          
+          await supabase.from("support_messages").insert({
+            session_id: currentSupportSession.id,
+            sender_id: null,
+            sender_role: "system",
+            content: "Thank you. Please wait while we connect you to an agent.",
+          });
+        }
+      }
+
       // Update session's last_read_by_moderator
       if (currentSupportSession) {
+        const updateData: any = { 
+          last_read_by_moderator: isModerator, 
+          updated_at: new Date().toISOString() 
+        };
+        
+        // If moderator sends a message, change status to active
+        if (isModerator && currentSupportSession.status === "waiting_for_agent") {
+          updateData.status = "active";
+        }
+        
         await supabase
           .from("support_sessions")
-          .update({ last_read_by_moderator: isModerator, updated_at: new Date().toISOString() })
+          .update(updateData)
           .eq("id", currentSupportSession.id);
       }
     } catch (error) {

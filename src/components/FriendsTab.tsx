@@ -66,7 +66,7 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
           const otherId = friend.user_id === currentUser.uid ? friend.friend_id : friend.user_id;
           const { data: profile } = await supabase
             .from('profiles')
-            .select('*')
+            .select('user_id, username, display_name, photo_url, online_status, do_not_disturb')
             .eq('user_id', otherId)
             .single();
           const { data: roles } = await supabase

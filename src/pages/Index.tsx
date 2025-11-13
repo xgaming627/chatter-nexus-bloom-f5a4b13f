@@ -18,12 +18,14 @@ import { FriendsList } from "@/components/FriendsList";
 import { MessagesSection } from "@/components/MessagesSection";
 import SearchUsers from "@/components/SearchUsers";
 import ModeratorPanel from "@/components/ModeratorPanel";
+import ModeratorLiveSupport from "@/components/ModeratorLiveSupport";
+import LiveSupportWindow from "@/components/LiveSupportWindow";
 
 const IndexContent = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search' | 'moderator'>('friends');
+  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search' | 'moderator' | 'live-support'>('friends');
 
   const handleSettingsClick = () => navigate('/settings');
 
@@ -74,6 +76,14 @@ const IndexContent = () => {
               <span className="mr-2">✨</span>
               Nexus Plus
             </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted"
+              onClick={() => setActiveView('live-support')}
+            >
+              <span className="mr-2">💬</span>
+              Live Support
+            </Button>
             {isModerator && (
               <Button
                 variant="ghost"
@@ -108,7 +118,7 @@ const IndexContent = () => {
             <div className="flex items-center gap-2">
               <UsersIcon className="h-5 w-5" />
               <h1 className="font-semibold">
-                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : activeView === 'moderator' ? 'Moderator Panel' : 'Messages'}
+                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : activeView === 'moderator' ? 'Moderator Panel' : activeView === 'live-support' ? 'Live Support' : 'Messages'}
               </h1>
             </div>
             <NotificationInbox />
@@ -123,6 +133,14 @@ const IndexContent = () => {
               </div>
             ) : activeView === 'moderator' ? (
               <ModeratorPanel />
+            ) : activeView === 'live-support' ? (
+              isModerator ? (
+                <div className="p-4">
+                  <ModeratorLiveSupport />
+                </div>
+              ) : (
+                <LiveSupportWindow open={true} onOpenChange={(open) => !open && setActiveView('friends')} />
+              )
             ) : (
               <MessagesSection />
             )}
