@@ -11,6 +11,7 @@ interface UserAvatarProps {
   isNexusPlus?: boolean;
   userRole?: 'admin' | 'moderator' | 'user';
   showRoleBadge?: boolean;
+  className?: string;
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ 
@@ -19,7 +20,8 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   size = 'md', 
   isNexusPlus = false,
   userRole = 'user',
-  showRoleBadge = true
+  showRoleBadge = true,
+  className
 }) => {
   const sizeClasses = {
     sm: 'h-8 w-8',
@@ -51,7 +53,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   };
 
   return (
-    <div className="relative inline-block">
+    <div className={cn("relative inline-block", className)}>
       <Avatar className={cn(
         sizeClasses[size],
         isNexusPlus && "ring-2 ring-yellow-500 animate-pulse",

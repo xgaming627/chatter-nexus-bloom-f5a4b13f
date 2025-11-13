@@ -1,89 +1,30 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useRole } from "@/hooks/useRole";
-import { Settings, Bell, Crown, Users as UsersIcon, ShoppingBag, Rss, Package } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Users as UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
-import ChatList from "@/components/ChatList";
-import ChatWindow from "@/components/ChatWindow";
-import ProfileDropdown from "@/components/ProfileDropdown";
-import SearchUsers from "@/components/SearchUsers";
-import SettingsModal from "@/components/SettingsModal";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
-import NewChatButton from "@/components/NewChatButton";
-import NewsButton from "@/components/NewsButton";
-import CommunityButton from "@/components/CommunityButton";
-import NexusTitle from "@/components/NexusTitle";
 import { ChatProvider, useChat } from "@/context/ChatContext";
-import ModeratorPanel from "@/components/ModeratorPanel";
+import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import WarnUserNotification from "@/components/WarnUserNotification";
 import WarningReloadHandler from "@/components/WarningReloadHandler";
-import ModeratorNotifications from "@/components/ModeratorNotifications";
-import NotificationDisplay from "@/components/NotificationDisplay";
 import { BrowserNotificationPermission } from "@/components/BrowserNotificationPermission";
-import { LiveSupportProvider } from "@/context/LiveSupportContext";
-import { CallNotificationsManager } from "@/components/CallNotification";
-import { LiveKitRoom } from "@/components/LiveKitRoom";
-import FriendsTab from "@/components/FriendsTab";
-import { ReferralSystem } from "@/components/ReferralSystem";
-import { CommunitiesPanel } from "@/components/CommunitiesPanel";
-import { FeedPanel } from "@/components/FeedPanel";
-import { InventoryPanel } from "@/components/InventoryPanel";
-import { LevelDisplay } from "@/components/LevelDisplay";
+import { NotificationInbox } from "@/components/NotificationInbox";
+import { ActiveNowPanel } from "@/components/ActiveNowPanel";
+import { ProfileBar } from "@/components/ProfileBar";
+import { FriendsList } from "@/components/FriendsList";
+import { MessagesSection } from "@/components/MessagesSection";
+import SearchUsers from "@/components/SearchUsers";
 
-import { NexusShop } from "@/components/NexusShop";
-import NexusPlusModal from "@/components/NexusPlusModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-
-const Index = () => {
+const IndexContent = () => {
   const { currentUser } = useAuth();
-  const { isModerator } = useRole();
-  const [showSettings, setShowSettings] = useState(false);
-  const [showModeratorPanel, setShowModeratorPanel] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [darkMode, setDarkMode] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<{roomName: string; isVideoCall: boolean} | null>(null);
-  const [showFriends, setShowFriends] = useState(false);
-  const [showReferrals, setShowReferrals] = useState(false);
-  const [showCommunities, setShowCommunities] = useState(false);
-  const [showFeed, setShowFeed] = useState(false);
-  const [showInventory, setShowInventory] = useState(false);
-  const [showNexusShop, setShowNexusShop] = useState(false);
-  const [showNexusPlus, setShowNexusPlus] = useState(false);
+  const { currentConversation } = useChat();
+  const navigate = useNavigate();
+  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search'>('friends');
+  const handleSettingsClick = () => navigate('/settings');
 
-  // Set dark mode preference
-  useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-      setDarkMode(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setDarkMode(false);
-    }
-  }, []);
-  
-  useEffect(() => {
-    // Show welcome message for new users
-    if (currentUser) {
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-      if (!hasSeenWelcome) {
-        setShowWelcome(true);
-      }
-    }
-  }, [currentUser]);
 
   // Simplified notifications (since we don't have a notifications system in Supabase yet)
   useEffect(() => {

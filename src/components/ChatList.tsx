@@ -144,7 +144,7 @@ const ChatList: React.FC = () => {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-4 border-b">
-        <h2 className="font-semibold text-lg">Chats</h2>
+        <h2 className="font-semibold text-sm text-muted-foreground uppercase">Messages</h2>
       </div>
       
       <div className="flex-1 overflow-y-auto">
