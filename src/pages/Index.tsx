@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -6,7 +5,7 @@ import { Users as UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthForms from "@/components/AuthForms";
 import UsernameSetupModal from "@/components/UsernameSetupModal";
-import { ChatProvider, useChat } from "@/context/ChatContext";
+import { ChatProvider } from "@/context/ChatContext";
 import { LiveSupportProvider } from "@/context/LiveSupportContext";
 import WarnUserNotification from "@/components/WarnUserNotification";
 import WarningReloadHandler from "@/components/WarningReloadHandler";
@@ -20,355 +19,103 @@ import SearchUsers from "@/components/SearchUsers";
 
 const IndexContent = () => {
   const { currentUser } = useAuth();
-  const { currentConversation } = useChat();
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search'>('friends');
+
   const handleSettingsClick = () => navigate('/settings');
 
-
-  // Simplified notifications (since we don't have a notifications system in Supabase yet)
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    // Mock notifications for now
-    setNotifications([]);
-    setUnreadNotifications(0);
-  }, [currentUser]);
-
-  const handleAcceptTerms = () => {
-    localStorage.setItem('hasSeenWelcome', 'true');
-    setShowWelcome(false);
-  };
-
-  const markNotificationsAsRead = async () => {
-    // Simplified - no action needed since we don't have real notifications yet
-    setUnreadNotifications(0);
-  };
-
-  const handleAcceptCall = (roomName: string, isVideoCall: boolean) => {
-    setIncomingCall({ roomName, isVideoCall });
-  };
-
-  const handleLeaveCall = () => {
-    setIncomingCall(null);
-  };
-  
-  // Prevent flash of auth forms during initial load
-  if (currentUser === undefined) {
+  if (!currentUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <AuthForms />
+        </div>
       </div>
     );
   }
 
   return (
-    <LiveSupportProvider>
-      {/* If user is not logged in, show auth forms */}
-      {!currentUser ? (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-          <div className="w-full max-w-md">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-teams-purple mb-2 dark:text-white">Nexus Chat</h1>
-              <p className="text-gray-600 dark:text-gray-300">Connect with your friends, anywhere, anytime.</p>
+    <>
+      <UsernameSetupModal />
+      <BrowserNotificationPermission />
+      <WarnUserNotification />
+      <WarningReloadHandler />
+
+      <div className="flex h-screen bg-background overflow-hidden">
+        {/* Left Sidebar - Friends & Navigation */}
+        <div className="w-60 bg-muted/30 flex flex-col border-r">
+          <div className="p-4 border-b">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => setActiveView('search')}
+            >
+              Start a conversation
+            </Button>
+          </div>
+
+          <div className="overflow-y-auto">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start px-4 py-2 rounded-none hover:bg-muted ${activeView === 'friends' ? 'bg-muted' : ''}`}
+              onClick={() => setActiveView('friends')}
+            >
+              <UsersIcon className="mr-2 h-4 w-4" />
+              Friends
+            </Button>
+          </div>
+
+          <div className="px-4 pt-4 pb-2 border-t">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-sm ${activeView === 'messages' ? 'bg-muted' : ''}`}
+              onClick={() => setActiveView('messages')}
+            >
+              Messages
+            </Button>
+          </div>
+
+          <ProfileBar onSettingsClick={handleSettingsClick} />
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="h-12 bg-background border-b flex items-center justify-between px-4">
+            <div className="flex items-center gap-2">
+              <UsersIcon className="h-5 w-5" />
+              <h1 className="font-semibold">
+                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : 'Messages'}
+              </h1>
             </div>
-            <AuthForms />
+            <NotificationInbox />
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {activeView === 'friends' ? (
+              <FriendsList />
+            ) : activeView === 'search' ? (
+              <div className="p-4">
+                <SearchUsers />
+              </div>
+            ) : (
+              <MessagesSection />
+            )}
           </div>
         </div>
-      ) : (
-      <ChatProvider>
-        <UsernameSetupModal />
-        <WarnUserNotification />
-        <WarningReloadHandler />
-        <ModeratorNotifications />
-        <NotificationDisplay />
-        <BrowserNotificationPermission />
-        <CallNotificationsManager onAcceptCall={handleAcceptCall} />
-        
-        {/* Incoming call LiveKit room */}
-        {incomingCall && (
-          <LiveKitRoom
-            roomName={incomingCall.roomName}
-            participantName={currentUser?.displayName || currentUser?.email || 'User'}
-            isVideoCall={incomingCall.isVideoCall}
-            onLeave={handleLeaveCall}
-          />
-        )}
-        
-        <div className="flex flex-col h-screen bg-background">
-          {/* Header */}
-          <header className="bg-teams-purple text-white py-2 px-4 shadow-md dark:bg-gray-800">
-            <div className="flex justify-between items-center max-w-[1400px] mx-auto">
-              <NexusTitle />
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowFriends(true)}
-                  title="Friends"
-                >
-                  <UsersIcon className="h-5 w-5" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowCommunities(true)}
-                  title="Communities"
-                >
-                  <UsersIcon className="h-5 w-5" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowFeed(true)}
-                  title="Feed"
-                >
-                  <Rss className="h-5 w-5" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowInventory(true)}
-                  title="Inventory"
-                >
-                  <Package className="h-5 w-5" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowNexusShop(true)}
-                  title="Shop"
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 border border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-amber-500/20"
-                  onClick={() => setShowNexusPlus(true)}
-                >
-                  <Crown className="h-4 w-4 mr-1 text-yellow-400" />
-                  Nexus Plus
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowReferrals(true)}
-                >
-                  Invite Friends
-                </Button>
-                
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700 relative"
-                    >
-                      <Bell className="h-5 w-5" />
-                      {unreadNotifications > 0 && (
-                        <Badge 
-                          className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-xs bg-red-500"
-                        >
-                          {unreadNotifications}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" align="end">
-                    <div className="py-2 px-4 border-b bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">Notifications</h3>
-                        {unreadNotifications > 0 && (
-                          <Button variant="ghost" size="sm" onClick={markNotificationsAsRead}>
-                            Mark all as read
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <ScrollArea className="h-[300px]">
-                      {notifications.length > 0 ? (
-                        <div className="py-2">
-                          {notifications.map(notification => (
-                            <div 
-                              key={notification.id}
-                              className={`px-4 py-2 hover:bg-muted/50 ${!notification.read ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
-                            >
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="text-sm font-medium">{notification.type.charAt(0).toUpperCase() + notification.type.slice(1)}</p>
-                                  <p className="text-xs text-muted-foreground">{notification.content}</p>
-                                </div>
-                                {!notification.read && (
-                                  <div className="h-2 w-2 bg-blue-500 rounded-full mt-2"></div>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {notification.timestamp ? format(new Date(notification.timestamp), 'PPp') : ''}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <p className="text-muted-foreground">No notifications</p>
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="text-white hover:bg-teams-purple-light dark:hover:bg-gray-700"
-                  onClick={() => setShowSettings(true)}
-                >
-                  <Settings className="h-5 w-5" />
-                </Button>
-                <ProfileDropdown />
-              </div>
-            </div>
-          </header>
-          
-          {/* Main content */}
-          {showModeratorPanel && isModerator ? (
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar */}
-              <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col">
-                <div className="p-4">
-                  <NewChatButton />
-                  <NewsButton />
-                  <CommunityButton />
-                  <div className="md:hidden mb-4">
-                    <SearchUsers />
-                  </div>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <ChatList />
-                </div>
-              </div>
-              
-              {/* Main area - Moderator panel */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <ModeratorPanel />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar */}
-              <div className="w-full max-w-xs border-r bg-gray-50 dark:bg-gray-900 dark:border-gray-700 flex flex-col animate-fadeIn">
-                <div className="p-4">
-                  <NewChatButton />
-                  <NewsButton />
-                  <CommunityButton />
-                  <div className="md:hidden mb-4">
-                    <SearchUsers />
-                  </div>
-                  {isModerator && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full mt-2"
-                      onClick={() => setShowModeratorPanel(true)}
-                    >
-                      Moderator Panel
-                    </Button>
-                  )}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <ChatList />
-                </div>
-              </div>
-              
-              {/* Chat area */}
-              <div className="flex-1 flex flex-col overflow-hidden animate-scaleIn">
-                <ChatWindow />
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <SettingsModal
-          open={showSettings}
-          onOpenChange={setShowSettings}
-          onShowModeratorPanel={isModerator ? () => {
-            setShowModeratorPanel(true);
-            setShowSettings(false);
-          } : undefined}
-        />
-        
-        <FriendsTab open={showFriends} onOpenChange={setShowFriends} />
-        <ReferralSystem open={showReferrals} onOpenChange={setShowReferrals} />
-        <CommunitiesPanel open={showCommunities} onOpenChange={setShowCommunities} />
-        <FeedPanel open={showFeed} onOpenChange={setShowFeed} />
-        <InventoryPanel open={showInventory} onOpenChange={setShowInventory} />
-        <Dialog open={showNexusShop} onOpenChange={setShowNexusShop}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <NexusShop />
-          </DialogContent>
-        </Dialog>
-        <NexusPlusModal open={showNexusPlus} onOpenChange={setShowNexusPlus} />
 
-        {/* Welcome Dialog */}
-        <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Welcome to Nexus Chat (v1.13.5)!</DialogTitle>
-            </DialogHeader>
-            
-            <ScrollArea className="max-h-[400px] pr-4">
-              <div className="space-y-4 py-4">
-                <p>
-                  👋 Welcome to Nexus Chat (BETA v1.13.6)!
-                  This app is currently under development, so you may notice ongoing changes and new features being added.
-                </p>
-                
-                <p>
-                  By continuing, you agree to our Terms of Service, which includes our right to collect certain data
-                  such as messages, IP addresses, activity logs, and more for platform functionality and safety.
-                </p>
-                
-                <p>
-                  Nexus Chat is proudly built and managed by the Quibly Team. 💡
-                  If you need help, just click on your profile picture and select "Live Support" — we're here for you!
-                </p>
-                
-                <p>
-                  Thanks for being part of our growing community. 🚀
-                </p>
-                
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-300">Try our features!</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                    Click new chat and start chatting with your friends, thank you for being here!
-                  </p>
-                </div>
-              </div>
-            </ScrollArea>
-            
-            <DialogFooter>
-              <Button onClick={handleAcceptTerms}>
-                I Accept the Terms of Service
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </ChatProvider>
-      )}
-    </LiveSupportProvider>
+        {/* Right Sidebar - Active Now */}
+        <ActiveNowPanel />
+      </div>
+    </>
   );
 };
+
+const Index = () => (
+  <LiveSupportProvider>
+    <ChatProvider>
+      <IndexContent />
+    </ChatProvider>
+  </LiveSupportProvider>
+);
 
 export default Index;
