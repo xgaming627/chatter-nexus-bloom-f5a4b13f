@@ -69,13 +69,13 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
         </AvatarFallback>
       </Avatar>
       <div className="absolute -bottom-1 -right-1 flex gap-0.5">
-        {/* Only show crown for Nexus Plus users */}
+        {/* Golden crown badge for Nexus Plus users */}
         {isNexusPlus && (
           <div className={cn(
-            "bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg",
+            "bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-full flex items-center justify-center shadow-lg ring-2 ring-yellow-300",
             badgeSizes[size]
           )}>
-            <Crown className={cn("text-white", badgeIconSizes[size])} />
+            <Crown className={cn("text-white drop-shadow-md", badgeIconSizes[size])} />
           </div>
         )}
         {/* Show shield for admin/mod regardless of Nexus Plus status */}

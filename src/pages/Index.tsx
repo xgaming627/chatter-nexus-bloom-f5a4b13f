@@ -25,7 +25,7 @@ const IndexContent = () => {
   const { currentUser } = useAuth();
   const { isModerator } = useRole();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search' | 'moderator' | 'live-support'>('friends');
+  const [activeView, setActiveView] = useState<'friends' | 'messages' | 'search' | 'moderator' | 'live-support' | 'mod-support'>('friends');
 
   const handleSettingsClick = () => navigate('/settings');
 
@@ -85,14 +85,24 @@ const IndexContent = () => {
               Live Support
             </Button>
             {isModerator && (
-              <Button
-                variant="ghost"
-                className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-amber-500"
-                onClick={() => setActiveView('moderator')}
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                Moderator Panel
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-amber-500"
+                  onClick={() => setActiveView('moderator')}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Moderator Panel
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-blue-500"
+                  onClick={() => setActiveView('mod-support')}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Live Support Queue
+                </Button>
+              </>
             )}
             
             <div className="px-4 pt-4 pb-2 border-t mt-4">
@@ -114,11 +124,15 @@ const IndexContent = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="h-12 bg-background border-b flex items-center justify-between px-4">
+            <div className="h-12 bg-background border-b flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <UsersIcon className="h-5 w-5" />
               <h1 className="font-semibold">
-                {activeView === 'friends' ? 'Friends' : activeView === 'search' ? 'Find Friends' : activeView === 'moderator' ? 'Moderator Panel' : activeView === 'live-support' ? 'Live Support' : 'Messages'}
+                {activeView === 'friends' ? 'Friends' : 
+                 activeView === 'search' ? 'Find Friends' : 
+                 activeView === 'moderator' ? 'Moderator Panel' : 
+                 activeView === 'mod-support' ? 'Live Support Queue' :
+                 activeView === 'live-support' ? 'Live Support' : 'Messages'}
               </h1>
             </div>
             <NotificationInbox />
@@ -133,11 +147,11 @@ const IndexContent = () => {
               </div>
             ) : activeView === 'moderator' ? (
               <ModeratorPanel />
+            ) : activeView === 'mod-support' ? (
+              <ModeratorLiveSupport />
             ) : activeView === 'live-support' ? (
               isModerator ? (
-                <div className="p-4">
-                  <ModeratorLiveSupport />
-                </div>
+                <ModeratorLiveSupport />
               ) : (
                 <LiveSupportWindow open={true} onOpenChange={(open) => !open && setActiveView('friends')} />
               )

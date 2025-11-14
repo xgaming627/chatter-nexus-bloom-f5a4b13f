@@ -33,6 +33,7 @@ export interface SupportSession {
     city?: string;
     warnings?: number;
     lastWarning?: string;
+    nexus_plus_active?: boolean;
   };
   created_at: string;
   last_message?: { content: string; timestamp: string; sender_id?: string };
