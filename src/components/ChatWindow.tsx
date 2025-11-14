@@ -176,7 +176,15 @@ const ChatWindow: React.FC = () => {
       }
     }
     prevMessagesLengthRef.current = messages.length;
-    scrollToBottom();
+    
+    // Smart scroll: only auto-scroll if user is near bottom
+    const container = messageContainerRef.current;
+    if (container) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom) {
+        scrollToBottom();
+      }
+    }
   }, [messages, currentUser]);
 
   const isModeratorUser = (userId: string) => {

@@ -33,6 +33,10 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
     if (currentUser) {
       fetchFriends();
     }
+    
+    return () => {
+      supabase.channel('friends-profiles-updates').unsubscribe();
+    };
   }, [currentUser]);
 
   const fetchFriends = async () => {
@@ -44,6 +48,22 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
       .select('*')
       .or(`user_id.eq.${currentUser.uid},friend_id.eq.${currentUser.uid}`)
       .eq('status', 'accepted');
+    
+    // Subscribe to real-time profile updates
+    const channel = supabase
+      .channel('friends-profiles-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        () => {
+          fetchFriends();
+        }
+      )
+      .subscribe();
 
     // Get pending requests (where current user is the friend_id)
     const { data: pendingData } = await supabase
@@ -66,7 +86,7 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
           const otherId = friend.user_id === currentUser.uid ? friend.friend_id : friend.user_id;
           const { data: profile } = await supabase
             .from('profiles')
-            .select('user_id, username, display_name, photo_url, online_status, do_not_disturb')
+            .select('user_id, username, display_name, photo_url, online_status, do_not_disturb, nexus_plus_active')
             .eq('user_id', otherId)
             .single();
           const { data: roles } = await supabase
@@ -178,7 +198,18 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
                   />
                   <div>
                     <p className="font-medium">{friend.profile?.display_name || friend.profile?.username}</p>
-                    <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
+                      {friend.profile?.online_status === 'online' && !friend.profile?.do_not_disturb && (
+                        <span className="h-2 w-2 bg-green-500 rounded-full" />
+                      )}
+                      {friend.profile?.do_not_disturb && (
+                        <span className="h-2 w-2 bg-red-500 rounded-full" />
+                      )}
+                      {friend.profile?.online_status === 'offline' && (
+                        <span className="h-2 w-2 bg-gray-500 rounded-full" />
+                      )}
+                    </div>
                   </div>
                 </div>
                 <Button
