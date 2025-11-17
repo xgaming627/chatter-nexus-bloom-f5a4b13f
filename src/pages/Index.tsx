@@ -154,11 +154,7 @@ const IndexContent = () => {
                 </div>
               )
             ) : activeView === 'live-support' ? (
-              isModerator ? (
-                <ModeratorLiveSupport />
-              ) : (
-                <LiveSupportWindow open={true} onOpenChange={(open) => !open && setActiveView('friends')} />
-              )
+              <LiveSupportWindow open={true} onOpenChange={(open) => !open && setActiveView('friends')} />
             ) : (
               <MessagesSection />
             )}
