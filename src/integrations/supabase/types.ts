@@ -1710,26 +1710,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      auto_close_inactive_support_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      auto_delete_old_conversations: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      calculate_xp_for_level: {
-        Args: { level: number }
-        Returns: number
-      }
+      auto_close_inactive_support_sessions: { Args: never; Returns: undefined }
+      auto_delete_old_conversations: { Args: never; Returns: undefined }
+      calculate_xp_for_level: { Args: { level: number }; Returns: number }
       can_view_profile_for_search: {
         Args: { target_user_id: string }
         Returns: boolean
       }
-      cleanup_old_call_notifications: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_old_call_notifications: { Args: never; Returns: undefined }
       get_active_warnings: {
         Args: { target_user_id: string }
         Returns: {
@@ -1741,12 +1729,9 @@ export type Database = {
           reason: string
         }[]
       }
-      get_user_email_by_id: {
-        Args: { user_uuid: string }
-        Returns: string
-      }
+      get_user_email_by_id: { Args: { user_uuid: string }; Returns: string }
       get_users_for_moderators: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           description: string
@@ -1765,10 +1750,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_moderator: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_moderator: { Args: { _user_id: string }; Returns: boolean }
       reset_unread_count: {
         Args: { conversation_id: string; user_id: string }
         Returns: undefined

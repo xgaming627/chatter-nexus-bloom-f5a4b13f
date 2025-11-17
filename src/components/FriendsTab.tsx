@@ -59,8 +59,15 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
           schema: 'public',
           table: 'profiles',
         },
-        () => {
-          fetchFriends();
+        (payload) => {
+          // Update the specific friend's profile in real-time
+          const updatedProfile = payload.new;
+          setFriends(prev => prev.map(friend => {
+            if (friend.profile?.user_id === updatedProfile.user_id) {
+              return { ...friend, profile: { ...friend.profile, ...updatedProfile } };
+            }
+            return friend;
+          }));
         }
       )
       .subscribe();
@@ -184,43 +191,121 @@ const FriendsTab: React.FC<FriendsTabProps> = ({ open, onOpenChange }) => {
           {friends.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No friends yet</p>
           ) : (
-            friends.map((friend) => (
-              <div key={friend.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <UserAvatar
-                    username={friend.profile?.username}
-                    photoURL={friend.profile?.photo_url}
-                    isNexusPlus={friend.profile?.nexus_plus_active}
-                    userRole={
-                      friend.userRoles?.some(r => r.role === 'admin') ? 'admin' :
-                      friend.userRoles?.some(r => r.role === 'moderator') ? 'moderator' : 'user'
-                    }
-                  />
-                  <div>
-                    <p className="font-medium">{friend.profile?.display_name || friend.profile?.username}</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
-                      {friend.profile?.online_status === 'online' && !friend.profile?.do_not_disturb && (
-                        <span className="h-2 w-2 bg-green-500 rounded-full" />
-                      )}
-                      {friend.profile?.do_not_disturb && (
-                        <span className="h-2 w-2 bg-red-500 rounded-full" />
-                      )}
-                      {friend.profile?.online_status === 'offline' && (
-                        <span className="h-2 w-2 bg-gray-500 rounded-full" />
-                      )}
+            <>
+              {/* Online Friends */}
+              {friends.filter(f => f.profile?.online_status === 'online' && !f.profile?.do_not_disturb).length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                    Online — {friends.filter(f => f.profile?.online_status === 'online' && !f.profile?.do_not_disturb).length}
+                  </h3>
+                  {friends.filter(f => f.profile?.online_status === 'online' && !f.profile?.do_not_disturb).map((friend) => (
+                    <div key={friend.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          username={friend.profile?.username}
+                          photoURL={friend.profile?.photo_url}
+                          isNexusPlus={friend.profile?.nexus_plus_active}
+                          userRole={
+                            friend.userRoles?.some(r => r.role === 'admin') ? 'admin' :
+                            friend.userRoles?.some(r => r.role === 'moderator') ? 'moderator' : 'user'
+                          }
+                        />
+                        <div>
+                          <p className="font-medium">{friend.profile?.display_name || friend.profile?.username}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
+                            <span className="h-2 w-2 bg-green-500 rounded-full" />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFriend(friend.id)}
+                      >
+                        <UserX className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
+                  ))}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveFriend(friend.id)}
-                >
-                  <UserX className="h-4 w-4" />
-                </Button>
-              </div>
-            ))
+              )}
+
+              {/* Do Not Disturb Friends */}
+              {friends.filter(f => f.profile?.online_status === 'online' && f.profile?.do_not_disturb).length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                    Do Not Disturb — {friends.filter(f => f.profile?.online_status === 'online' && f.profile?.do_not_disturb).length}
+                  </h3>
+                  {friends.filter(f => f.profile?.online_status === 'online' && f.profile?.do_not_disturb).map((friend) => (
+                    <div key={friend.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          username={friend.profile?.username}
+                          photoURL={friend.profile?.photo_url}
+                          isNexusPlus={friend.profile?.nexus_plus_active}
+                          userRole={
+                            friend.userRoles?.some(r => r.role === 'admin') ? 'admin' :
+                            friend.userRoles?.some(r => r.role === 'moderator') ? 'moderator' : 'user'
+                          }
+                        />
+                        <div>
+                          <p className="font-medium">{friend.profile?.display_name || friend.profile?.username}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
+                            <span className="h-2 w-2 bg-red-500 rounded-full" />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFriend(friend.id)}
+                      >
+                        <UserX className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Offline Friends */}
+              {friends.filter(f => f.profile?.online_status !== 'online').length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                    Offline — {friends.filter(f => f.profile?.online_status !== 'online').length}
+                  </h3>
+                  {friends.filter(f => f.profile?.online_status !== 'online').map((friend) => (
+                    <div key={friend.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          username={friend.profile?.username}
+                          photoURL={friend.profile?.photo_url}
+                          isNexusPlus={friend.profile?.nexus_plus_active}
+                          userRole={
+                            friend.userRoles?.some(r => r.role === 'admin') ? 'admin' :
+                            friend.userRoles?.some(r => r.role === 'moderator') ? 'moderator' : 'user'
+                          }
+                        />
+                        <div>
+                          <p className="font-medium">{friend.profile?.display_name || friend.profile?.username}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">@{friend.profile?.username}</p>
+                            <span className="h-2 w-2 bg-gray-500 rounded-full" />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFriend(friend.id)}
+                      >
+                        <UserX className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 

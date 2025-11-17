@@ -33,9 +33,9 @@ const ModeratorLiveSupport: React.FC = () => {
   const prevSessionCountRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Check if user is actually a moderator
   const isMod = checkIsModerator();
   
+  // Redirect non-moderators
   useEffect(() => {
     if (!isMod) {
       toast({
@@ -44,7 +44,7 @@ const ModeratorLiveSupport: React.FC = () => {
         variant: "destructive"
       });
     }
-  }, [isMod]);
+  }, [isMod, toast]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -103,7 +103,7 @@ const ModeratorLiveSupport: React.FC = () => {
 
   const handleEndSupport = () => {
     if (selectedSession) {
-      requestEndSupport();
+      forceEndSupport();
       toast({
         title: "Support session ended",
         description: "The session has been ended successfully"
@@ -141,10 +141,10 @@ const ModeratorLiveSupport: React.FC = () => {
           <TabsTrigger value="archived">Archived</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active" className="flex-1 flex gap-4 p-4 mt-0">
+        <TabsContent value="active" className="flex-1 flex gap-4 p-4 mt-0 overflow-hidden">
           {/* Sessions List */}
-          <Card className="w-80 flex flex-col">
-            <div className="p-4 border-b">
+          <Card className="w-80 flex flex-col overflow-hidden">
+            <div className="p-4 border-b flex-shrink-0">
               <h3 className="font-medium">Support Queue</h3>
             </div>
             <ScrollArea className="flex-1">
@@ -211,10 +211,10 @@ const ModeratorLiveSupport: React.FC = () => {
 
           {/* Chat Area */}
           {selectedSession ? (
-            <div className="flex-1 flex gap-4">
+            <div className="flex-1 flex gap-4 overflow-hidden">
               {/* Messages */}
-              <Card className="flex-1 flex flex-col">
-                <div className="p-4 border-b flex items-center justify-between">
+              <Card className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <UserAvatar
                       username={selectedSession.userInfo?.username || 'User'}
@@ -294,11 +294,12 @@ const ModeratorLiveSupport: React.FC = () => {
               </Card>
 
               {/* User Info Panel */}
-              <Card className="w-80">
-                <div className="p-4 border-b">
+              <Card className="w-80 flex flex-col overflow-hidden">
+                <div className="p-4 border-b flex-shrink-0">
                   <h3 className="font-medium">User Information</h3>
                 </div>
-                <div className="p-4 space-y-4">
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Real Username</p>
                     <p className="text-sm font-medium">@{selectedSession.userInfo?.username || 'N/A'}</p>
@@ -346,6 +347,7 @@ const ModeratorLiveSupport: React.FC = () => {
                     </div>
                   )}
                 </div>
+                </ScrollArea>
               </Card>
             </div>
           ) : (

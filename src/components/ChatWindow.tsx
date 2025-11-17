@@ -298,6 +298,33 @@ const ChatWindow: React.FC = () => {
   const [lastGeminiMessageTime, setLastGeminiMessageTime] = useState(0);
   const GEMINI_USER_ID = '00000000-0000-0000-0000-000000000003';
 
+  // Create Gemini conversation if needed
+  useEffect(() => {
+    const createGeminiConversation = async () => {
+      if (!currentUser) return;
+
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .contains('participants', [currentUser.uid, GEMINI_USER_ID])
+        .limit(1)
+        .single();
+
+      if (!existingConv) {
+        // Create Gemini conversation
+        await supabase.from('conversations').insert({
+          id: GEMINI_USER_ID,
+          created_by: currentUser.uid,
+          participants: [currentUser.uid, GEMINI_USER_ID],
+          is_group_chat: false,
+          group_name: 'Gemini AI',
+        });
+      }
+    };
+
+    createGeminiConversation();
+  }, [currentUser]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
