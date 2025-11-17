@@ -79,30 +79,20 @@ const IndexContent = () => {
             <Button
               variant="ghost"
               className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted"
-              onClick={() => setActiveView('live-support')}
+              onClick={() => setActiveView(isModerator() ? 'mod-support' : 'live-support')}
             >
               <span className="mr-2">💬</span>
               Live Support
             </Button>
-            {isModerator && (
-              <>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-amber-500"
-                  onClick={() => setActiveView('moderator')}
-                >
-                  <Shield className="mr-2 h-4 w-4" />
-                  Moderator Panel
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-blue-500"
-                  onClick={() => setActiveView('mod-support')}
-                >
-                  <Shield className="mr-2 h-4 w-4" />
-                  Live Support Queue
-                </Button>
-              </>
+            {isModerator() && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-4 py-2 rounded-none hover:bg-muted text-amber-500"
+                onClick={() => setActiveView('moderator')}
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                Moderator Panel
+              </Button>
             )}
             
             <div className="px-4 pt-4 pb-2 border-t mt-4">
@@ -146,9 +136,23 @@ const IndexContent = () => {
                 <SearchUsers />
               </div>
             ) : activeView === 'moderator' ? (
-              <ModeratorPanel />
+              isModerator() ? (
+                <ModeratorPanel />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Shield className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Access Denied</p>
+                </div>
+              )
             ) : activeView === 'mod-support' ? (
-              <ModeratorLiveSupport />
+              isModerator() ? (
+                <ModeratorLiveSupport />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Shield className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Access Denied</p>
+                </div>
+              )
             ) : activeView === 'live-support' ? (
               isModerator ? (
                 <ModeratorLiveSupport />
