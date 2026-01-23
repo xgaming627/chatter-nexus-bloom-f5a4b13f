@@ -18,6 +18,7 @@ import JoinCommunity from "./pages/JoinCommunity";
 import QuotaWarningBanner from "./components/QuotaWarningBanner";
 import WarnUserNotification from "./components/WarnUserNotification";
 import WarningNotificationModal from "./components/WarningNotificationModal";
+import ShutdownNoticeOverlay from "./components/ShutdownNoticeOverlay";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,7 @@ const App = () => (
       {/* LiveSupportProvider can be inside AuthProvider so it can call useAuth */}
       <LiveSupportProvider>
         <TooltipProvider>
+          <ShutdownNoticeOverlay />
           <AppInitializer />
           <QuotaWarningBanner />
           <WarnUserNotification />
